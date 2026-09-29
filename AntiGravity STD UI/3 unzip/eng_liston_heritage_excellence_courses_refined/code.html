@@ -1,0 +1,296 @@
+<!DOCTYPE html><html class="light" lang="en" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>ENG-LISTON - Courses</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&amp;family=Source+Serif+4:wght@400;600&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-tertiary": "#ffffff",
+                      "surface-container-high": "#eee7df",
+                      "on-primary-fixed": "#1c1b1b",
+                      "surface-variant": "#e8e1da",
+                      "background": "#fff8f1",
+                      "on-surface": "#1e1b17",
+                      "outline": "#747878",
+                      "surface-dim": "#dfd9d1",
+                      "on-surface-variant": "#444748",
+                      "on-error": "#ffffff",
+                      "on-tertiary-fixed": "#1c1b1b",
+                      "primary": "#000000",
+                      "primary-container": "#1c1b1b",
+                      "cream-bg": "#fff8f0",
+                      "outline-variant": "#c4c7c7",
+                      "on-primary": "#ffffff",
+                      "on-secondary-container": "#745c00",
+                      "secondary-container": "#fed65b",
+                      "secondary": "#735c00",
+                      "inverse-surface": "#33302b",
+                      "tertiary-fixed": "#e5e2e1",
+                      "inverse-on-surface": "#f7f0e8",
+                      "surface-container-highest": "#e8e1da",
+                      "obsidian-dark": "#0a0a0a",
+                      "tertiary-fixed-dim": "#c9c6c5",
+                      "on-primary-fixed-variant": "#474746",
+                      "surface-tint": "#5f5e5e",
+                      "on-error-container": "#93000a",
+                      "gold-accent": "#d4af37",
+                      "secondary-fixed-dim": "#e9c349",
+                      "surface-container-lowest": "#ffffff",
+                      "error-container": "#ffdad6",
+                      "on-tertiary-fixed-variant": "#474646",
+                      "on-background": "#1e1b17",
+                      "tertiary-container": "#1c1b1b",
+                      "surface": "#fff8f1",
+                      "inverse-primary": "#c8c6c5",
+                      "primary-fixed-dim": "#c8c6c5",
+                      "on-primary-container": "#858383",
+                      "on-secondary-fixed-variant": "#574500",
+                      "surface-bright": "#fff8f1",
+                      "on-secondary-fixed": "#241a00",
+                      "charcoal-text": "#1a1a1a",
+                      "surface-container": "#f4ede5",
+                      "on-tertiary-container": "#858383",
+                      "error": "#ba1a1a",
+                      "primary-fixed": "#e5e2e1",
+                      "surface-container-low": "#f9f3eb",
+                      "secondary-fixed": "#ffe088",
+                      "surface-border": "rgba(26, 26, 26, 0.1)",
+                      "tertiary": "#000000",
+                      "on-secondary": "#ffffff"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "stack-lg": "64px",
+                      "gutter": "24px",
+                      "margin-desktop": "48px",
+                      "container-max": "1140px",
+                      "margin-mobile": "20px",
+                      "stack-md": "32px",
+                      "base": "8px",
+                      "stack-sm": "16px"
+              },
+              "fontFamily": {
+                      "label-lg": [
+                              "Hanken Grotesk"
+                      ],
+                      "body-lg": [
+                              "\"Source Serif 4\""
+                      ],
+                      "display-lg-mobile": [
+                              "Hanken Grotesk"
+                      ],
+                      "display-lg": [
+                              "Hanken Grotesk"
+                      ],
+                      "label-sm": [
+                              "Hanken Grotesk"
+                      ],
+                      "body-md": [
+                              "\"Source Serif 4\""
+                      ],
+                      "headline-md": [
+                              "Hanken Grotesk"
+                      ]
+              },
+              "fontSize": {
+                      "label-lg": [
+                              "14px",
+                              {
+                                      "lineHeight": "1.4",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "1.7",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "display-lg-mobile": [
+                              "36px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "display-lg": [
+                              "48px",
+                              {
+                                      "lineHeight": "1.1",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "label-sm": [
+                              "12px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "letterSpacing": "0.1em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "1.6",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-md": [
+                              "24px",
+                              {
+                                      "lineHeight": "1.3",
+                                      "letterSpacing": "0",
+                                      "fontWeight": "600"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+    </script>
+<style>
+        body {
+            background-color: theme('colors.background');
+            color: theme('colors.on-background');
+        }
+        .bento-card {
+            background-color: theme('colors.surface-container-lowest');
+            border: 1px solid theme('colors.surface-border');
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .bento-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 20px -10px rgba(0, 0, 0, 0.05);
+        }
+    </style>
+</head>
+<body class="antialiased min-h-screen flex flex-col pt-stack-sm">
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full z-50 bg-surface/90 backdrop-blur-md shadow-sm shadow-black/5 border-b border-surface-border transition-all duration-300 ease-in-out">
+<div class="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop flex justify-between items-center h-20">
+<a class="font-headline-md text-headline-md font-bold tracking-tighter text-primary flex items-center gap-2 group" href="#"><img alt="SPEAK-UP Logo" class="h-9 w-9 object-contain inline-block" src="https://lh3.googleusercontent.com/aida/AEtjO1Xe3TqSPivLl1C94EGYjC0zY_7wSIgyQ95TVupEMJdXPj81Gjik55ApjQ_sio6Xp9D4qHtsAf6cDq6SRufbUJ1wOx9vri2OJdk-luvv7oC96PAM9F-Lcp9Ed0NxzTbI_BrVobVgkGgWTvSr69iLnDWvQGDSLJ1PvkqH_5-s8RGKJ6o4x-3FY6yfh8XY9Qpb0IanwQqKi6ZgENc0u-xcxc5Y0iwdi8CWPTyjG5OJIEPZJ1YD2UhREctizdtV"><span class="tracking-tighter">SPEAK-UP</span></a>
+<div class="hidden md:flex items-center gap-4"><a class="font-label-sm text-label-sm uppercase tracking-widest text-on-surface-variant hover:text-primary transition-colors duration-300 flex items-center gap-2" href="#"><span class="material-symbols-outlined text-sm">arrow_back</span>Back</a></div>
+</div>
+</nav>
+<main class="flex-grow flex flex-col pt-10">
+<!-- Hero Section -->
+<section class="w-full px-margin-mobile md:px-margin-desktop py-stack-sm">
+<div class="max-w-container-max mx-auto text-center flex flex-col items-center gap-stack-sm">
+<div class="flex flex-col items-center gap-4 mt-4">
+<button class="px-10 py-4 border border-surface-border bg-surface-container-low text-primary font-headline-md text-headline-md uppercase tracking-widest hover:bg-surface-container-high transition-all duration-300 rounded-full shadow-sm">Course Panel</button>
+</div><p class="font-body-lg text-body-lg text-on-surface-variant max-w-2xl mx-auto mt-stack-sm">
+                    Master global leadership through rigorous, focused curricula designed for executive professionals. Discover our structured pathways to professional mastery.
+                </p></div>
+</section>
+<!-- Course Grid -->
+<section class="w-full px-margin-mobile md:px-margin-desktop pb-stack-md">
+<div class="max-w-container-max mx-auto">
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-gutter">
+<!-- Card 1 -->
+<div class="bento-card rounded-xl flex flex-col overflow-hidden relative group">
+<div class="h-48 w-full bg-surface-container-high relative"><div class="bg-cover bg-center w-full h-full opacity-80 mix-blend-multiply" style="background-image: url(&quot;https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&amp;fit=crop&amp;w=1200&amp;q=80&quot;);"></div><div class="absolute top-4 left-4 flex items-center gap-2"><span class="bg-surface-container-lowest text-primary font-label-sm text-label-sm uppercase px-3 py-1.5 rounded shadow-sm">Available</span></div></div>
+<div class="p-stack-md flex flex-col flex-grow gap-stack-sm bg-surface-container-lowest relative z-10 border-t border-surface-border">
+<div>
+<h3 class="font-headline-md text-headline-md text-primary mb-2">Professional Mastery Phase I</h3>
+<p class="font-body-md text-body-md text-on-surface-variant line-clamp-2">
+                                    Foundational executive communication and strategic discourse for emerging global leaders.
+                                </p>
+</div>
+<div class="mt-auto flex flex-col gap-4"><button class="w-full border border-surface-border text-primary font-label-sm text-label-sm uppercase py-4 hover:bg-surface-container-low transition-colors disabled:opacity-50 disabled:cursor-not-allowed group tracking-widest shadow-sm rounded-full">Course Outline</button></div>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bento-card rounded-xl flex flex-col overflow-hidden relative group">
+<div class="h-48 w-full bg-surface-container-high relative">
+<div class="bg-cover bg-center w-full h-full opacity-80 mix-blend-multiply" data-alt="An elegant, abstract macro shot of high-quality bound leather journals and a brushed metal pen resting on a light oak desk, lit by soft, diffused natural light in a premium corporate aesthetic." style="background-image: url(&quot;https://lh3.googleusercontent.com/aida-public/AB6AXuDZOV8Vissz0cMglcSC5wVfSLwbq6Ezeq2yEhDu6MuGIrUWEXyLb1wB6g63jVhCXTWyI8rl9XEy_mv2qcDX7F9k2TWCrVKdV1b3n9GqOReHpaP1UNlRY58bFAmpClUDx_3Kg75OMkIw6uI_BsdXho7iDNGX0XSoqHmpFo4fhHfK19TLSMH_tOvoZJDKHbEZr4kx2SOI-0FlHLo1ULtNWIuLLyUTnkp7KLwGvUhCj3Dc2oic7bVPWisnag&quot;);"></div>
+
+<div class="absolute top-4 left-4 bg-surface-container-lowest text-primary font-label-sm text-label-sm uppercase px-4 py-2 rounded shadow-sm">
+                                AVAILABLE
+                            </div></div>
+<div class="p-stack-md flex flex-col flex-grow gap-stack-sm bg-surface-container-lowest relative z-10 border-t border-surface-border">
+<div>
+<h3 class="font-headline-md text-headline-md text-primary mb-2">Strategic Negotiation Module</h3>
+<p class="font-body-md text-body-md text-on-surface-variant line-clamp-2">
+                                    Advanced techniques in high-stakes negotiation, focusing on cross-cultural corporate environments.
+                                </p>
+</div>
+<div class="mt-auto flex flex-col gap-4">
+<button class="w-full border border-surface-border text-primary font-label-sm text-label-sm uppercase py-4 hover:bg-surface-container-low transition-colors disabled:opacity-50 disabled:cursor-not-allowed group tracking-widest shadow-sm rounded-full">Course Outline</button>
+</div>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="bento-card rounded-xl flex flex-col overflow-hidden relative group">
+<div class="h-48 w-full bg-surface-container-high relative">
+<div class="bg-cover bg-center w-full h-full opacity-80 mix-blend-multiply" data-alt="A clean, sophisticated architectural view of a modern library atrium with geometric lines, bright white walls, and warm light filtering through skylights, conveying intellectual authority and clarity." style="background-image: url(&quot;https://lh3.googleusercontent.com/aida-public/AB6AXuCDHaIS_pEUa6A-E-l37Zw1w44spXnLcxWNvodOpnWtM3zUn_SgBz7wlhpfBAoa2_FiOGtrgqqjPLbrf1uvbXe996c4KVokQLzRUYq6CT58s0eaa25bAKsIkpXdVbu5TGH2pl3xmP8HHQp7_HzIJDYlhXE1nEbx7Zj0dHClCmWFjoRHiTeJiT1HEMyK7m-1t-2_2jVnGwqKQ7WIAs9W9NVBOOcgrA0B_uXFry97soLh-JqHGtOygtFM6g&quot;);"></div>
+<div class="absolute top-4 left-4 bg-surface-container-lowest text-primary font-label-sm text-label-sm uppercase px-4 py-2 rounded shadow-sm">
+                                Waitlist
+                            </div>
+</div>
+<div class="p-stack-md flex flex-col flex-grow gap-stack-sm bg-surface-container-lowest relative z-10 border-t border-surface-border">
+<div>
+<h3 class="font-headline-md text-headline-md text-primary mb-2">Global Leadership Intensive</h3>
+<p class="font-body-md text-body-md text-on-surface-variant line-clamp-2">
+                                    Immersive capstone program integrating advanced rhetorical skills with executive presence.
+                                </p>
+</div>
+<div class="mt-auto flex flex-col gap-4">
+<button class="w-full border border-surface-border text-primary font-label-sm text-label-sm uppercase py-4 hover:bg-surface-container-low transition-colors disabled:opacity-50 disabled:cursor-not-allowed group tracking-widest shadow-sm rounded-full">Course Outline</button>
+</div>
+</div>
+</div>
+</div><div class="mt-stack-sm text-center">
+<p class="font-body-md text-body-md text-on-surface-variant italic">
+        Note: Courses with a 3-month duration include 6 months of total access. Courses with a 2-month duration include 4 months of total access.
+    </p>
+</div>
+<div class="mt-stack-lg flex flex-col items-center gap-6 text-center bg-surface-container-low p-stack-md rounded-xl border border-surface-border">
+<div class="flex flex-col md:flex-row items-center gap-4 mb-6">
+    <p class="font-body-lg text-body-lg text-on-surface-variant italic">Check the institutional advantages</p>
+    <button class="bg-transparent text-gold-accent border border-gold-accent font-label-lg text-label-lg uppercase tracking-widest px-8 py-2 rounded-full hover:bg-gold-accent hover:text-primary transition-all duration-300 shadow-sm">
+        Benefits
+    </button>
+</div><p class="font-body-lg text-body-lg text-on-surface-variant italic mb-base">Visit the Methodology section to know how our system and teachers work.</p>
+<div class="flex flex-col md:flex-row items-center justify-center gap-4">
+<button class="bg-primary text-on-primary border-2 border-gold-accent font-label-lg text-label-lg uppercase tracking-widest px-10 py-4 rounded-full hover:bg-gold-accent hover:text-primary transition-all duration-300 shadow-sm">
+        View Course Prices
+    </button>
+<button class="border border-primary text-primary font-label-lg text-label-lg uppercase tracking-widest px-10 py-4 rounded-full hover:bg-primary hover:text-on-primary transition-all duration-300 shadow-sm bg-transparent">
+        COURSE TERMS AND CONDITION
+    </button>
+</div>
+<p class="font-label-sm text-label-sm text-on-surface-variant/60 uppercase tracking-widest mt-stack-sm border-t border-surface-border pt-4 w-full max-w-2xl">
+    Please ensure you have read our Terms &amp; Conditions and Policies in the Privacy section.
+</p></div></div>
+</section>
+</main>
+<!-- Footer -->
+
+
+
+
+
+
+
+
+
+
+
+
+</body></html>

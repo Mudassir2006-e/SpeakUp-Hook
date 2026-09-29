@@ -1,0 +1,391 @@
+<!DOCTYPE html><html lang="en" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Authentication - ENG-LISTON</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=Source+Serif+4:wght@400;600&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+                "on-tertiary-container": "#73869a",
+                "on-secondary-container": "#785a1a",
+                "error": "#ba1a1a",
+                "surface-bright": "#f9f9f9",
+                "on-surface-variant": "#444748",
+                "inverse-on-surface": "#f1f1f1",
+                "primary-container": "#1c1b1b",
+                "on-secondary-fixed": "#261900",
+                "surface-tint": "#5f5e5e",
+                "background": "#f9f9f9",
+                "surface-container-highest": "#e2e2e2",
+                "on-error": "#ffffff",
+                "on-secondary": "#ffffff",
+                "on-tertiary-fixed-variant": "#36485b",
+                "outline": "#747878",
+                "tertiary-fixed": "#d1e4fb",
+                "outline-variant": "#c4c7c7",
+                "secondary-fixed-dim": "#e9c176",
+                "on-primary-container": "#858383",
+                "tertiary": "#000000",
+                "on-tertiary-fixed": "#091d2e",
+                "primary-fixed-dim": "#c8c6c5",
+                "on-primary-fixed-variant": "#474746",
+                "surface-container-lowest": "#ffffff",
+                "error-container": "#ffdad6",
+                "on-tertiary": "#ffffff",
+                "on-background": "#1a1c1c",
+                "tertiary-container": "#091d2e",
+                "primary": "#000000",
+                "surface-container-low": "#f3f3f3",
+                "secondary-fixed": "#ffdea5",
+                "primary-fixed": "#e5e2e1",
+                "surface-variant": "#e2e2e2",
+                "inverse-surface": "#2f3131",
+                "inverse-primary": "#c8c6c5",
+                "secondary-container": "#fed488",
+                "on-primary": "#ffffff",
+                "surface": "#f9f9f9",
+                "surface-container": "#eeeeee",
+                "surface-container-high": "#e8e8e8",
+                "surface-dim": "#dadada",
+                "on-primary-fixed": "#1c1b1b",
+                "on-surface": "#1a1c1c",
+                "tertiary-fixed-dim": "#b5c8df",
+                "secondary": "#775a19",
+                "on-error-container": "#93000a",
+                "on-secondary-fixed-variant": "#5d4201"
+        },
+        "borderRadius": {
+                "DEFAULT": "0.125rem",
+                "lg": "0.25rem",
+                "xl": "0.5rem",
+                "full": "0.75rem"
+        },
+        "spacing": {
+                "container-max": "1200px",
+                "stack-md": "32px",
+                "gutter": "24px",
+                "stack-lg": "64px",
+                "unit": "8px",
+                "margin-edge": "32px",
+                "stack-sm": "16px"
+        },
+        "fontFamily": {
+                "headline-md": [
+                        "Hanken Grotesk"
+                ],
+                "label-sm": [
+                        "Hanken Grotesk"
+                ],
+                "display-lg-mobile": [
+                        "Hanken Grotesk"
+                ],
+                "body-md": [
+                        "\"Source Serif 4\""
+                ],
+                "body-lg": [
+                        "\"Source Serif 4\""
+                ],
+                "display-lg": [
+                        "Hanken Grotesk"
+                ]
+        },
+        "fontSize": {
+                "headline-md": [
+                        "24px",
+                        {
+                                "lineHeight": "1.4",
+                                "letterSpacing": "0.01em",
+                                "fontWeight": "500"
+                        }
+                ],
+                "label-sm": [
+                        "12px",
+                        {
+                                "lineHeight": "1",
+                                "letterSpacing": "0.08em",
+                                "fontWeight": "600"
+                        }
+                ],
+                "display-lg-mobile": [
+                        "32px",
+                        {
+                                "lineHeight": "1.2",
+                                "letterSpacing": "0.02em",
+                                "fontWeight": "600"
+                        }
+                ],
+                "body-md": [
+                        "16px",
+                        {
+                                "lineHeight": "1.6",
+                                "letterSpacing": "0",
+                                "fontWeight": "400"
+                        }
+                ],
+                "body-lg": [
+                        "18px",
+                        {
+                                "lineHeight": "1.6",
+                                "letterSpacing": "0",
+                                "fontWeight": "400"
+                        }
+                ],
+                "display-lg": [
+                        "48px",
+                        {
+                                "lineHeight": "1.1",
+                                "letterSpacing": "0.02em",
+                                "fontWeight": "600"
+                        }
+                ]
+        }
+},
+    },
+  }
+</script>
+<style>
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: slideUpFade 0.4s ease-out forwards; }
+        
+        @keyframes slideUpFade {
+            0% { opacity: 0; transform: translateY(10px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        .stagger-1 { animation: slideUpFade 0.4s ease-out 0.1s both; }
+        .stagger-2 { animation: slideUpFade 0.4s ease-out 0.2s both; }
+        .stagger-3 { animation: slideUpFade 0.4s ease-out 0.3s both; }
+        .stagger-4 { animation: slideUpFade 0.4s ease-out 0.4s both; }
+
+        /* Form Inputs */
+        input[type="text"], input[type="email"], input[type="password"], input[type="tel"], select {
+            @apply w-full border border-outline-variant/60 rounded-lg py-3.5 px-4 bg-surface-container-lowest focus:ring-1 focus:ring-primary focus:border-primary transition-all duration-300 text-on-surface hover:border-outline;
+        }
+        label {
+            @apply block font-label-sm text-label-sm text-on-surface-variant mb-2 uppercase tracking-wider;
+        }
+        .btn-primary {
+            @apply w-full py-4 bg-primary text-on-primary font-headline-md text-[18px] rounded-lg hover:bg-inverse-surface transition-all duration-300 transform hover:-translate-y-[1px] shadow-sm hover:shadow-md;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body-md min-h-screen flex flex-col antialiased relative">
+<!-- Top NavBar Link -->
+<a class="absolute top-6 left-6 md:left-margin-edge flex items-center gap-2 text-on-surface-variant hover:text-primary transition-colors font-label-sm text-xs uppercase tracking-wider z-50" href="#">
+<span class="material-symbols-outlined text-[18px]">arrow_back</span>
+Back to Home
+</a>
+<!-- Main Content Canvas - Centered Form -->
+<main class="flex-grow flex w-full items-center justify-center p-4 min-h-screen">
+<div class="w-full max-w-[480px] bg-[#fff8f0] rounded-[1rem] shadow-sm border border-outline-variant/30 overflow-hidden">
+<!-- Form Section -->
+<div class="w-full p-stack-md sm:p-stack-lg flex flex-col justify-center relative">
+<div class="w-full mx-auto">
+<!-- Logo area -->
+<div class="flex flex-col items-center mb-stack-lg stagger-1">
+<img class="h-16 w-auto mb-6" data-alt="Standalone minimalist luxury microphone logo symbol in gold and obsidian." src="https://lh3.googleusercontent.com/aida/AEtjO1Xe3TqSPivLl1C94EGYjC0zY_7wSIgyQ95TVupEMJdXPj81Gjik55ApjQ_sio6Xp9D4qHtsAf6cDq6SRufbUJ1wOx9vri2OJdk-luvv7oC96PAM9F-Lcp9Ed0NxzTbI_BrVobVgkGgWTvSr69iLnDWvQGDSLJ1PvkqH_5-s8RGKJ6o4x-3FY6yfh8XY9Qpb0IanwQqKi6ZgENc0u-xcxc5Y0iwdi8CWPTyjG5OJIEPZJ1YD2UhREctizdtV">
+<h1 class="font-headline-md text-[32px] text-center mb-2">Welcome</h1>
+<p class="text-on-surface-variant text-center font-body-lg text-[16px]">Access your premium learning experience.</p>
+</div>
+<!-- Tab Switcher with sliding indicator -->
+<div class="relative flex mb-stack-md bg-surface-container-low rounded-lg p-1 stagger-2">
+<div class="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-surface-container-lowest rounded-md shadow-sm transition-transform duration-300 ease-out z-0" id="tab-indicator" style="transform: translateX(0px);"></div>
+<button class="flex-1 py-2.5 font-label-sm text-label-sm text-center uppercase tracking-wider transition-colors z-10 relative text-primary" id="tab-login">Log In</button>
+<button class="flex-1 py-2.5 font-label-sm text-label-sm text-center uppercase tracking-wider transition-colors z-10 hover:text-primary relative text-on-surface-variant" id="tab-register">Register</button>
+</div>
+<!-- Login Form -->
+<div class="tab-content active" id="content-login">
+<form class="space-y-stack-sm">
+<div class="stagger-3">
+<label class="" for="login-email">Email Address</label>
+<div class="relative">
+<input class="w-full border border-outline-variant/60 rounded-lg py-3.5 px-4 bg-surface-container-lowest focus:ring-1 focus:ring-primary focus:border-primary transition-all duration-300 text-on-surface hover:border-outline" id="login-email" placeholder="name@example.com" required="" type="email">
+</div>
+</div>
+<div class="stagger-4 relative">
+<label class="" for="login-password">Password</label>
+<div class="relative"><input class="w-full border border-outline-variant/60 rounded-lg py-3.5 px-4 bg-surface-container-lowest focus:ring-1 focus:ring-primary focus:border-primary transition-all duration-300 text-on-surface hover:border-outline pr-12" id="login-password" placeholder="••••••••" required="" type="password">
+<button class="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-primary transition-colors flex items-center justify-center" onclick="togglePassword('login-password', 'login-eye')" type="button">
+<span class="material-symbols-outlined text-[20px]" id="login-eye">visibility_off</span>
+</button></div>
+<div class="mt-2 text-right">
+<a class="font-label-sm text-[12px] text-on-surface-variant hover:text-primary transition-colors underline" href="#">Forgot Password?</a>
+</div>
+</div>
+<div class="stagger-4 pt-2">
+<button class="w-full py-4 bg-[#d4af37] text-on-primary font-headline-md text-[18px] hover:bg-[#b08e2b] transition-all duration-300 transform hover:-translate-y-[1px] shadow-sm hover:shadow-md uppercase tracking-wider font-semibold rounded-full" type="submit">Sign In</button>
+</div>
+</form>
+</div>
+<!-- Register Form -->
+<div class="tab-content" id="content-register">
+<form class="space-y-stack-sm"><div class="flex gap-2 mb-4 stagger-2">
+<button class="flex-1 py-2 px-3 border border-outline-variant/40 rounded-md text-label-sm text-on-surface-variant hover:bg-surface-container-high hover:text-primary transition-all duration-300 uppercase tracking-wider" type="button">Bank Details</button>
+<button class="flex-1 py-2 px-3 border border-outline-variant/40 rounded-md text-label-sm text-on-surface-variant hover:bg-surface-container-high hover:text-primary transition-all duration-300 uppercase tracking-wider" type="button">Terms &amp; Conditions</button>
+</div>
+<!-- Profile Type Toggle -->
+<div class="bg-surface-container-low border-l-4 border-[#d4af37] p-4 mb-6 stagger-2 rounded-r-lg shadow-sm">
+<div class="flex items-start gap-3">
+<span class="material-symbols-outlined text-[#d4af37] text-[20px]">info</span>
+<p class="text-on-surface font-body-md text-[14px] leading-relaxed">
+<span class="font-semibold block mb-1">Important Instructions:</span>
+      Send the bank receipt. Must read the Terms and Conditions.
+    </p>
+</div>
+</div><label class="block font-label-sm text-label-sm text-on-surface-variant mb-2 uppercase tracking-wider text-left stagger-2">I am registering as</label><div class="flex rounded-lg border border-outline-variant/40 p-1 bg-surface-container-low mb-stack-sm stagger-2">
+<label class="flex-1 cursor-pointer mb-0">
+<input checked="" class="sr-only peer" name="profile_type" type="radio" value="student">
+<div class="text-center py-2 font-label-sm text-label-sm rounded-md peer-checked:bg-surface-container-lowest peer-checked:text-[#d4af37] peer-checked:shadow-sm text-on-surface-variant transition-all">Student</div>
+</label>
+<label class="flex-1 cursor-pointer mb-0">
+<input class="sr-only peer" name="profile_type" type="radio" value="professional">
+<div class="text-center py-2 font-label-sm text-label-sm rounded-md peer-checked:bg-surface-container-lowest peer-checked:text-[#d4af37] peer-checked:shadow-sm text-on-surface-variant transition-all">Professional</div>
+</label>
+</div>
+<div class="grid grid-cols-2 gap-4 stagger-3">
+<div>
+<label class="" for="reg-first-name">First Name</label>
+<input class="w-full border border-outline-variant/60 rounded-lg py-4 px-5 bg-surface-container-lowest focus:ring-1 focus:ring-primary focus:border-primary transition-all duration-300 text-on-surface hover:border-outline text-[16px]" id="reg-first-name" placeholder="Jane" required="" type="text">
+</div>
+<div>
+<label class="" for="reg-last-name">Last Name</label>
+<input class="w-full border border-outline-variant/60 rounded-lg py-4 px-5 bg-surface-container-lowest focus:ring-1 focus:ring-primary focus:border-primary transition-all duration-300 text-on-surface hover:border-outline text-[16px]" id="reg-last-name" placeholder="Doe" required="" type="text">
+</div>
+</div>
+<div class="stagger-3"><label class="text-left block" for="reg-email">Email Address</label>
+<input class="w-full border border-outline-variant/60 rounded-lg py-4 px-5 bg-surface-container-lowest focus:ring-1 focus:ring-primary focus:border-primary transition-all duration-300 text-on-surface hover:border-outline text-[16px]" id="reg-email" placeholder="name@example.com" required="" type="email"></div>
+<div class="stagger-3">
+<label class="" for="reg-phone">Phone Number</label>
+<div class="flex gap-2">
+<select aria-label="Country Code" class="w-24 border-outline-variant/60 text-on-surface rounded-lg">
+<option>+1</option>
+<option>+44</option>
+<option>+61</option>
+</select>
+<input class="flex-1" id="reg-phone" placeholder="Phone number" required="" type="tel">
+</div>
+</div>
+<!-- Course Selection Section -->
+<div class="stagger-3 mt-6 border-t border-outline-variant/30 pt-6">
+<h3 class="font-headline-md text-[14px] uppercase tracking-wider text-on-surface-variant mb-4">Course Selection</h3>
+<div class="mb-4">
+<label class="" for="reg-course-name">Course Name</label>
+<input class="w-full border border-outline-variant/60 rounded-lg py-4 px-5 bg-surface-container-lowest focus:ring-1 focus:ring-primary focus:border-primary transition-all duration-300 text-on-surface hover:border-outline text-[16px]" id="reg-course-name" placeholder="Enter preferred course" type="text">
+</div>
+<div>
+<label class="mb-2">Available Programs</label>
+<div class="bg-surface-container-low rounded-lg p-4 border border-outline-variant/40">
+<ul class="space-y-3">
+<li class="flex items-center text-[14px] text-on-surface">
+<span class="material-symbols-outlined text-[#d4af37] text-[16px] mr-2">chevron_right</span>
+                    Professional Mastery Phase I
+                </li>
+<li class="flex items-center text-[14px] text-on-surface">
+<span class="material-symbols-outlined text-[#d4af37] text-[16px] mr-2">chevron_right</span>
+                    Strategic Negotiation Module
+                </li>
+<li class="flex items-center text-[14px] text-on-surface">
+<span class="material-symbols-outlined text-[#d4af37] text-[16px] mr-2">chevron_right</span>
+                    Global Leadership Intensive
+                </li>
+</ul>
+</div>
+</div>
+</div>
+<div class="stagger-4">
+<label class="" for="reg-password">Password</label>
+<div class="relative">
+<input class="w-full border border-outline-variant/60 rounded-lg py-3.5 px-4 bg-surface-container-lowest focus:ring-1 focus:ring-primary focus:border-primary transition-all duration-300 text-on-surface hover:border-outline pr-12" id="reg-password" placeholder="Create a password" required="" type="text">
+<button class="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-primary transition-colors flex items-center justify-center" onclick="togglePassword('reg-password', 'reg-eye')" type="button">
+<span class="material-symbols-outlined text-[20px]" id="reg-eye">visibility</span>
+</button>
+</div>
+<p class="mt-2 text-xs text-on-surface-variant font-body-md">Must be at least 8 characters, including a number and symbol.</p>
+</div>
+<div class="stagger-4">
+<label class="" for="reg-confirm-password">Confirm Password</label>
+<div class="relative">
+<input class="w-full border border-outline-variant/60 rounded-lg py-3.5 px-4 bg-surface-container-lowest focus:ring-1 focus:ring-primary focus:border-primary transition-all duration-300 text-on-surface hover:border-outline pr-12" id="reg-confirm-password" placeholder="Confirm your password" required="" type="password">
+<button class="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-primary transition-colors flex items-center justify-center" onclick="togglePassword('reg-confirm-password', 'reg-confirm-eye')" type="button">
+<span class="material-symbols-outlined text-[20px]" id="reg-confirm-eye">visibility_off</span>
+</button>
+</div>
+</div><div class="flex items-start gap-3 mt-4 stagger-4 mb-stack-sm">
+<input class="mt-1 rounded border-outline-variant text-[#d4af37] focus:ring-[#d4af37] w-4 h-4 cursor-pointer" id="terms" placeholder="on" type="checkbox" value="">
+<label class="text-on-surface-variant normal-case tracking-normal font-body-md text-[14px] cursor-pointer mb-0" for="terms">I agree to the <a class="text-[#d4af37] underline hover:no-underline" href="#">Terms of Service</a> and <a class="text-[#d4af37] underline hover:no-underline" href="#">Privacy Policy</a>.</label>
+</div>
+<div class="stagger-4 pt-2">
+<button class="w-full py-4 bg-[#d4af37] text-on-primary font-headline-md text-[18px] hover:bg-[#b08e2b] transition-all duration-300 transform hover:-translate-y-[1px] shadow-sm hover:shadow-md uppercase tracking-wider font-semibold border border-[#d4af37]/10 rounded-full" type="submit">Create Account</button>
+</div>
+</form>
+</div>
+</div>
+</div>
+</div>
+</main>
+<script>
+    // Tab Switching Logic
+    document.addEventListener('DOMContentLoaded', () => {
+        const tabLogin = document.getElementById('tab-login');
+        const tabRegister = document.getElementById('tab-register');
+        const contentLogin = document.getElementById('content-login');
+        const contentRegister = document.getElementById('content-register');
+        const indicator = document.getElementById('tab-indicator');
+
+        function switchTab(activeTab, inactiveTab, activeContent, inactiveContent, isRegister) {
+            // Update Text Colors
+            activeTab.classList.add('text-primary');
+            activeTab.classList.remove('text-on-surface-variant');
+            
+            inactiveTab.classList.remove('text-primary');
+            inactiveTab.classList.add('text-on-surface-variant');
+
+            // Move Indicator
+            if (isRegister) {
+                indicator.style.transform = 'translateX(100%)';
+            } else {
+                indicator.style.transform = 'translateX(0)';
+            }
+
+            // Update content visibility with slight delay for animation
+            inactiveContent.classList.remove('active');
+            setTimeout(() => {
+                activeContent.classList.add('active');
+            }, 50);
+        }
+
+        tabLogin.addEventListener('click', () => {
+            switchTab(tabLogin, tabRegister, contentLogin, contentRegister, false);
+        });
+
+        tabRegister.addEventListener('click', () => {
+            switchTab(tabRegister, tabLogin, contentRegister, contentLogin, true);
+        });
+    });
+
+    // Password Visibility Toggle
+    function togglePassword(inputId, iconId) {
+        const input = document.getElementById(inputId);
+        const icon = document.getElementById(iconId);
+        
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.textContent = 'visibility';
+        } else {
+            input.type = 'password';
+            icon.textContent = 'visibility_off';
+        }
+    }
+</script>
+
+
+
+
+
+
+</body></html>

@@ -1,0 +1,185 @@
+<!DOCTYPE html><html lang="en" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Reset Password | SPEAK-UP</title>
+<!-- Google Fonts: Hanken Grotesk & Newsreader for academic luxury feel -->
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500;600;700&amp;family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&amp;display=swap" rel="stylesheet">
+<!-- Tailwind CSS v3 with forms & container queries -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              cream: '#FDFBF7',
+              ivory: '#FFFDF9',
+              gold: '#D4AF37',
+              goldHover: '#C39F2E',
+              charcoal: '#141416',
+              border: '#E8E2D9',
+              muted: '#71717A',
+              subtle: '#9A9287'
+            }
+          },
+          fontFamily: {
+            sans: ['"Hanken Grotesk"', 'sans-serif'],
+            serif: ['Newsreader', 'Georgia', 'serif']
+          },
+          boxShadow: {
+            'elevation-card': '0 4px 20px -2px rgba(28, 25, 23, 0.05), 0 2px 6px -1px rgba(28, 25, 23, 0.02)'
+          }
+        }
+      }
+    };
+  </script>
+<!-- Grouped CSS: Base Layout & Form Polishing -->
+<style data-purpose="custom-elements">
+    body {
+      background-color: #FAF6F0;
+      color: #141416;
+      font-family: "Hanken Grotesk", sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .input-heritage {
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .input-heritage:focus {
+      border-color: #D4AF37;
+      box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.15);
+      outline: none;
+    }
+  </style>
+</head>
+<body class="flex flex-col min-h-screen antialiased selection:bg-[#D4AF37]/20 selection:text-[#141416]">
+<!-- BEGIN: TopHeader -->
+
+<!-- END: TopHeader -->
+<!-- BEGIN: MainContent -->
+<main class="flex-grow flex items-center justify-center px-4 sm:px-6 py-12 sm:py-16" data-purpose="main-content">
+<div class="w-full max-w-[480px]">
+<!-- Card Container with Heritage Aesthetic -->
+<div class="bg-[#FFFDF9] border border-[#E8E2D9] rounded-2xl shadow-elevation-card p-8 sm:p-11 transition-all" data-purpose="reset-password-card" style="background-color: rgb(255, 248, 240); border-color: rgb(208, 197, 175);">
+<!-- Card Header: Symbol Mark & Headings -->
+<div class="flex flex-col items-center text-center">
+<!-- Icon Symbol Badge -->
+<div class="flex flex-col items-center justify-center text-center mb-6 w-full"><img alt="SPEAK-UP Logo" class="h-16 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1Xe3TqSPivLl1C94EGYjC0zY_7wSIgyQ95TVupEMJdXPj81Gjik55ApjQ_sio6Xp9D4qHtsAf6cDq6SRufbUJ1wOx9vri2OJdk-luvv7oC96PAM9F-Lcp9Ed0NxzTbI_BrVobVgkGgWTvSr69iLnDWvQGDSLJ1PvkqH_5-s8RGKJ6o4x-3FY6yfh8XY9Qpb0IanwQqKi6ZgENc0u-xcxc5Y0iwdi8CWPTyjG5OJIEPZJ1YD2UhREctizdtV"></div>
+<!-- Headline -->
+<h1 class="text-2xl sm:text-[28px] font-semibold text-[#141416] tracking-tight mb-2.5">
+            Reset Password
+          </h1>
+<!-- Subtitle / Instruction -->
+<p class="text-xs sm:text-sm text-[#71717A] max-w-[320px] leading-relaxed font-normal">
+            Enter your new password below to secure and regain access to your account.
+          </p>
+</div>
+<!-- Form Elements -->
+<form class="mt-8 space-y-5" data-purpose="reset-password-form" onsubmit="event.preventDefault();">
+<!-- Field 1: New Password -->
+<div class="space-y-1.5" data-purpose="new-password-field">
+<label class="block text-[11px] font-semibold tracking-wider text-[#141416] uppercase" for="new-password">
+              New Password
+            </label>
+<div class="relative">
+<input class="input-heritage w-full bg-white text-[#141416] text-sm rounded-lg border border-[#D1CAC0] px-3.5 py-3 pr-10 placeholder-[#A1A1AA] focus:bg-white" id="new-password" name="new-password" placeholder="••••••••••••" required="" type="password">
+<!-- Visibility Toggle Button -->
+<button aria-label="Toggle password visibility" class="absolute right-3 top-1/2 -translate-y-1/2 text-[#8C867D] hover:text-[#141416] focus:outline-none p-1" data-purpose="toggle-password" data-target="new-password" type="button">
+<!-- Eye-slash Icon (default hidden) -->
+<svg class="w-5 h-5 icon-eye" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" viewBox="0 0 24 24">
+<path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path>
+<path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path>
+<path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"></path>
+<line x1="2" x2="22" y1="2" y2="22"></line>
+</svg>
+</button>
+</div>
+<!-- Validation Policy Guideline Note -->
+<div class="flex items-start gap-2 pt-1 text-[11px] leading-tight text-[#71717A]" data-purpose="password-policy-note">
+<svg class="w-3.5 h-3.5 text-[#D4AF37] mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<circle cx="12" cy="12" r="10"></circle>
+<line x1="12" x2="12" y1="16" y2="12"></line>
+<line x1="12" x2="12.01" y1="8" y2="8"></line>
+</svg>
+<span class="">Must be at least 8 characters, including a number and symbol.</span>
+</div>
+</div>
+<!-- Field 2: Confirm New Password -->
+<div class="space-y-1.5 pt-1" data-purpose="confirm-password-field">
+<label class="block text-[11px] font-semibold tracking-wider text-[#141416] uppercase" for="confirm-password">
+              Confirm New Password
+            </label>
+<div class="relative">
+<input class="input-heritage w-full bg-white text-[#141416] text-sm rounded-lg border border-[#D1CAC0] px-3.5 py-3 pr-10 placeholder-[#A1A1AA] focus:bg-white" id="confirm-password" name="confirm-password" placeholder="••••••••••••" required="" type="password">
+<!-- Visibility Toggle Button -->
+<button aria-label="Toggle password visibility" class="absolute right-3 top-1/2 -translate-y-1/2 text-[#8C867D] hover:text-[#141416] focus:outline-none p-1" data-purpose="toggle-password" data-target="confirm-password" type="button">
+<!-- Eye-slash Icon -->
+<svg class="w-5 h-5 icon-eye" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" viewBox="0 0 24 24">
+<path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path>
+<path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path>
+<path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"></path>
+<line x1="2" x2="22" y1="2" y2="22"></line>
+</svg>
+</button>
+</div>
+</div>
+<!-- Primary Submit Action Button -->
+<div class="pt-3">
+<button class="w-full py-4 px-6 text-sm uppercase tracking-widest font-semibold transition-colors duration-300 flex items-center justify-center gap-2 group rounded-full focus:outline-none" style="background-color: rgb(212, 175, 55); color: rgb(36, 26, 0);" onmouseover="this.style.backgroundColor='#b08e2b'" onmouseout="this.style.backgroundColor='#d4af37'" type="submit"><span style="letter-spacing: 0.1em;" class="">UPDATE PASSWORD</span><svg class="w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></button>
+</div>
+<!-- Bottom Direct Auxiliary Action Link -->
+<div class="text-center pt-2">
+<a class="inline-block py-2 text-sm text-[#4d4635] hover:text-[#735c00] transition-colors duration-200" href="#">Back to login</a>
+</div>
+</form>
+</div>
+</div>
+</main>
+<!-- END: MainContent -->
+<!-- BEGIN: MainFooter -->
+<footer class="w-full py-8 text-center text-[11px] font-medium tracking-widest uppercase text-[#9A9287]" data-purpose="site-footer">
+<div class="max-w-7xl mx-auto px-4">
+      © 2024 SPEAK-UP. ALL RIGHTS RESERVED.
+    </div>
+</footer>
+<!-- END: MainFooter -->
+<!-- Interactive JavaScript: Password Toggle Logic -->
+<script data-purpose="password-visibility-toggle">
+    document.querySelectorAll('[data-purpose="toggle-password"]').forEach(function(toggleBtn) {
+      toggleBtn.addEventListener('click', function() {
+        const targetId = this.getAttribute('data-target');
+        const inputField = document.getElementById(targetId);
+        if (!inputField) return;
+
+        const isPassword = inputField.type === 'password';
+        inputField.type = isPassword ? 'text' : 'password';
+
+        // Toggle icon visually
+        if (isPassword) {
+          this.innerHTML = `
+            <svg class="w-5 h-5 text-[#141416]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          `;
+        } else {
+          this.innerHTML = `
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/>
+              <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/>
+              <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/>
+              <line x1="2" y1="2" x2="22" y2="22"/>
+            </svg>
+          `;
+        }
+      });
+    });
+  </script>
+
+
+
+
+</body></html>

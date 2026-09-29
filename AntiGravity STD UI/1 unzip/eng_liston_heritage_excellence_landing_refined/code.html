@@ -1,0 +1,256 @@
+<!DOCTYPE html><html class="light" lang="en" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>ENG-LISTON - Premium English Education</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&amp;family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+                "obsidian-dark": "#0a0a0a",
+                "surface": "#fff8f1",
+                "surface-tint": "#5f5e5e",
+                "on-tertiary-fixed": "#1c1b1b",
+                "outline": "#747878",
+                "primary-fixed-dim": "#c8c6c5",
+                "background": "#fff8f1",
+                "surface-dim": "#dfd9d1",
+                "on-secondary": "#ffffff",
+                "tertiary-fixed-dim": "#c9c6c5",
+                "on-secondary-fixed-variant": "#574500",
+                "gold-accent": "#d4af37",
+                "inverse-on-surface": "#f7f0e8",
+                "on-secondary-fixed": "#241a00",
+                "on-primary-fixed-variant": "#474746",
+                "inverse-surface": "#33302b",
+                "on-tertiary": "#ffffff",
+                "on-primary-fixed": "#1c1b1b",
+                "surface-container-low": "#f9f3eb",
+                "secondary-container": "#fed65b",
+                "surface-variant": "#e8e1da",
+                "surface-container": "#f4ede5",
+                "surface-bright": "#fff8f1",
+                "on-error": "#ffffff",
+                "on-surface-variant": "#444748",
+                "on-tertiary-container": "#858383",
+                "surface-container-high": "#eee7df",
+                "secondary-fixed": "#ffe088",
+                "on-primary": "#ffffff",
+                "surface-container-lowest": "#ffffff",
+                "outline-variant": "#c4c7c7",
+                "on-primary-container": "#858383",
+                "tertiary-container": "#1c1b1b",
+                "primary-fixed": "#e5e2e1",
+                "error": "#ba1a1a",
+                "surface-container-highest": "#e8e1da",
+                "on-surface": "#1e1b17",
+                "on-error-container": "#93000a",
+                "tertiary": "#000000",
+                "surface-border": "rgba(26, 26, 26, 0.1)",
+                "inverse-primary": "#c8c6c5",
+                "charcoal-text": "#1a1a1a",
+                "on-background": "#1e1b17",
+                "on-tertiary-fixed-variant": "#474646",
+                "error-container": "#ffdad6",
+                "secondary-fixed-dim": "#e9c349",
+                "cream-bg": "#fff8f0",
+                "primary": "#000000",
+                "secondary": "#735c00",
+                "primary-container": "#1c1b1b",
+                "on-secondary-container": "#745c00",
+                "tertiary-fixed": "#e5e2e1"
+        },
+        "borderRadius": {
+                "DEFAULT": "0.125rem",
+                "lg": "0.25rem",
+                "xl": "0.5rem",
+                "full": "0.75rem"
+        },
+        "spacing": {
+                "margin-mobile": "20px",
+                "stack-sm": "16px",
+                "margin-desktop": "48px",
+                "container-max": "1140px",
+                "gutter": "24px",
+                "base": "8px",
+                "stack-md": "32px",
+                "stack-lg": "64px"
+        },
+        "fontFamily": {
+                "label-lg": [
+                        "Hanken Grotesk"
+                ],
+                "headline-md": [
+                        "Hanken Grotesk"
+                ],
+                "label-sm": [
+                        "Hanken Grotesk"
+                ],
+                "body-lg": [
+                        "\"Source Serif 4\""
+                ],
+                "body-md": [
+                        "\"Source Serif 4\""
+                ],
+                "display-lg-mobile": [
+                        "Hanken Grotesk"
+                ],
+                "display-lg": [
+                        "Hanken Grotesk"
+                ]
+        },
+        "fontSize": {
+                "label-lg": [
+                        "14px",
+                        {
+                                "lineHeight": "1.4",
+                                "letterSpacing": "0.05em",
+                                "fontWeight": "600"
+                        }
+                ],
+                "headline-md": [
+                        "24px",
+                        {
+                                "lineHeight": "1.3",
+                                "letterSpacing": "0",
+                                "fontWeight": "600"
+                        }
+                ],
+                "label-sm": [
+                        "12px",
+                        {
+                                "lineHeight": "1.2",
+                                "letterSpacing": "0.1em",
+                                "fontWeight": "600"
+                        }
+                ],
+                "body-lg": [
+                        "18px",
+                        {
+                                "lineHeight": "1.7",
+                                "fontWeight": "400"
+                        }
+                ],
+                "body-md": [
+                        "16px",
+                        {
+                                "lineHeight": "1.6",
+                                "fontWeight": "400"
+                        }
+                ],
+                "display-lg-mobile": [
+                        "36px",
+                        {
+                                "lineHeight": "1.2",
+                                "letterSpacing": "-0.01em",
+                                "fontWeight": "700"
+                        }
+                ],
+                "display-lg": [
+                        "48px",
+                        {
+                                "lineHeight": "1.1",
+                                "letterSpacing": "-0.02em",
+                                "fontWeight": "700"
+                        }
+                ]
+        }
+},
+    },
+  }
+</script>
+<style>
+        .fade-in-up {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+        }
+        .fade-in-up.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .bento-hover:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+        }
+        .hero-glow {
+            position: absolute;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(212,175,55,0.05) 0%, rgba(255,248,241,0) 70%);
+            top: -200px;
+            right: -100px;
+            pointer-events: none;
+            z-index: 0;
+        }
+    </style>
+</head>
+<body class="bg-background dark:bg-obsidian-dark text-charcoal-text dark:text-inverse-on-surface font-body-md antialiased selection:bg-gold-accent/20 selection:text-charcoal-text">
+<!-- TopNavBar -->
+<nav class="w-full top-0 sticky z-50 border-b border-surface-border dark:border-outline/20 shadow-[0_4px_30px_rgba(0,0,0,0.02)] transition-all duration-300 backdrop-blur-md bg-background/90 dark:bg-obsidian-dark/90">
+<div class="flex justify-between items-center px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto h-24 py-5"><div class="flex items-center gap-3 cursor-pointer transition-all active:scale-95"><img src="https://lh3.googleusercontent.com/aida/AEtjO1Xe3TqSPivLl1C94EGYjC0zY_7wSIgyQ95TVupEMJdXPj81Gjik55ApjQ_sio6Xp9D4qHtsAf6cDq6SRufbUJ1wOx9vri2OJdk-luvv7oC96PAM9F-Lcp9Ed0NxzTbI_BrVobVgkGgWTvSr69iLnDWvQGDSLJ1PvkqH_5-s8RGKJ6o4x-3FY6yfh8XY9Qpb0IanwQqKi6ZgENc0u-xcxc5Y0iwdi8CWPTyjG5OJIEPZJ1YD2UhREctizdtV" alt="SPEAK-UP Emblem Logo" class="object-contain rounded-md shadow-sm h-10 w-10"><span class="font-display-lg text-headline-md tracking-tight text-charcoal-text dark:text-inverse-on-surface">SPEAK-UP</span></div><div class="hidden md:flex items-center gap-2"><a class="text-charcoal-text dark:text-inverse-on-surface font-bold bg-gold-accent/10 dark:bg-gold-accent/20 px-4 py-1.5 rounded-full border border-gold-accent/30 font-label-sm text-label-sm uppercase tracking-widest transition-all duration-300 hover:bg-gold-accent hover:text-white dark:hover:bg-gold-accent dark:hover:text-obsidian-dark shadow-sm whitespace-nowrap" href="#">Home</a><a class="text-charcoal-text/70 dark:text-inverse-on-surface/70 hover:text-gold-accent dark:hover:text-gold-accent font-label-sm text-label-sm uppercase tracking-widest transition-all duration-300 px-4 py-1.5 rounded-full border border-transparent hover:border-gold-accent/30 hover:bg-white/50 dark:hover:bg-white/10 whitespace-nowrap" href="#">Courses</a><a class="text-charcoal-text/70 dark:text-inverse-on-surface/70 hover:text-gold-accent dark:hover:text-gold-accent font-label-sm text-label-sm uppercase tracking-widest transition-all duration-300 px-4 py-1.5 rounded-full border border-transparent hover:border-gold-accent/30 hover:bg-white/50 dark:hover:bg-white/10 whitespace-nowrap" href="#">Methodology</a><a class="text-charcoal-text/70 dark:text-inverse-on-surface/70 hover:text-gold-accent dark:hover:text-gold-accent font-label-sm text-label-sm uppercase tracking-widest transition-all duration-300 px-4 py-1.5 rounded-full border border-transparent hover:border-gold-accent/30 hover:bg-white/50 dark:hover:bg-white/10 whitespace-nowrap" href="#">Pricing</a><a class="text-charcoal-text/70 dark:text-inverse-on-surface/70 hover:text-gold-accent dark:hover:text-gold-accent font-label-sm text-label-sm uppercase tracking-widest transition-all duration-300 px-4 py-1.5 rounded-full border border-transparent hover:border-gold-accent/30 hover:bg-white/50 dark:hover:bg-white/10 whitespace-nowrap" href="#">Privacy Policy</a></div><div class="flex items-center gap-4"><button class="text-charcoal-text dark:text-inverse-on-surface hover:text-gold-accent transition-colors duration-200 cursor-pointer transition-all active:scale-95"><span class="material-symbols-outlined" style="font-variation-settings: &quot;FILL&quot; 0;">account_circle</span></button></div></div>
+</nav>
+<main>
+<!-- Hero Section -->
+<section class="relative overflow-hidden border-b border-surface-border dark:border-outline/20 py-10 lg:py-14 bg-background dark:bg-obsidian-dark"><div class="hero-glow dark:opacity-20"></div><div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')] opacity-[0.03] dark:opacity-[0.01] pointer-events-none mix-blend-multiply dark:mix-blend-overlay"></div><div class="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center py-10"><div class="lg:col-span-6 fade-in-up visible flex flex-col items-start"><div class="inline-flex items-center gap-3 px-4 py-1.5 bg-surface-container/50 dark:bg-primary-container/30 border border-surface-border dark:border-outline/30 rounded-full mb-5 backdrop-blur-sm shadow-sm"><span class="w-1.5 h-1.5 rounded-full bg-gold-accent animate-pulse shadow-[0_0_8px_rgba(212,175,55,0.6)]"></span><span class="font-label-sm text-[11px] uppercase tracking-[0.2em] text-charcoal-text/80 dark:text-inverse-on-surface/80">Premium Education Platform</span></div><h1 class="font-display-lg text-display-lg-mobile md:text-display-lg text-charcoal-text dark:text-inverse-on-surface tracking-tighter mb-4 max-w-xl leading-[1.05]">Master the Art of <br class=""><span class="text-gold-accent italic font-light">Communication</span></h1><p class="font-body-md text-charcoal-text/70 dark:text-inverse-on-surface/70 text-base mb-6 max-w-lg leading-relaxed">Elevate your executive presence through bespoke linguistic training designed for the world's most discerning professionals.</p><div class="flex flex-wrap gap-4 items-center mb-8"><button class="bg-charcoal-text dark:bg-inverse-on-surface text-white dark:text-obsidian-dark font-label-sm text-[12px] px-8 py-3.5 hover:bg-gold-accent dark:hover:bg-gold-accent hover:text-white transition-all duration-300 flex items-center justify-center gap-3 shadow-[0_8px_20px_rgba(0,0,0,0.1)] hover:shadow-[0_8px_25px_rgba(212,175,55,0.3)] hover:-translate-y-0.5 active:scale-95 uppercase tracking-widest font-bold rounded-full">Learn More</button><button class="bg-transparent border border-surface-border dark:border-outline/50 text-charcoal-text dark:text-inverse-on-surface font-label-sm text-[12px] px-6 py-3.5 hover:border-gold-accent hover:text-gold-accent dark:hover:border-gold-accent dark:hover:text-gold-accent transition-all duration-300 flex items-center justify-center gap-2 active:scale-95 uppercase tracking-widest hover:bg-gold-accent/5 rounded-full"><span class="material-symbols-outlined text-[20px]">play_circle</span>Free Demo</button></div><div class="w-full p-5 md:p-6 bg-white/80 dark:bg-primary-container/40 backdrop-blur-md border border-surface-border dark:border-outline/30 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)] relative overflow-hidden group hover:border-gold-accent/40 transition-colors duration-500 rounded-2xl"><div class="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-gold-accent to-gold-accent/30 opacity-70"></div><div class="flex items-start gap-5"><div class="w-10 h-10 rounded-full bg-gold-accent/10 dark:bg-gold-accent/20 flex items-center justify-center text-gold-accent flex-shrink-0 border border-gold-accent/20"><span class="material-symbols-outlined text-[20px]">calendar_today</span></div><div class="flex-1"><p class="font-body-md text-[14px] text-charcoal-text/80 dark:text-inverse-on-surface/80 leading-relaxed mb-3">For personalized guidance on your leadership journey, schedule a private consultation with our academic advisors.</p><a class="inline-flex items-center gap-2 text-gold-accent font-label-sm text-[11px] uppercase tracking-[0.2em] hover:gap-4 transition-all font-bold rounded-full" href="#">Book a Session <span class="material-symbols-outlined text-sm">arrow_forward</span></a></div></div></div></div><div class="lg:col-span-6 fade-in-up relative visible h-full flex flex-col justify-center mt-4 lg:mt-0 lg:pl-6"><div class="absolute -inset-10 bg-gold-accent/5 dark:bg-gold-accent/10 rounded-full z-0 blur-3xl opacity-50"></div><div class="relative z-10 w-full"><div class="mb-4 flex items-end justify-between"><div><h3 class="font-label-sm text-[11px] uppercase tracking-[0.3em] text-gold-accent mb-1 font-bold">Guided Experience</h3><p class="font-body-md text-charcoal-text/60 dark:text-inverse-on-surface/60 text-sm">Watch our methodology in action.</p></div><div class="hidden md:block h-px flex-1 mx-6 bg-surface-border dark:bg-outline/30 mb-2"></div></div><div class="relative w-full aspect-[4/3] md:aspect-video lg:aspect-[4/3] xl:aspect-video rounded-xl overflow-hidden group cursor-pointer bg-surface-container dark:bg-primary-container shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] dark:shadow-[0_30px_60px_-15px_rgba(0,0,0,0.5)] border border-surface-border/50 dark:border-outline/20"><img alt="Professional coaching session" class="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-[1.03] scale-100" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD1HDkTuxuReHT8ENX5N5JvFP73OtVmedSwqeU2g2z9c37bJ7JKLLFxSnhc9giocqafBosBxiFe9vI5gqoMfR9gZ5zOYy7c34vHlP4clpzb5vwVPrv7NUkyK2VFg-0x5A_ZZtvnxJW2nduw14bK4S9-mW4WlZ3Gc_33TczkuUMAf-usgGrWb9Qz-8D8YAIWVj14ObZd68uPB_DrNgY7Bh2BZmcMUtJFlCEV0kGIXXUDazovrHy69xFEcQ"><div class="absolute inset-0 bg-gradient-to-t from-obsidian-dark/80 via-transparent to-transparent opacity-80"></div><div class="absolute inset-0 bg-obsidian-dark/20 group-hover:bg-obsidian-dark/10 transition-colors duration-500"></div><div class="absolute inset-0 border border-white/10 dark:border-white/5 rounded-xl pointer-events-none z-20"></div><div class="absolute inset-0 flex items-center justify-center z-10"><div class="w-16 h-16 md:w-20 md:h-20 bg-white/95 dark:bg-obsidian-dark/95 backdrop-blur-md rounded-full flex items-center justify-center border border-white/20 shadow-[0_0_40px_rgba(0,0,0,0.2)] transition-all duration-500 group-hover:scale-110 group-hover:border-gold-accent group-hover:shadow-[0_0_50px_rgba(212,175,55,0.3)]"><div class="w-12 h-12 md:w-16 md:h-16 rounded-full border border-gold-accent/20 flex items-center justify-center"><span class="material-symbols-outlined text-gold-accent text-[32px] md:text-[40px] ml-1" style="font-variation-settings: &quot;FILL&quot; 1;">play_arrow</span></div></div></div><div class="absolute bottom-0 left-0 right-0 p-5 md:p-6 translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500 z-10"><div class="flex items-center gap-3 text-white"><div class="w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/20"><span class="material-symbols-outlined text-[16px] text-white">timer</span></div><span class="text-[11px] font-label-sm uppercase tracking-widest font-bold">2:45 • Methodology Overview</span></div></div></div></div></div><div class="lg:col-span-12 mt-6 pt-6 border-t border-surface-border dark:border-outline/20 fade-in-up visible"><div class="flex flex-col md:flex-row items-center gap-6 bg-white/50 dark:bg-primary-container/20 px-6 py-4 rounded-xl border border-surface-border dark:border-outline/30 backdrop-blur-sm max-w-4xl mx-auto shadow-sm"><div class="flex-shrink-0 flex items-center gap-3"><div class="w-8 h-8 rounded-full bg-gold-accent/10 flex items-center justify-center text-gold-accent border border-gold-accent/20"><span class="material-symbols-outlined text-[18px]">info</span></div><h5 class="font-label-sm text-[11px] uppercase tracking-[0.2em] text-charcoal-text dark:text-inverse-on-surface font-bold whitespace-nowrap">Important Note</h5></div><div class="h-6 w-px bg-surface-border dark:bg-outline/30 hidden md:block"></div><p class="font-body-md text-[13px] text-charcoal-text/70 dark:text-inverse-on-surface/70 leading-relaxed text-center md:text-left">Need more information? Most common questions are already answered throughout our website. If you have a specific question or need clarification about courses, enrollment, pricing, or sessions, please contact our administration team.</p></div><div class="mt-5 flex justify-center fade-in-up visible"><a href="https://wa.me/your-number" class="group inline-flex items-center gap-3 bg-white dark:bg-primary-container/40 border border-surface-border dark:border-outline/30 px-8 py-3 rounded-full shadow-sm hover:shadow-[0_15px_50px_-10px_rgba(0,0,0,0.08)] hover:border-gold-accent/40 transition-all duration-500 active:scale-95"><div class="w-8 h-8 rounded-full bg-gold-accent/10 flex items-center justify-center text-gold-accent border border-gold-accent/20 group-hover:bg-gold-accent group-hover:text-white transition-colors duration-300"><span class="material-symbols-outlined text-[18px]">chat</span></div><span class="font-label-sm text-[11px] uppercase tracking-[0.2em] text-charcoal-text dark:text-inverse-on-surface font-bold group-hover:text-gold-accent transition-colors">Contact Administration</span></a></div></div></div></section>
+<!-- Trust/LMS Preview Bento Grid -->
+<section class="bg-surface dark:bg-obsidian-dark border-b border-surface-border dark:border-outline/20 relative overflow-hidden py-20"><div class="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-gold-accent/30 to-transparent"></div><div class="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop"><div class="flex flex-col md:flex-row justify-between items-end gap-6 fade-in-up visible mb-16"><div class="max-w-2xl"><span class="font-label-sm text-[11px] uppercase tracking-[0.3em] text-gold-accent mb-2 block font-bold">The Heritage of Mastery</span><h2 class="font-display-lg text-[32px] md:text-display-lg text-charcoal-text dark:text-inverse-on-surface leading-[1.05] tracking-tighter mb-2">The Standard of <br><span class="italic font-light text-gold-accent">Excellence</span></h2></div><p class="font-body-md text-charcoal-text/70 dark:text-inverse-on-surface/70 max-w-sm text-[14px] leading-relaxed border-l-2 border-gold-accent/40 pl-4 py-1.5">Accelerate your future through a methodology refined for the world's most discerning leaders. Building confidence and clarity.</p></div><div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12"><div class="lg:col-span-7 space-y-8"><div class="grid grid-cols-1 gap-8"><div class="group flex gap-5 items-start fade-in-up visible"><div class="relative flex-shrink-0"><div class="w-14 h-14 rounded-xl border border-surface-border dark:border-outline/40 flex items-center justify-center text-charcoal-text/60 dark:text-inverse-on-surface/60 bg-white/50 dark:bg-primary-container/20 backdrop-blur shadow-sm transition-all duration-500 group-hover:bg-gold-accent group-hover:text-white group-hover:border-gold-accent group-hover:shadow-[0_10px_20px_rgba(212,175,55,0.2)]"><span class="material-symbols-outlined text-[28px] font-light">psychology</span></div><span class="absolute -top-3 -right-3 text-[11px] font-bold text-gold-accent/60 tracking-widest bg-background dark:bg-obsidian-dark px-1">01</span></div><div class="flex-1 pt-0.5"><h3 class="font-display-lg text-[20px] text-charcoal-text dark:text-inverse-on-surface mb-1.5 tracking-tight">Cognitive Precision</h3><p class="font-body-md text-charcoal-text/70 dark:text-inverse-on-surface/70 text-[14px] leading-relaxed max-w-md">Train your mind to organize complex thoughts with the clarity required for high-stakes decision making. Master the silence before the speech.</p></div></div><div class="group flex gap-5 items-start fade-in-up visible"><div class="relative flex-shrink-0"><div class="w-14 h-14 rounded-xl border border-surface-border dark:border-outline/40 flex items-center justify-center text-charcoal-text/60 dark:text-inverse-on-surface/60 bg-white/50 dark:bg-primary-container/20 backdrop-blur shadow-sm transition-all duration-500 group-hover:bg-gold-accent group-hover:text-white group-hover:border-gold-accent group-hover:shadow-[0_10px_20px_rgba(212,175,55,0.2)]"><span class="material-symbols-outlined text-[28px] font-light">record_voice_over</span></div><span class="absolute -top-3 -right-3 text-[11px] font-bold text-gold-accent/60 tracking-widest bg-background dark:bg-obsidian-dark px-1">02</span></div><div class="flex-1 pt-0.5"><h3 class="font-display-lg text-[20px] text-charcoal-text dark:text-inverse-on-surface mb-1.5 tracking-tight">Articulate Influence</h3><p class="font-body-md text-charcoal-text/70 dark:text-inverse-on-surface/70 text-[14px] leading-relaxed max-w-md">Transform raw intention into persuasive, natural expression. We focus on the nuances of tone and presence that define global authority.</p></div></div><div class="group flex gap-5 items-start fade-in-up visible"><div class="relative flex-shrink-0"><div class="w-14 h-14 rounded-xl border border-surface-border dark:border-outline/40 flex items-center justify-center text-charcoal-text/60 dark:text-inverse-on-surface/60 bg-white/50 dark:bg-primary-container/20 backdrop-blur shadow-sm transition-all duration-500 group-hover:bg-gold-accent group-hover:text-white group-hover:border-gold-accent group-hover:shadow-[0_10px_20px_rgba(212,175,55,0.2)]"><span class="material-symbols-outlined text-[28px] font-light">trending_up</span></div><span class="absolute -top-3 -right-3 text-[11px] font-bold text-gold-accent/60 tracking-widest bg-background dark:bg-obsidian-dark px-1">03</span></div><div class="flex-1 pt-0.5"><h3 class="font-display-lg text-[20px] text-charcoal-text dark:text-inverse-on-surface mb-1.5 tracking-tight">Iterative Evolution</h3><p class="font-body-md text-charcoal-text/70 dark:text-inverse-on-surface/70 text-[14px] leading-relaxed max-w-md">Refine your skills through a continuous feedback loop. Build the sustainable habits that separate the proficient from the exceptional.</p></div></div></div></div><div class="lg:col-span-5 space-y-8"><div class="bg-white dark:bg-primary-container/20 border border-surface-border dark:border-outline/30 p-6 md:p-8 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.05)] hover:shadow-[0_15px_50px_-10px_rgba(0,0,0,0.08)] transition-all duration-500 fade-in-up visible relative overflow-hidden"><div class="absolute top-0 right-0 w-24 h-24 bg-gold-accent/5 rounded-bl-full -z-10"></div><div class="flex justify-between items-start mb-6 relative z-10"><div class="w-12 h-12 bg-surface-container dark:bg-primary-container rounded-xl flex items-center justify-center text-charcoal-text dark:text-inverse-on-surface border border-surface-border dark:border-outline/30"><span class="material-symbols-outlined text-[24px]">videocam</span></div><span class="text-[10px] font-label-sm uppercase tracking-[0.2em] text-gold-accent border border-gold-accent/30 px-3 py-1 rounded-full font-bold">Live Session</span></div><div class="space-y-2 mb-6 relative z-10"><h4 class="font-display-lg text-[22px] text-charcoal-text dark:text-inverse-on-surface leading-tight tracking-tight">Advanced Grammar Workshop</h4><p class="font-body-md text-charcoal-text/60 dark:text-inverse-on-surface/60 text-[14px] leading-relaxed">A deep dive into the linguistic structures of executive reporting and negotiation.</p></div><div class="pt-5 border-t border-surface-border dark:border-outline/20 relative z-10"><div class="flex items-center gap-2 mb-5"><span class="material-symbols-outlined text-gold-accent text-[18px]">calendar_month</span><span class="text-[11px] text-charcoal-text dark:text-inverse-on-surface uppercase tracking-widest font-bold font-label-sm">Friday, 18:00 GMT</span></div><a class="w-full bg-charcoal-text dark:bg-inverse-on-surface text-white dark:text-obsidian-dark font-label-sm text-[12px] uppercase tracking-widest flex items-center justify-center gap-2.5 hover:bg-gold-accent dark:hover:bg-gold-accent transition-all duration-300 shadow-md hover:shadow-[0_8px_20px_rgba(212,175,55,0.2)] group font-bold py-3.5 rounded-full" href="#"><span class="material-symbols-outlined text-[18px] transition-transform group-hover:scale-110">chat</span>Reserve Your Seat</a></div></div></div></div><div class="flex flex-col items-center justify-center text-center pt-10 border-t border-surface-border dark:border-outline/20 mt-16 w-full fade-in-up visible mx-auto max-w-2xl"><span class="text-xs font-bold uppercase tracking-widest text-gold-accent mb-4 block text-center font-label-sm">CONNECT WITH OUR LEADERSHIP</span><div class="flex flex-wrap items-center justify-center gap-4 w-full"><a class="group bg-white dark:bg-white/5 border border-surface-border dark:border-white/10 shadow-sm hover:border-gold-accent/60 hover:bg-gold-accent/10 transition-all duration-300 px-5 py-2.5 rounded-full flex items-center gap-2.5 text-xs font-semibold tracking-wider uppercase text-charcoal-text dark:text-inverse-on-surface hover:text-gold-accent active:scale-95" href="#"><span class="material-symbols-outlined text-[18px] text-gold-accent transition-transform duration-300 group-hover:scale-110">link</span><span class="font-label-sm text-[11px] tracking-widest font-bold">LINKEDIN PROFILE</span></a><a class="group bg-white dark:bg-white/5 border border-surface-border dark:border-white/10 shadow-sm hover:border-gold-accent/60 hover:bg-gold-accent/10 transition-all duration-300 px-5 py-2.5 rounded-full flex items-center gap-2.5 text-xs font-semibold tracking-wider uppercase text-charcoal-text dark:text-inverse-on-surface hover:text-gold-accent active:scale-95" href="#"><span class="material-symbols-outlined text-[18px] text-gold-accent transition-transform duration-300 group-hover:scale-110">photo_camera</span><span class="font-label-sm text-[11px] tracking-widest font-bold">INSTAGRAM PROFILE</span></a></div></div></div></section>
+<!-- Course Highlights -->
+<!-- Final CTA -->
+<section class="py-14 bg-charcoal-text dark:bg-primary-container text-white text-center relative overflow-hidden"><div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/black-linen.png')] opacity-10 pointer-events-none mix-blend-overlay"></div><div class="max-w-3xl mx-auto px-margin-mobile md:px-margin-desktop fade-in-up visible relative z-10"><h2 class="font-display-lg text-[36px] md:text-display-lg text-white dark:text-inverse-on-surface leading-[1.05] tracking-tighter mb-4">Our Commitment to <br class=""><span class="italic font-light text-gold-accent">Excellence</span></h2><p class="font-body-md text-white/80 dark:text-inverse-on-surface/80 mb-8 text-base leading-relaxed max-w-2xl mx-auto">Join the ranks of global professionals who have transformed their communication through ENG-LISTON's elite methodology.</p><div class="flex items-center justify-center gap-3 mb-8"><span class="font-label-sm text-[12px] uppercase tracking-[0.2em] text-gold-accent font-bold">Have questions? Talk to <span class="text-white dark:text-inverse-on-surface">MR MUDASSIR ALI</span> directly</span><a class="w-9 h-9 rounded-full border border-gold-accent/40 flex items-center justify-center text-gold-accent hover:bg-gold-accent hover:text-white dark:hover:text-obsidian-dark transition-all duration-300 group" href="#"><span class="material-symbols-outlined text-[16px]" style="font-variation-settings: &quot;FILL&quot; 1;">chat</span></a></div><button class="bg-white dark:bg-inverse-on-surface text-charcoal-text dark:text-obsidian-dark font-label-sm text-label-sm px-10 py-3.5 hover:bg-gold-accent hover:text-white dark:hover:bg-gold-accent transition-all duration-300 shadow-[0_10px_30px_rgba(0,0,0,0.2)] active:scale-95 text-[12px] uppercase tracking-[0.2em] font-bold rounded-full">BOOK A FREE SESSION</button></div></section>
+</main>
+<!-- Footer -->
+<footer class="bg-background dark:bg-obsidian-dark border-t border-surface-border dark:border-outline/20 relative overflow-hidden">
+<div class="grid grid-cols-1 md:grid-cols-4 gap-gutter px-margin-mobile md:px-margin-desktop py-10 max-w-container-max mx-auto relative z-10"><div class="col-span-1 md:col-span-1 flex flex-col items-start gap-4"><div class="flex items-center gap-2"><img alt="ENG-LISTON Logo" class="h-6 w-6 object-contain rounded-md shadow-sm" src="https://lh3.googleusercontent.com/aida/AEtjO1Xe3TqSPivLl1C94EGYjC0zY_7wSIgyQ95TVupEMJdXPj81Gjik55ApjQ_sio6Xp9D4qHtsAf6cDq6SRufbUJ1wOx9vri2OJdk-luvv7oC96PAM9F-Lcp9Ed0NxzTbI_BrVobVgkGgWTvSr69iLnDWvQGDSLJ1PvkqH_5-s8RGKJ6o4x-3FY6yfh8XY9Qpb0IanwQqKi6ZgENc0u-xcxc5Y0iwdi8CWPTyjG5OJIEPZJ1YD2UhREctizdtV"><span class="font-display-lg text-[18px] tracking-tight text-charcoal-text dark:text-inverse-on-surface">SPEAK-UP</span></div><p class="text-[13px] text-charcoal-text/70 dark:text-inverse-on-surface/70 font-body-md mt-1 max-w-[220px] leading-relaxed">Premium education for the discerning professional.</p><a class="font-body-md text-[13px] text-charcoal-text/70 dark:text-inverse-on-surface/70 hover:text-gold-accent transition-colors mt-2 block" href="#">Privacy Policy</a><a class="font-body-md text-[13px] text-charcoal-text/70 dark:text-inverse-on-surface/70 hover:text-gold-accent transition-colors mt-1 block" href="#">Terms &amp; Conditions</a><div class="flex gap-5 mt-1"></div></div><div class="flex flex-col gap-3"><h4 class="font-label-sm text-[12px] uppercase tracking-[0.2em] font-bold text-charcoal-text dark:text-inverse-on-surface mb-1">Platform</h4><a class="font-body-md text-[13px] text-charcoal-text/70 dark:text-inverse-on-surface/70 hover:text-gold-accent transition-colors" href="#">Student Portal</a><a class="font-body-md text-[13px] text-charcoal-text/70 dark:text-inverse-on-surface/70 hover:text-gold-accent transition-colors" href="#">Methodology</a><a class="font-body-md text-[13px] text-charcoal-text/70 dark:text-inverse-on-surface/70 hover:text-gold-accent transition-colors" href="#">Pricing</a><a class="font-body-md text-[13px] text-charcoal-text/70 dark:text-inverse-on-surface/70 hover:text-gold-accent transition-colors" href="#">FAQs</a></div><div class="flex flex-col gap-3"><h4 class="font-label-sm text-[12px] uppercase tracking-[0.2em] font-bold text-charcoal-text dark:text-inverse-on-surface mb-1">Social</h4><a class="font-body-md text-[13px] text-charcoal-text/70 dark:text-inverse-on-surface/70 hover:text-gold-accent transition-colors" href="#">Instagram</a><a class="font-body-md text-[13px] text-charcoal-text/70 dark:text-inverse-on-surface/70 hover:text-gold-accent transition-colors" href="#">LinkedIn</a></div><div class="flex flex-col gap-3"><h4 class="font-label-sm text-[12px] uppercase tracking-[0.2em] font-bold text-charcoal-text dark:text-inverse-on-surface mb-1">Contact Us</h4><p class="text-[13px] text-charcoal-text/70 dark:text-inverse-on-surface/70 font-body-md mb-2 max-w-[220px]">Reach out to our academic advisors for personalized guidance.</p><div class="flex items-center gap-3 group cursor-pointer"><div class="w-10 h-10 rounded bg-white dark:bg-primary-container border border-surface-border dark:border-outline/30 flex items-center justify-center text-charcoal-text/60 dark:text-inverse-on-surface/60 transition-colors group-hover:bg-gold-accent group-hover:text-white group-hover:border-gold-accent"><span class="material-symbols-outlined text-[18px]">mail</span></div><a class="text-[13px] font-body-md text-charcoal-text dark:text-inverse-on-surface hover:text-gold-accent transition-colors" href="mailto:admissions@eng-liston.com">admissions@speak_up.com</a></div></div></div>
+<div class="border-t border-surface-border dark:border-outline/20 px-margin-mobile md:px-margin-desktop py-4 max-w-container-max mx-auto flex justify-between items-center text-[12px] text-charcoal-text/50 dark:text-inverse-on-surface/50 font-body-md relative z-10"><span class="">© 2024 SPEAK-Up Premium Education. All rights reserved.</span><span class="">Design System v2.1</span></div>
+</footer>
+<!-- Floating WhatsApp Button (Subtle) -->
+
+<script>
+        // Simple scroll reveal animation
+        document.addEventListener('DOMContentLoaded', () => {
+            const observerOptions = {
+                root: null,
+                rootMargin: '0px',
+                threshold: 0.1
+            };
+
+            const observer = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('visible');
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, observerOptions);
+
+            document.querySelectorAll('.fade-in-up').forEach(element => {
+                observer.observe(element);
+            });
+        });
+    </script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body></html>

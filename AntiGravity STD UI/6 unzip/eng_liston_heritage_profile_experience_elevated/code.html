@@ -1,0 +1,197 @@
+<!DOCTYPE html><html class="light" lang="en" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Profile - LinguistAtelier</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&amp;family=Source+Serif+4:wght@400;600&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+                "outline-variant": "#c4c7c7",
+                "primary-fixed": "#e5e2e1",
+                "on-primary-fixed": "#1c1b1b",
+                "surface-container-lowest": "#ffffff",
+                "on-primary-fixed-variant": "#474746",
+                "tertiary-container": "#091d2e",
+                "error-container": "#ffdad6",
+                "tertiary-fixed": "#d1e4fb",
+                "primary-container": "#1c1b1b",
+                "surface-container-high": "#e8e8e8",
+                "surface-variant": "#e2e2e2",
+                "on-surface": "#1a1c1c",
+                "surface": "#fff8f0",
+                "cream-surface": "#fcfcfc",
+                "surface-dim": "#dadada",
+                "on-background": "#1a1c1c",
+                "outline": "#747878",
+                "slate-gray-container": "#1c1c1c",
+                "on-tertiary-fixed": "#091d2e",
+                "off-white-text": "#e0e0e0",
+                "error": "#ba1a1a",
+                "background": "#fff8f0",
+                "on-secondary-fixed-variant": "#5d4201",
+                "obsidian-dark": "#0a0a0a",
+                "surface-container": "#eeeeee",
+                "secondary-fixed-dim": "#e9c176",
+                "tertiary": "#000000",
+                "secondary-fixed": "#ffdea5",
+                "on-tertiary-fixed-variant": "#36485b",
+                "surface-container-low": "#fcf9f5",
+                "on-secondary": "#ffffff",
+                "inverse-on-surface": "#f0f1f1",
+                "on-error-container": "#93000a",
+                "on-primary-container": "#858383",
+                "inverse-surface": "#2f3131",
+                "on-primary": "#ffffff",
+                "secondary-container": "#fed488",
+                "on-tertiary-container": "#73869a",
+                "on-error": "#ffffff",
+                "on-secondary-container": "#785a1a",
+                "inverse-primary": "#c8c6c5",
+                "primary-fixed-dim": "#c8c6c5",
+                "charcoal-text": "#1a1a1a",
+                "on-tertiary": "#ffffff",
+                "on-secondary-fixed": "#261900",
+                "on-surface-variant": "#444748",
+                "surface-container-highest": "#e2e2e2",
+                "tertiary-fixed-dim": "#b5c8df",
+                "surface-tint": "#5f5e5e",
+                "secondary": "#d4af37",
+                "primary": "#1a1a1a",
+                "surface-bright": "#fff8f0"
+        },
+        "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px"
+        },
+        "spacing": {
+                "margin-desktop": "48px",
+                "stack-sm": "16px",
+                "base": "8px",
+                "gutter": "24px",
+                "margin-mobile": "20px",
+                "stack-md": "32px",
+                "container-max": "1140px",
+                "stack-lg": "64px"
+        },
+        "fontFamily": {
+                "display-lg": [
+                        "Hanken Grotesk"
+                ],
+                "body-lg": [
+                        "\"Source Serif 4\""
+                ],
+                "body-md": [
+                        "\"Source Serif 4\""
+                ],
+                "headline-md": [
+                        "Hanken Grotesk"
+                ],
+                "label-lg": [
+                        "Hanken Grotesk"
+                ],
+                "display-lg-mobile": [
+                        "Hanken Grotesk"
+                ],
+                "label-sm": [
+                        "Hanken Grotesk"
+                ]
+        },
+        "fontSize": {
+                "display-lg": [
+                        "48px",
+                        {
+                                "lineHeight": "1.1",
+                                "letterSpacing": "-0.02em",
+                                "fontWeight": "700"
+                        }
+                ],
+                "body-lg": [
+                        "18px",
+                        {
+                                "lineHeight": "1.7",
+                                "letterSpacing": "0",
+                                "fontWeight": "400"
+                        }
+                ],
+                "body-md": [
+                        "16px",
+                        {
+                                "lineHeight": "1.6",
+                                "letterSpacing": "0",
+                                "fontWeight": "400"
+                        }
+                ],
+                "headline-md": [
+                        "24px",
+                        {
+                                "lineHeight": "1.3",
+                                "letterSpacing": "0",
+                                "fontWeight": "600"
+                        }
+                ],
+                "label-lg": [
+                        "14px",
+                        {
+                                "lineHeight": "1.4",
+                                "letterSpacing": "0.05em",
+                                "fontWeight": "600"
+                        }
+                ],
+                "display-lg-mobile": [
+                        "36px",
+                        {
+                                "lineHeight": "1.2",
+                                "letterSpacing": "-0.01em",
+                                "fontWeight": "700"
+                        }
+                ],
+                "label-sm": [
+                        "12px",
+                        {
+                                "lineHeight": "1.2",
+                                "letterSpacing": "0.1em",
+                                "fontWeight": "600"
+                        }
+                ]
+        }
+},
+    },
+  }
+</script>
+</head>
+<body class="bg-surface text-on-surface min-h-screen flex flex-col font-body-md">
+<!-- TopNavBar -->
+<header class="bg-surface border-b border-surface-variant docked full-width top-0 z-50"></header>
+<!-- Main Content -->
+<main class="flex-grow w-full max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-stack-lg">
+<!-- Header Section -->
+<header class="mb-stack-lg text-center md:text-left"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-base"><div class="inline-flex items-center px-6 py-2.5 rounded-xl border border-surface-variant bg-surface-container-low shadow-sm mb-1 self-start"><h1 class="font-display-lg text-display-lg-mobile md:text-display-lg text-primary">Profile</h1></div><a href="#" class="inline-flex items-center gap-1 font-label-sm text-label-sm uppercase tracking-wider text-primary hover:text-secondary border border-surface-variant hover:border-secondary px-3 py-1.5 rounded-DEFAULT transition-colors duration-200 bg-surface-container-low shadow-sm self-start sm:self-center"><span class="material-symbols-outlined text-sm">arrow_back</span><span class="">Back to Dashboard</span></a></div></header>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-stack-md"><section class="space-y-stack-md lg:col-span-8"><div class="bg-surface-container-lowest border border-surface-variant rounded-xl p-stack-sm md:p-stack-md shadow-sm"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-base mb-stack-sm border-b border-surface-variant pb-base"><div class="flex items-center gap-base"><div class="relative group"><div class="w-20 h-20 rounded-full overflow-hidden border-2 border-secondary p-1 bg-surface-container-lowest mr-2"><img alt="Professional student headshot" class="w-full h-full object-cover rounded-full" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCLPihQEcVKc2UJ7F4-93_1EmPTWF_j1bHAuIAxAYsrlFrabAxbfm8d08UGpYOXLP3hYrTG2fsTPqcv-e4iXTcz-OcvZAjbl1X60L6Ows3-E3EnVI7Tr-QaRtZqYP3ZSYp9tOafW2szYi2rr5kfIbZVezgeeYQhmaw9D7xzeAybcXX0zsUNhifiEN8Mo5BjptiMojzEdkLUY0NlR4ElRn2_ZfYenoD-ouQEmtTXVqgrdIY9x_Ayk204sA"></div></div><div><h2 class="font-headline-md text-headline-md text-primary">Personal Information</h2><p class="text-body-md text-on-surface-variant text-sm">Registered student credential details</p></div></div><label class="inline-flex items-center gap-1 cursor-pointer font-label-sm text-label-sm text-primary hover:text-secondary border border-surface-variant hover:border-secondary px-3 py-1.5 rounded-DEFAULT transition-colors duration-200 bg-surface-container-low self-start sm:self-center"><input type="file" class="hidden" accept="image/*" aria-label="Change photo"><span class="material-symbols-outlined text-sm">upload</span><span class="">Change Photo</span></label></div><div class="grid grid-cols-1 md:grid-cols-2 gap-gutter"><div class="space-y-1"><label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider block">Full Name</label><div class="font-body-md text-body-md text-on-surface p-base bg-surface-container-low border border-surface-variant rounded-DEFAULT font-semibold">Mudassir Khan</div></div><div class="space-y-1"><label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider block">Email Address</label><div class="font-body-md text-body-md text-on-surface p-base bg-surface-container-low border border-surface-variant rounded-DEFAULT">mudassir.khan@example.com</div></div><div class="space-y-1"><label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider block">Course Enrolled</label><div class="font-body-md text-body-md text-on-surface p-base bg-surface-container-low border border-surface-variant rounded-DEFAULT flex items-center justify-between"><span class="">English Grammar Mastery</span><span class="bg-secondary text-on-secondary font-label-sm text-label-sm px-2 py-1 rounded-full uppercase tracking-wider font-semibold">Active</span></div></div><div class="space-y-1"><label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider block">Current Status</label><div class="font-body-md text-body-md text-on-surface p-base bg-surface-container-low border border-surface-variant rounded-DEFAULT">Student</div></div><div class="space-y-1 md:col-span-2"><label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider block">Phone Number</label><div class="font-body-md text-body-md text-on-surface p-base bg-surface-container-low border border-surface-variant rounded-DEFAULT">+1 (555) 349-2810</div></div></div></div></section><aside class="space-y-stack-md lg:col-span-4"></aside></div>
+</main>
+<!-- Footer -->
+<footer class="bg-surface-container-lowest border-t border-surface-variant mt-auto"></footer>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body></html>

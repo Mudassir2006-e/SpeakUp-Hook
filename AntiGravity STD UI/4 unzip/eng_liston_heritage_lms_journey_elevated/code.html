@@ -1,0 +1,373 @@
+<!DOCTYPE html><html class="light" lang="en" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>ENG-LISTON - LMS Journey</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&amp;family=Source+Serif+4:wght@400;600&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-primary-container": "#858383",
+                      "surface-variant": "#e8e1da",
+                      "inverse-on-surface": "#f7f0e8",
+                      "on-primary-fixed": "#1c1b1b",
+                      "obsidian-dark": "#0a0a0a",
+                      "tertiary-fixed-dim": "#c9c6c5",
+                      "on-secondary": "#ffffff",
+                      "primary-fixed-dim": "#c8c6c5",
+                      "inverse-primary": "#c8c6c5",
+                      "surface-dim": "#dfd9d1",
+                      "primary-fixed": "#e5e2e1",
+                      "gold-accent": "#d4af37",
+                      "charcoal-text": "#1a1a1a",
+                      "on-surface-variant": "#444748",
+                      "on-secondary-fixed-variant": "#574500",
+                      "on-error-container": "#93000a",
+                      "tertiary-fixed": "#e5e2e1",
+                      "surface-container-highest": "#e8e1da",
+                      "on-primary": "#ffffff",
+                      "on-error": "#ffffff",
+                      "on-tertiary-fixed-variant": "#474646",
+                      "background": "#fff8f1",
+                      "secondary-container": "#fed65b",
+                      "surface-border": "rgba(26, 26, 26, 0.1)",
+                      "primary": "#000000",
+                      "on-tertiary-container": "#858383",
+                      "on-surface": "#1e1b17",
+                      "inverse-surface": "#33302b",
+                      "on-secondary-container": "#745c00",
+                      "error-container": "#ffdad6",
+                      "outline-variant": "#c4c7c7",
+                      "surface-container-lowest": "#ffffff",
+                      "tertiary": "#000000",
+                      "cream-bg": "#fff8f0",
+                      "surface-container": "#f4ede5",
+                      "on-background": "#1e1b17",
+                      "primary-container": "#1c1b1b",
+                      "secondary-fixed-dim": "#e9c349",
+                      "surface": "#fff8f1",
+                      "error": "#ba1a1a",
+                      "on-tertiary-fixed": "#1c1b1b",
+                      "on-secondary-fixed": "#241a00",
+                      "secondary": "#735c00",
+                      "outline": "#747878",
+                      "secondary-fixed": "#ffe088",
+                      "surface-container-high": "#eee7df",
+                      "on-tertiary": "#ffffff",
+                      "surface-bright": "#fff8f1",
+                      "on-primary-fixed-variant": "#474746",
+                      "tertiary-container": "#1c1b1b",
+                      "surface-container-low": "#f9f3eb",
+                      "surface-tint": "#5f5e5e"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "stack-sm": "16px",
+                      "container-max": "1140px",
+                      "margin-desktop": "48px",
+                      "stack-md": "32px",
+                      "margin-mobile": "20px",
+                      "base": "8px",
+                      "stack-lg": "64px",
+                      "gutter": "24px"
+              },
+              "fontFamily": {
+                      "display-lg-mobile": [
+                              "Hanken Grotesk"
+                      ],
+                      "headline-md": [
+                              "Hanken Grotesk"
+                      ],
+                      "display-lg": [
+                              "Hanken Grotesk"
+                      ],
+                      "label-sm": [
+                              "Hanken Grotesk"
+                      ],
+                      "body-lg": [
+                              "\"Source Serif 4\""
+                      ],
+                      "body-md": [
+                              "\"Source Serif 4\""
+                      ],
+                      "label-lg": [
+                              "Hanken Grotesk"
+                      ]
+              },
+              "fontSize": {
+                      "display-lg-mobile": [
+                              "36px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "headline-md": [
+                              "24px",
+                              {
+                                      "lineHeight": "1.3",
+                                      "letterSpacing": "0",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "display-lg": [
+                              "48px",
+                              {
+                                      "lineHeight": "1.1",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "label-sm": [
+                              "12px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "letterSpacing": "0.1em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "1.7",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "1.6",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "label-lg": [
+                              "14px",
+                              {
+                                      "lineHeight": "1.4",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "600"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+    </script>
+<style>
+        .glass-panel {
+            background: rgba(255, 248, 241, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(26, 26, 26, 0.1);
+        }
+        .dark .glass-panel {
+            background: rgba(10, 10, 10, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .bento-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .bento-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+        }
+    </style>
+</head>
+<body class="bg-background dark:bg-obsidian-dark text-on-background dark:text-tertiary-fixed min-h-screen flex flex-col font-body-md">
+<!-- TopNavBar (Hidden on md for SideNav demo, but keeping semantic structure) -->
+
+<!-- Mobile Header (Visible only on small screens) -->
+<header class="sticky top-0 z-50 bg-background/95 border-b border-surface-border backdrop-blur-md"><div class="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop h-20 flex items-center justify-between"><div class="flex items-center space-x-8"><a href="#" class="flex items-center space-x-3 text-primary"><img src="https://lh3.googleusercontent.com/aida/AEtjO1Xe3TqSPivLl1C94EGYjC0zY_7wSIgyQ95TVupEMJdXPj81Gjik55ApjQ_sio6Xp9D4qHtsAf6cDq6SRufbUJ1wOx9vri2OJdk-luvv7oC96PAM9F-Lcp9Ed0NxzTbI_BrVobVgkGgWTvSr69iLnDWvQGDSLJ1PvkqH_5-s8RGKJ6o4x-3FY6yfh8XY9Qpb0IanwQqKi6ZgENc0u-xcxc5Y0iwdi8CWPTyjG5OJIEPZJ1YD2UhREctizdtV" alt="SPEAK-UP Logo" class="w-10 h-10 object-contain rounded"><span class="font-display-lg-mobile text-headline-md font-bold tracking-tighter text-primary uppercase">SPEAK-UP</span></a></div><nav class="hidden md:flex items-center space-x-8"></nav><div class="flex items-center space-x-4"><a href="#" class="flex items-center space-x-2 font-label-lg text-label-lg uppercase tracking-wider text-primary hover:text-gold-accent transition-colors duration-300 px-4 py-2"><span class="material-symbols-outlined text-sm">arrow_back</span><span class="">Back</span></a><button class="md:hidden flex items-center text-primary p-2"><span class="material-symbols-outlined">menu</span></button></div></div></header>
+<main class="flex-grow flex w-full max-w-container-max mx-auto">
+<!-- SideNav (Visible on md+) -->
+<!-- Content Canvas -->
+<div class="flex-grow p-margin-mobile md:p-margin-desktop w-full overflow-y-auto">
+<!-- Hero Section -->
+<div class="mb-stack-md text-center"><div class="inline-block border border-outline px-6 mb-2 shadow-sm bg-surface-container-lowest py-3 rounded-full"><h1 class="font-display-lg uppercase tracking-tighter text-primary text-headline-md">LMS Journey Panel</h1></div><div class="h-1 w-16 bg-gold-accent mx-auto mt-2"></div></div><section class="mb-stack-lg relative overflow-hidden rounded-xl bg-surface-container-low border border-surface-border p-stack-md flex flex-col md:flex-row items-center gap-gutter shadow-sm">
+<div class="z-10 w-full md:w-1/2 pr-0 md:pr-8"><h1 class="font-display-lg text-display-lg md:text-display-lg text-primary dark:text-primary-fixed mb-6 tracking-tighter">The Architecture of Your Excellence</h1><p class="font-body-lg text-body-lg text-on-surface-variant leading-relaxed">Embark on a meticulously curated path to linguistic mastery. Our heritage methodology transforms the learning experience into a seamless journey of intellectual growth, ensuring every milestone is met with precision and sophistication.</p></div>
+<div class="z-10 w-full md:w-1/2 h-64 md:h-80 rounded-lg overflow-hidden relative shadow-sm border border-surface-border">
+<div class="bg-cover bg-center w-full h-full" data-alt="A sophisticated, high-end editorial flatlay of a modern executive's desk. An open premium leather notebook sits next to a sleek silver laptop displaying an elegant analytics dashboard in a light mode aesthetic. A gold pen rests on the notebook. Soft, natural light casts gentle shadows, creating a calm, intellectual, and prestigious atmosphere. Palette features cream, deep charcoal, and gold accents." style="background-image: url(&quot;https://lh3.googleusercontent.com/aida-public/AB6AXuD7GomH2qAYsdcxhAI0Lsh8eDY_TWiQcLbvQCMj7D2OiYqWf48DRaiG7vkNht4KFcf4auovVbzm-aEWvogRWWh_UvS3jZUCilZJc9c7unU7wJvnvNhitVfJNUnyAbU9ySzEGLMi0Vk4aaGRjKkKjDUCuenX4T3varQKO-GiwlBUni4D8evgJcPp3_rlN3Z9xL4Wne1gEghKJDNPVlv6O7e48gaAEsQK8Nm7qOQIzcILtu2h_LNeiQrbyA&quot;);"></div>
+</div>
+</section>
+<!-- Verification vs Course Access (Bento Grid) -->
+<section class="mb-stack-lg"><h2 class="font-headline-md text-headline-md text-primary mb-stack-sm">The Foundation: Access &amp; Approval</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-gutter mb-stack-md">
+<!-- Account Verification -->
+<div class="bento-card bg-surface-container-lowest p-stack-md rounded-lg border border-surface-border shadow-sm">
+<div class="flex items-center space-x-3 mb-6">
+<div class="w-10 h-10 rounded border border-surface-border bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">mark_email_read</span>
+</div>
+<h3 class="font-label-lg text-label-lg uppercase tracking-wider text-primary">Account Verification</h3>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant mb-6">Automated email verification that grants access to the platform but NOT individual courses. This ensures your identity before you begin your journey.</p>
+<ul class="space-y-3 font-body-md text-body-md text-on-surface-variant">
+<li class="flex items-start space-x-3"><span class="material-symbols-outlined text-gold-accent text-sm mt-1">check</span> <span class="">Instant OTP verification.</span></li>
+<li class="flex items-start space-x-3"><span class="material-symbols-outlined text-gold-accent text-sm mt-1">check</span> <span class="">Platform dashboard access.</span></li>
+<li class="flex items-start space-x-3"><span class="material-symbols-outlined text-gold-accent text-sm mt-1">check</span> <span class="">Courses remain locked until enrollment.</span></li>
+</ul>
+</div>
+<!-- Individual Approval -->
+<div class="bento-card bg-surface-container-lowest p-stack-md rounded-lg border border-surface-border shadow-sm">
+<div class="flex items-center space-x-3 mb-6">
+<div class="w-10 h-10 rounded border border-secondary-container bg-secondary-container flex items-center justify-center text-on-secondary-container">
+<span class="material-symbols-outlined">verified_user</span>
+</div>
+<h3 class="font-label-lg text-label-lg uppercase tracking-wider text-primary">Individual Approval</h3>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant mb-6">Admin approves courses one by one. For example, Grammar can be approved while Speaking remains locked, ensuring a tailored learning pace.</p>
+<ul class="space-y-3 font-body-md text-body-md text-on-surface-variant">
+<li class="flex items-start space-x-3"><span class="material-symbols-outlined text-gold-accent text-sm mt-1">check</span> <span class="">Independent enrollment records.</span></li>
+<li class="flex items-start space-x-3"><span class="material-symbols-outlined text-gold-accent text-sm mt-1">check</span> <span class="">Manual administrative review.</span></li>
+<li class="flex items-start space-x-3"><span class="material-symbols-outlined text-gold-accent text-sm mt-1">check</span> <span class="">Approved courses appear in 'Enrolled Courses'.</span></li>
+</ul>
+</div>
+</div>
+<!-- Step-by-Step Journey -->
+<div class="bg-surface-container-low p-stack-md rounded-xl border border-surface-border shadow-sm">
+<h3 class="font-headline-md text-headline-md text-primary mb-8">How to Register / Course Journey</h3>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-y-8 gap-x-6">
+<div class="space-y-6">
+<div class="flex items-start space-x-4">
+<span class="font-display-lg text-gold-accent opacity-60">01</span>
+<p class="font-label-lg text-label-lg uppercase mt-2 text-primary">Create account / register</p>
+</div>
+<div class="flex items-start space-x-4">
+<span class="font-display-lg text-gold-accent opacity-60">04</span>
+<p class="font-label-lg text-label-lg uppercase mt-2 text-primary"><span class="" style="letter-spacing: 0.7px;">Wait for admin approval</span></p>
+</div>
+<div class="flex items-start space-x-4">
+<span class="font-display-lg text-gold-accent opacity-60">07</span>
+<p class="font-label-lg text-label-lg uppercase mt-2 text-primary"><span class="" style="letter-spacing: 0.7px;">course Verification is typically complete within 12 to 24 hours.</span></p>
+</div></div>
+<div class="space-y-6">
+<div class="flex items-start space-x-4">
+<span class="font-display-lg text-gold-accent opacity-60">02</span>
+<p class="font-label-lg text-label-lg uppercase mt-2 text-primary"><span class="" style="letter-spacing: 0.7px;">verify your email via otp</span></p>
+</div>
+<div class="flex items-start space-x-4">
+<span class="font-display-lg text-gold-accent opacity-60">05</span>
+<p class="font-label-lg text-label-lg uppercase mt-2 text-primary">Log in for LMS</p>
+</div>
+<div class="flex items-start space-x-4"><span class="font-display-lg text-gold-accent opacity-60">08</span><p class="font-label-lg text-label-lg uppercase mt-2 text-primary">now you easliy access the enrolled course</p></div></div>
+<div class="space-y-6">
+<div class="flex items-start space-x-4">
+<span class="font-display-lg text-gold-accent opacity-60">03<br></span>
+<p class="font-label-lg text-label-lg uppercase mt-2 text-primary">send bank receipt on whatsapp</p>
+</div>
+<div class="flex items-start space-x-4">
+<span class="font-display-lg text-gold-accent opacity-60">06</span>
+<p class="font-label-lg text-label-lg uppercase mt-2 text-primary">sent email request for the choosen course</p>
+</div>
+</div>
+</div>
+<div class="mt-10 p-6 bg-surface-container-lowest border-l-4 border-gold-accent shadow-sm">
+<p class="font-body-md text-body-md text-on-surface-variant italic mb-6">
+<strong>Note:</strong> Registering for one course does not automatically unlock other courses. Each course has its own enrollment and approval process.
+    </p>
+<div class="flex flex-col sm:flex-row items-center gap-4">
+<button class="w-full sm:w-auto px-8 py-3 font-label-lg uppercase tracking-wider border border-primary text-primary hover:bg-surface-container transition-colors duration-300 rounded-full">
+    View Courses
+  </button>
+<button class="w-full sm:w-auto px-8 py-3 font-label-lg uppercase tracking-wider bg-primary text-on-primary hover:bg-gold-accent transition-colors duration-300 rounded-full">Register Now</button>
+</div></div>
+</div></section><section class="mb-stack-lg">
+  <div class="mb-stack-lg text-center">
+    <span class="text-label-lg uppercase tracking-widest text-gold-accent mb-2 inline-block font-bold">Institutional Advantages</span><div class="block mt-2"><div class="inline-block px-6 py-2 border border-gold-accent/30 rounded-full bg-surface-container-low shadow-sm"><h2 class="font-label-lg text-label-lg uppercase tracking-widest text-primary dark:text-primary-fixed">BENEFITS</h2></div></div>
+    
+    <div class="h-px w-24 bg-gold-accent/40 mx-auto mt-4"></div>
+  </div>
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-gutter">
+    <!-- Recorded Classes -->
+    <div class="bento-card bg-surface-container-lowest dark:bg-obsidian-dark p-8 rounded-xl border border-gold-accent/20 shadow-sm flex flex-col items-start">
+      <div class="w-12 h-12 rounded-full border border-gold-accent/30 flex items-center justify-center text-gold-accent mb-6 bg-surface-container-low dark:bg-primary-container">
+        <span class="material-symbols-outlined">video_library</span>
+      </div>
+      <h3 class="font-headline-md text-headline-md text-primary dark:text-primary-fixed mb-3">Recorded Classes</h3>
+      <p class="font-body-md text-body-md text-on-surface-variant leading-relaxed">On-Demand Curriculum: Access executive-level lessons across all time zones with our secure, high-definition digital library.</p>
+    </div>
+    <!-- Practice Material -->
+    <div class="bento-card bg-surface-container-lowest dark:bg-obsidian-dark p-8 rounded-xl border border-gold-accent/20 shadow-sm flex flex-col items-start">
+      <div class="w-12 h-12 rounded-full border border-gold-accent/30 flex items-center justify-center text-gold-accent mb-6 bg-surface-container-low dark:bg-primary-container">
+        <span class="material-symbols-outlined">menu_book</span>
+      </div>
+      <h3 class="font-headline-md text-headline-md text-primary dark:text-primary-fixed mb-3">Practice Material</h3>
+      <p class="font-body-md text-body-md text-on-surface-variant leading-relaxed">Strategic Practice Assets: Access a curated suite of technical resources and case studies designed for immediate professional application.</p>
+    </div>
+    <!-- Live Classes -->
+    <div class="bento-card bg-surface-container-lowest dark:bg-obsidian-dark p-8 rounded-xl border border-gold-accent/20 shadow-sm flex flex-col items-start">
+      <div class="w-12 h-12 rounded-full border border-gold-accent/30 flex items-center justify-center text-gold-accent mb-6 bg-surface-container-low dark:bg-primary-container">
+        <span class="material-symbols-outlined">live_tv</span>
+      </div>
+      <h3 class="font-headline-md text-headline-md text-primary dark:text-primary-fixed mb-3">Live Classes</h3>
+      <p class="font-body-md text-body-md text-on-surface-variant leading-relaxed">Executive Sessions: Participate in immersive, high-stakes simulations and live rhetorical drills for real-time linguistic refinement.</p>
+    </div>
+    <!-- Personal Guidance -->
+    <div class="bento-card bg-surface-container-lowest dark:bg-obsidian-dark p-8 rounded-xl border border-gold-accent/20 shadow-sm flex flex-col items-start">
+      <div class="w-12 h-12 rounded-full border border-gold-accent/30 flex items-center justify-center text-gold-accent mb-6 bg-surface-container-low dark:bg-primary-container">
+        <span class="material-symbols-outlined">psychology</span>
+      </div>
+      <h3 class="font-headline-md text-headline-md text-primary dark:text-primary-fixed mb-3">Personal Guidance</h3>
+      <p class="font-body-md text-body-md text-on-surface-variant leading-relaxed">Bespoke Mentorship: Receive dedicated, one-on-one strategic guidance tailored to your specific leadership trajectory and professional objectives.</p>
+    </div>
+    <!-- Discussion Group -->
+    <div class="bento-card bg-surface-container-lowest dark:bg-obsidian-dark p-8 rounded-xl border border-gold-accent/20 shadow-sm flex flex-col items-start">
+      <div class="w-12 h-12 rounded-full border border-gold-accent/30 flex items-center justify-center text-gold-accent mb-6 bg-surface-container-low dark:bg-primary-container">
+        <span class="material-symbols-outlined">groups</span>
+      </div>
+      <h3 class="font-headline-md text-headline-md text-primary dark:text-primary-fixed mb-3">Discussion Group</h3>
+      <p class="font-body-md text-body-md text-on-surface-variant leading-relaxed">Executive Peer Network: Engage with a global cohort of high-achieving professionals in a secure environment for collaborative growth.</p>
+    </div>
+    <!-- Direct Teacher Access -->
+    <div class="bento-card bg-surface-container-lowest dark:bg-obsidian-dark p-8 rounded-xl border border-gold-accent/20 shadow-sm flex flex-col items-start">
+      <div class="w-12 h-12 rounded-full border border-gold-accent/30 flex items-center justify-center text-gold-accent mb-6 bg-surface-container-low dark:bg-primary-container">
+        <span class="material-symbols-outlined">school</span>
+      </div>
+      <h3 class="font-headline-md text-headline-md text-primary dark:text-primary-fixed mb-3">Direct Teacher Access</h3>
+      <p class="font-body-md text-body-md text-on-surface-variant leading-relaxed">Direct Pedagogical Access: Maintain an open line of communication with our expert faculty for precise, nuanced clarification on complex concepts.</p>
+    </div>
+    <!-- Structured Notes -->
+    <div class="bento-card bg-surface-container-lowest dark:bg-obsidian-dark p-8 rounded-xl border border-gold-accent/20 shadow-sm flex flex-col items-start md:col-span-2 lg:col-span-1">
+      <div class="w-12 h-12 rounded-full border border-gold-accent/30 flex items-center justify-center text-gold-accent mb-6 bg-surface-container-low dark:bg-primary-container">
+        <span class="material-symbols-outlined">description</span>
+      </div>
+      <h3 class="font-headline-md text-headline-md text-primary dark:text-primary-fixed mb-3">Structured Notes</h3>
+      <p class="font-body-md text-body-md text-on-surface-variant leading-relaxed">Institutional Summaries: Receive authoritative, professionally structured dossiers summarizing key architectural principles from every module.</p>
+    </div>
+  </div>
+</section>
+</div>
+</main>
+<!-- Footer -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body></html>

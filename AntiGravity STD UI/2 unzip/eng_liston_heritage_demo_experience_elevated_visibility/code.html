@@ -1,0 +1,253 @@
+<!DOCTYPE html><html class="light" lang="en" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>ENG-LISTON - Free Demo</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-tertiary-container": "#73869a",
+                      "tertiary-fixed-dim": "#b5c8df",
+                      "on-secondary-fixed-variant": "#5d4201",
+                      "on-primary-fixed-variant": "#474746",
+                      "secondary-fixed-dim": "#e9c176",
+                      "on-secondary-fixed": "#261900",
+                      "on-background": "#1a1c1c",
+                      "charcoal-text": "#1a1a1a",
+                      "error-container": "#ffdad6",
+                      "inverse-primary": "#c8c6c5",
+                      "primary-fixed": "#e5e2e1",
+                      "on-surface": "#1a1c1c",
+                      "on-tertiary-fixed": "#091d2e",
+                      "inverse-on-surface": "#f0f1f1",
+                      "primary-fixed-dim": "#c8c6c5",
+                      "on-tertiary-fixed-variant": "#36485b",
+                      "error": "#ba1a1a",
+                      "on-error": "#ffffff",
+                      "outline-variant": "#d9d0c5",
+                      "on-primary": "#ffffff",
+                      "surface-container-highest": "#e2e2e2",
+                      "secondary-fixed": "#ffdea5",
+                      "surface-container": "#eeeeee",
+                      "surface": "#fff8f0",
+                      "surface-bright": "#fff8f0",
+                      "outline": "#b3a696",
+                      "on-surface-variant": "#333333",
+                      "off-white-text": "#e0e0e0",
+                      "slate-gray-container": "#1c1c1c",
+                      "primary": "#d4af37",
+                      "cream-surface": "#fcfcfc",
+                      "surface-variant": "#f2ebd9",
+                      "surface-dim": "#e6decb",
+                      "surface-container-lowest": "#ffffff",
+                      "secondary-container": "#fed488",
+                      "on-secondary-container": "#785a1a",
+                      "on-secondary": "#ffffff",
+                      "inverse-surface": "#2f3131",
+                      "surface-tint": "#5f5e5e",
+                      "on-tertiary": "#ffffff",
+                      "tertiary-container": "#091d2e",
+                      "primary-container": "#d4af37",
+                      "on-error-container": "#93000a",
+                      "on-primary-container": "#ffffff",
+                      "on-primary-fixed": "#1c1b1b",
+                      "tertiary-fixed": "#d1e4fb",
+                      "background": "#fff8f0",
+                      "obsidian-dark": "#0a0a0a",
+                      "surface-container-high": "#f0e6d5",
+                      "surface-container-low": "#faf3e8",
+                      "tertiary": "#000000",
+                      "secondary": "#775a19"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "stack-lg": "64px",
+                      "margin-desktop": "48px",
+                      "container-max": "1140px",
+                      "margin-mobile": "20px",
+                      "stack-md": "32px",
+                      "gutter": "24px",
+                      "base": "8px",
+                      "stack-sm": "16px"
+              },
+              "fontFamily": {
+                      "display-lg": [
+                              "Hanken Grotesk"
+                      ],
+                      "body-md": [
+                              "\"Source Serif 4\""
+                      ],
+                      "label-sm": [
+                              "Hanken Grotesk"
+                      ],
+                      "label-lg": [
+                              "Hanken Grotesk"
+                      ],
+                      "display-lg-mobile": [
+                              "Hanken Grotesk"
+                      ],
+                      "body-lg": [
+                              "\"Source Serif 4\""
+                      ],
+                      "headline-md": [
+                              "Hanken Grotesk"
+                      ]
+              },
+              "fontSize": {
+                      "display-lg": [
+                              "48px",
+                              {
+                                      "lineHeight": "1.1",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "1.6",
+                                      "letterSpacing": "0",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "label-sm": [
+                              "12px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "letterSpacing": "0.1em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "label-lg": [
+                              "14px",
+                              {
+                                      "lineHeight": "1.4",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "display-lg-mobile": [
+                              "36px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "1.7",
+                                      "letterSpacing": "0",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-md": [
+                              "24px",
+                              {
+                                      "lineHeight": "1.3",
+                                      "letterSpacing": "0",
+                                      "fontWeight": "600"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+      </script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&amp;family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<style>
+        body {
+            font-family: "Source Serif 4", serif;
+            background-color: #fff8f0;
+            color: #1a1a1a;
+        }
+        h1, h2, h3, h4, h5, h6, .display-font {
+            font-family: "Hanken Grotesk", sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-[#fff8f0] text-charcoal-text min-h-screen flex flex-col pt-20">
+<!-- TopNavBar -->
+<header class="bg-[#fff8f0]/90 backdrop-blur-md font-label-lg text-label-lg border-b border-outline-variant fixed top-0 left-0 w-full z-50 flex justify-between items-center px-margin-desktop md:px-margin-desktop px-margin-mobile h-20 max-w-container-max mx-auto left-1/2 -translate-x-1/2 w-full">
+<div class="flex items-center"><div class="flex items-center gap-2"><img alt="SPEAK-UP Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1Xe3TqSPivLl1C94EGYjC0zY_7wSIgyQ95TVupEMJdXPj81Gjik55ApjQ_sio6Xp9D4qHtsAf6cDq6SRufbUJ1wOx9vri2OJdk-luvv7oC96PAM9F-Lcp9Ed0NxzTbI_BrVobVgkGgWTvSr69iLnDWvQGDSLJ1PvkqH_5-s8RGKJ6o4x-3FY6yfh8XY9Qpb0IanwQqKi6ZgENc0u-xcxc5Y0iwdi8CWPTyjG5OJIEPZJ1YD2UhREctizdtV"><span class="font-bold tracking-tight text-charcoal-text text-[28px] md:text-[32px] display-font">SPEAK-UP</span></div></div>
+<div class="flex items-center gap-base"><nav class="hidden md:flex gap-gutter items-center"><button class="flex items-center gap-2 text-on-surface-variant hover:text-primary transition-colors hover:bg-surface-variant/50 transition-all duration-200 px-3 py-2 rounded font-label-lg text-label-lg">
+<span class="material-symbols-outlined text-[20px]">arrow_back</span>
+<span class="">Back</span>
+</button></nav></div>
+</header>
+<!-- Main Content -->
+<main class="flex-grow w-full max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-stack-lg flex flex-col gap-stack-lg">
+<!-- Hero Section -->
+<section class="text-center max-w-3xl mx-auto flex flex-col gap-stack-sm pt-stack-md">
+<span class="text-primary tracking-[0.2em] uppercase inline-block mb-2 px-6 py-2 rounded-full bg-primary/10 border border-primary/20 shadow-sm text-headline-md font-bold">DEMO PANEL</span><h1 class="font-display-lg-mobile md:font-display-lg text-display-lg-mobile md:text-display-lg text-charcoal-text display-font font-bold">Accelerate Your Learning Journey</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant">Experience SPEAK-UP and discover how we empower professionals to articulate complex ideas with precision. Master executive <span class="text-primary font-semibold">speaking</span> and persuasive <span class="text-primary font-semibold">writing</span>.</p>
+</section>
+<!-- Video Section -->
+<section class="grid grid-cols-1 md:grid-cols-2 gap-gutter">
+<!-- Video Card 1 -->
+<div class="group relative rounded-lg border border-outline-variant bg-surface-container-lowest overflow-hidden transition-all duration-300 hover:border-primary hover:shadow-lg shadow-md cursor-pointer flex flex-col aspect-video">
+<div class="absolute inset-0 bg-black/5 group-hover:bg-black/10 transition-colors z-10"></div>
+<div class="bg-cover bg-center w-full h-full relative" data-alt="A sophisticated academic setting featuring a modern, well-lit classroom environment. Students are engaged in a professional language learning discussion. The lighting is bright and natural, casting soft shadows. The overall mood is focused, intellectual, and collaborative, aligning with a high-end educational institution's aesthetic." style="background-image: url(&quot;https://lh3.googleusercontent.com/aida-public/AB6AXuC7fjsHbePmfWujDaU8EHFIvb8DahIQA9eUlhqE2rb30esRoIGGXJW4BYpYEfUh1D9apHqjpV-nrK6IEsCCvmmhgZOGPgSPfRoPjDxqgulf8zCSn0Rpqoux1XkCOskCk4bOvV68q9maX4uEkf2xSQiXw5yvUWz4bMHRpO1JY5C_do98zeUaZCt1kW423ak4Xuxge7B4BYlMyGIV3vsHOnemQkEvO1N3kwWCo1LuZXw97-d8zCW1L_zDiA&quot;);">
+<div class="absolute inset-0 flex items-center justify-center z-20">
+<button class="w-16 h-16 bg-surface/95 rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-transform backdrop-blur-sm border border-primary/30 group-hover:border-primary">
+<span class="material-symbols-outlined text-primary text-3xl" data-icon="play_arrow" data-weight="fill" style="font-variation-settings: &quot;FILL&quot; 1;">play_arrow</span>
+</button>
+</div>
+</div>
+<div class="p-6 border-t border-outline-variant bg-surface-container-lowest z-20">
+<h3 class="font-headline-md text-headline-md display-font text-charcoal-text mb-2 font-semibold">German A1 Course Demo</h3>
+<p class="font-body-md text-body-md text-on-surface-variant line-clamp-2">A brief overview of our immersive approach to mastering conversational English in professional settings.</p>
+</div>
+</div>
+<!-- Video Card 2 -->
+<div class="group relative rounded-lg border border-outline-variant bg-surface-container-lowest overflow-hidden transition-all duration-300 hover:border-primary hover:shadow-lg shadow-md cursor-pointer flex flex-col aspect-video">
+<div class="absolute inset-0 bg-black/5 group-hover:bg-black/10 transition-colors z-10"></div>
+<div class="bg-cover bg-center w-full h-full relative" data-alt="A focused close-up of a professional individual confidently participating in a business presentation or seminar. The setting is minimal and corporate, with clean lines and a subtle, neutral color palette featuring muted whites and grays. The lighting highlights the subject's engaged expression, conveying a sense of academic and professional prestige." style="background-image: url(&quot;https://lh3.googleusercontent.com/aida-public/AB6AXuC5-QJGERWJOUJFEDefoLyJonwYWdwVnQ8fdKGFk38Dl3kEPfKhrprgAm1s0I0BllovoqUfDmXYLVBuEF-0pBYp0efjm06KIUrr0fwuJiIGcT2KEIHArwVjIwIh9UTLnCPe-vmhtryj6Dl8MrA6DGztk3DC3f6VqyyBHKUaA3C5-R3NkMfWEc7otTGDT8g5BSmBPsx2iWyFhUQjx49cbh1ljZX-QEesoITMyOSs9ZCbX48Idm3P4ZuEnQ&quot;);">
+<div class="absolute inset-0 flex items-center justify-center z-20">
+<button class="w-16 h-16 bg-surface/95 rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-transform backdrop-blur-sm border border-primary/30 group-hover:border-primary">
+<span class="material-symbols-outlined text-primary text-3xl" data-icon="play_arrow" data-weight="fill" style="font-variation-settings: &quot;FILL&quot; 1;">play_arrow</span>
+</button>
+</div>
+</div>
+<div class="p-6 border-t border-outline-variant bg-surface-container-lowest z-20">
+<h3 class="font-headline-md text-headline-md display-font text-charcoal-text mb-2 font-semibold">English Grammar Basic</h3>
+<p class="font-body-md text-body-md text-on-surface-variant line-clamp-2">Watch a recorded segment of one of our expert-led pronunciation and fluency coaching sessions.</p>
+</div>
+</div>
+</section>
+<!-- CTA Section -->
+<section class="bg-surface-container-lowest border border-outline-variant rounded-lg p-stack-md md:p-stack-lg text-center flex flex-col gap-stack-sm items-center justify-center mb-stack-md shadow-md">
+<h2 class="font-headline-md text-headline-md md:text-3xl display-font text-charcoal-text font-bold">Ready to start learning?</h2><p class="font-body-md text-body-md text-on-surface-variant max-w-2xl mx-auto">Have questions regarding your executive learning journey? Connect directly via WhatsApp for immediate advisory support, or reserve a tailored consultation session. Our academic team is prepared to guide your path to authoritative fluency and strategic impact.</p>
+<div class="flex flex-col sm:flex-row gap-4 mt-6"><button class="bg-transparent border border-primary text-charcoal-text font-label-lg text-label-lg px-8 py-3 hover:bg-primary/5 transition-colors w-full sm:w-auto flex items-center justify-center gap-2 rounded-full">WHATSAPP</button>
+<button class="bg-primary text-white font-label-lg text-label-lg px-8 py-3 hover:bg-[#b5952f] transition-colors w-full sm:w-auto shadow-sm rounded-full">BOOK A SESSION</button><button class="bg-primary text-white font-label-lg text-label-lg px-8 py-3 hover:bg-[#b5952f] transition-colors w-full sm:w-auto shadow-sm rounded-full">REGISTER NOW</button></div>
+</section>
+</main>
+<!-- Footer -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body></html>

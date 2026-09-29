@@ -1,0 +1,401 @@
+<!DOCTYPE html><html class="light" lang="en" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Enrolled Courses - Elite Scholar LMS</title>
+<!-- Google Fonts: Hanken Grotesk & Source Serif 4 -->
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&amp;family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&amp;display=swap" rel="stylesheet">
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<!-- Tailwind CSS with Forms and Container Queries -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "outline": "#7f7663",
+            "tertiary-fixed": "#d1e5fb",
+            "secondary-container": "#e2e2e2",
+            "on-primary": "#ffffff",
+            "outline-variant": "#d0c5af",
+            "tertiary": "#4e6073",
+            "tertiary-container": "#a2b5ca",
+            "on-error": "#ffffff",
+            "on-secondary-container": "#636564",
+            "surface-container": "#eeeeee",
+            "on-tertiary-container": "#344759",
+            "on-background": "#1a1c1c",
+            "primary-fixed-dim": "#e9c349",
+            "surface-container-high": "#e8e8e8",
+            "on-tertiary-fixed": "#081d2d",
+            "secondary-fixed-dim": "#c6c6c6",
+            "error-container": "#ffdad6",
+            "surface-dim": "#dadada",
+            "secondary-fixed": "#e2e2e2",
+            "inverse-primary": "#e9c349",
+            "primary-container": "#d4af37",
+            "on-tertiary-fixed-variant": "#36495a",
+            "on-tertiary": "#ffffff",
+            "on-primary-fixed-variant": "#574500",
+            "surface-bright": "#f9f9f9",
+            "surface-variant": "#e2e2e2",
+            "inverse-on-surface": "#f1f1f1",
+            "secondary": "#5d5f5e",
+            "tertiary-fixed-dim": "#b5c9de",
+            "background": "#f9f9f9",
+            "primary": "#735c00",
+            "on-error-container": "#93000a",
+            "surface-container-highest": "#e2e2e2",
+            "surface-container-lowest": "#ffffff",
+            "on-secondary": "#ffffff",
+            "surface": "#f9f9f9",
+            "on-secondary-fixed-variant": "#454747",
+            "on-primary-container": "#554300",
+            "on-secondary-fixed": "#1a1c1c",
+            "error": "#ba1a1a",
+            "surface-container-low": "#f3f3f3",
+            "inverse-surface": "#2f3131",
+            "on-surface-variant": "#4d4635",
+            "surface-tint": "#735c00",
+            "primary-fixed": "#ffe088",
+            "on-primary-fixed": "#241a00",
+            "on-surface": "#1a1c1c"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "stack-sm": "16px",
+            "stack-md": "32px",
+            "margin-edge": "32px",
+            "gutter": "24px",
+            "stack-lg": "64px",
+            "container-max": "1200px",
+            "unit": "8px"
+          },
+          "fontFamily": {
+            "body-md": ["\"Source Serif 4\""],
+            "body-lg": ["\"Source Serif 4\""],
+            "headline-md": ["Hanken Grotesk"],
+            "display-lg": ["Hanken Grotesk"],
+            "display-lg-mobile": ["Hanken Grotesk"],
+            "label-sm": ["Hanken Grotesk"]
+          },
+          "fontSize": {
+            "body-md": ["16px", { "lineHeight": "1.6", "letterSpacing": "0", "fontWeight": "400" }],
+            "body-lg": ["18px", { "lineHeight": "1.6", "letterSpacing": "0", "fontWeight": "400" }],
+            "headline-md": ["24px", { "lineHeight": "1.4", "letterSpacing": "0.01em", "fontWeight": "500" }],
+            "display-lg": ["48px", { "lineHeight": "1.1", "letterSpacing": "0.02em", "fontWeight": "600" }],
+            "display-lg-mobile": ["32px", { "lineHeight": "1.2", "letterSpacing": "0.02em", "fontWeight": "600" }],
+            "label-sm": ["12px", { "lineHeight": "1", "letterSpacing": "0.08em", "fontWeight": "600" }]
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-background text-on-background font-body-md antialiased min-h-screen flex flex-col">
+<!-- Side Navigation Bar (Shared Component Anchor) -->
+<aside class="fixed top-0 left-0 h-screen w-64 z-50 bg-white border-r border-[#eeece7] flex flex-col justify-between shrink-0 select-none hidden lg:flex" data-purpose="sidebar-navigation">
+<!-- Top Section of Sidebar -->
+<div class="pt-6">
+<!-- Academic Portal Branding -->
+<div class="px-6 mb-7 flex items-center justify-between">
+<div class="flex items-center space-x-3"><div class="w-9 h-9 shrink-0 flex items-center justify-center"><img src="https://lh3.googleusercontent.com/aida/AEtjO1Xe3TqSPivLl1C94EGYjC0zY_7wSIgyQ95TVupEMJdXPj81Gjik55ApjQ_sio6Xp9D4qHtsAf6cDq6SRufbUJ1wOx9vri2OJdk-luvv7oC96PAM9F-Lcp9Ed0NxzTbI_BrVobVgkGgWTvSr69iLnDWvQGDSLJ1PvkqH_5-s8RGKJ6o4x-3FY6yfh8XY9Qpb0IanwQqKi6ZgENc0u-xcxc5Y0iwdi8CWPTyjG5OJIEPZJ1YD2UhREctizdtV" alt="SPEAK-UP Logo" class="w-full h-full object-contain"></div><div><p class="font-headline-md text-base font-bold text-[#1f1f1e] leading-tight tracking-wider uppercase">SPEAK-UP</p></div></div>
+<!-- Quick collapse icon indicator -->
+<button class="text-neutral-400 hover:text-neutral-700 transition" title="Toggle Compact View" type="button">
+</button>
+</div>
+<!-- Navigation Links -->
+<nav class="space-x-0 space-y-1 pr-3" data-purpose="nav-items">
+<!-- Dashboard -->
+<a class="flex items-center px-6 py-2.5 text-sm font-medium text-neutral-600 hover:text-neutral-900 hover:bg-[#faf8f4] rounded-r-md transition group" href="#">
+<span class="material-symbols-outlined mr-3 text-neutral-400 group-hover:text-neutral-700">grid_view</span>
+            Dashboard
+          </a>
+<!-- Enrolled Course (Active on this screen) -->
+<a class="flex items-center px-6 py-2.5 text-sm font-semibold text-[#5a4610] bg-[#fcfaf4] rounded-r-md active-nav-indicator relative transition" href="#">
+<span class="material-symbols-outlined mr-3 text-[#705814]">school</span>
+            Enrolled Courses<div class="absolute right-0 top-0 bottom-0 w-1 bg-[#705814] rounded-r"></div>
+</a>
+<!-- Practice -->
+<a class="flex items-center px-6 py-2.5 text-sm font-medium text-neutral-600 hover:text-neutral-900 hover:bg-[#faf8f4] rounded-r-md transition group" href="#">
+<span class="material-symbols-outlined mr-3 text-neutral-400 group-hover:text-neutral-700">edit_note</span>
+            Practice
+          </a>
+<!-- Analytics -->
+<a class="flex items-center px-6 py-3.5 text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-100/60 dark:hover:bg-stone-800/40 rounded-r-xl transition-all group font-medium text-sm" href="javascript:void(0)" onclick="openCertificateModal()">
+<span class="material-symbols-outlined mr-3 text-stone-400 group-hover:text-amber-700 transition-colors">workspace_premium</span>
+<span class="">Certificates</span>
+</a></nav>
+</div>
+<!-- Bottom Sidebar Navigation Area (mt-auto) -->
+<div class="mt-auto px-4 pb-6 pt-4 border-t border-[#f2efe9] space-y-1" data-purpose="sidebar-footer-links">
+<!-- FAQs link -->
+<!-- Settings link -->
+<!-- Sign Out Button -->
+<!-- Collapse Sidebar Button Directly Below Sign Out -->
+<button class="w-full flex items-center gap-2 px-3.5 py-2.5 rounded-lg text-sm font-medium text-neutral-600 hover:text-neutral-900 hover:bg-[#faf8f4] transition group text-left" type="button"><span class="material-symbols-outlined text-neutral-400 group-hover:text-neutral-700 text-base">logout</span><span class="font-headline-md text-xs font-semibold tracking-wide uppercase">Sign Out</span></button><button class="w-full flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-lg border border-outline-variant/40 bg-surface-container-low hover:bg-[#faf8f4] hover:border-outline-variant text-sm font-medium text-neutral-600 hover:text-neutral-900 shadow-sm transition-all group text-left" type="button">
+<span class="material-symbols-outlined text-neutral-400 group-hover:text-neutral-700 text-base">keyboard_double_arrow_left</span>
+<span class="font-headline-md text-xs font-semibold tracking-wide uppercase">Collapse</span>
+</button>
+</div>
+</aside>
+<!-- Content Canvas Wrapper with Left Offset for Sidebar -->
+<div class="lg:pl-64 flex flex-col min-h-screen">
+<!-- TopNavBar (Shared Component Anchor) -->
+
+<!-- Main Content Container -->
+<main class="flex-1 w-full max-w-[1400px] mx-auto px-4 sm:px-margin-edge py-stack-md">
+<!-- Section Title & Subheading -->
+<div class="mb-stack-md">
+<h1 class="font-headline-md text-[32px] sm:text-[38px] font-bold text-primary tracking-tight leading-tight">
+          Enrolled Courses
+        </h1>
+<p class="font-body-md text-body-lg text-secondary mt-1">
+          Manage your active academic progress and access course materials.
+        </p>
+</div><div class="flex flex-wrap items-center justify-between gap-4 mb-stack-md pb-4 border-b border-[#eeece7]"><div class="flex items-center gap-2 flex-wrap"><button class="px-4 py-1.5 rounded-full bg-white border border-[#eeece7] text-neutral-600 hover:text-neutral-900 hover:border-outline-variant font-headline-md text-xs font-medium shadow-sm transition-all flex items-center gap-1.5"><span class="">In Progress</span><span class="px-1.5 py-0.2 text-[10px] rounded-full bg-neutral-100 text-neutral-600 font-mono">2</span></button><button class="px-4 py-1.5 rounded-full bg-white border border-[#eeece7] text-neutral-600 hover:text-neutral-900 hover:border-outline-variant font-headline-md text-xs font-medium shadow-sm transition-all flex items-center gap-1.5"><span class="">Completed</span><span class="px-1.5 py-0.2 text-[10px] rounded-full bg-neutral-100 text-neutral-600 font-mono">0</span></button></div></div>
+<!-- Filters & Sorting Bar -->
+<!-- Course Cards Bento Grid (3 Cards Row) -->
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-gutter mb-stack-lg">
+<!-- Course Card 1: Grammar Course — A1 -->
+<div class="group bg-surface-container-lowest rounded-xl border border-outline-variant/50 shadow-sm hover:shadow-md hover:border-outline-variant transition-all duration-200 flex flex-col overflow-hidden">
+<!-- Course Card Banner Image -->
+<div class="relative h-48 w-full overflow-hidden bg-surface-container">
+<img alt="Grammar Course — A1 course library material" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="An atmospheric photograph of an ancient prestige university library bookshelf stacked with gilded leatherbound literature volumes, warmed by a brass banker lamp casting soft amber light in an elegant editorial composition." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBZwVQll7J8o6aHh4hVNAKy7HRHnfCzIIi2Pi1PPkG2ObJNYzAqXq7TOd75dnMH7E2KiMQ24XDVC1b68qBja6diG-zfUoAnCWu4Wp-jdoZMivaGDT5LV9aiUGa_Xmi6T715bLBtVkVmFtSuUMyae7DAj1CjBp_9xCOoJte05yZF_775SqAFR4zFW5PqtJr11af_uAM4uEWi10E-lAwhCZq86g2v8A6iGiC7rC0ByR-ruZHdRqKKOK_COA">
+<!-- Access Granted Badge -->
+<div class="absolute top-3 right-3 bg-surface-container-lowest/90 backdrop-blur-sm border border-outline-variant/40 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+<span class="material-symbols-outlined text-primary text-[15px]">lock_open</span>
+<span class="font-headline-md text-[11px] font-bold tracking-wider uppercase text-primary">ACCESS GRANTED</span>
+</div>
+</div>
+<!-- Course Body Details -->
+<div class="p-5 flex-1 flex flex-col justify-between">
+<div>
+<div class="flex items-center gap-2.5 mb-2.5">
+<span class="bg-tertiary-fixed text-on-tertiary-fixed font-headline-md text-[11px] font-bold px-2 py-0.5 rounded tracking-wider uppercase">ACTIVE</span>
+<span class="font-headline-md text-label-sm text-secondary">Last accessed: 2 days ago</span>
+</div>
+<h2 class="font-headline-md text-headline-md font-bold text-on-surface mb-2 group-hover:text-primary transition-colors">
+                Grammar Course — A1
+              </h2>
+<p class="font-body-md text-body-md text-secondary leading-relaxed line-clamp-3 mb-4">
+                Foundational English grammar focusing on sentence structure, essential vocabulary, and fundamental communicative competence for academic environments.
+              </p>
+</div>
+<!-- Progress Metric & CTA -->
+<div class="pt-4 border-t border-outline-variant/30 mt-auto">
+<div class="flex items-center justify-between text-label-sm font-headline-md mb-2">
+<span class="text-secondary font-medium uppercase tracking-wider">Progress</span>
+<span class="text-primary font-bold">35%</span>
+</div>
+<!-- Progress Bar -->
+<div class="w-full bg-surface-container h-2 rounded-full overflow-hidden mb-4">
+<div class="bg-primary h-full rounded-full" style="width: 35%;"></div>
+</div>
+<button class="w-full py-3 px-4 bg-primary text-on-primary font-headline-md text-label-sm font-semibold rounded uppercase tracking-wider hover:-translate-y-[1px] active:translate-y-0 shadow-sm transition-transform duration-150 flex items-center justify-center gap-2">
+<span class="">CONTINUE COURSE</span>
+<span class="material-symbols-outlined text-[16px]">play_arrow</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Course Card 2: Speak in 30 Days — Fluency -->
+<div class="group bg-surface-container-lowest rounded-xl border border-outline-variant/50 shadow-sm hover:shadow-md hover:border-outline-variant transition-all duration-200 flex flex-col overflow-hidden">
+<!-- Course Card Banner Image -->
+<div class="relative h-48 w-full overflow-hidden bg-surface-container">
+<img alt="Speak in 30 Days — Fluency course material" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="An editorial photograph of an academic seminar room with mahogany conference tables, open leather journals, fountain pens, and warm sunbeams filtering through large collegiate mullioned windows." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAnB0Rv8G_-x2bwztJMStYX_WVp16lrvJEgwWx8wYZeFslXveUsuAH6SigMS3VWgkex5z7H9UsQLBnaVSAjK4EwMGIxVDi_BC7ILeJwv94Qt_CEj5yvh1er6nj22XFvhxYGHIuBd2F4_GVc4c_9K0NlYuG1l__qcE2ORFFMEByIG0XJMBwOUeihBNX9pQJMG5HiDBsO5edaZtIdpy7e5uJxi5R_iXdKec66snWYI34u8A5uwkYS-GCbQw">
+<!-- Access Granted Badge -->
+<div class="absolute top-3 right-3 bg-surface-container-lowest/90 backdrop-blur-sm border border-outline-variant/40 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+<span class="material-symbols-outlined text-primary text-[15px]">lock_open</span>
+<span class="font-headline-md text-[11px] font-bold tracking-wider uppercase text-primary">ACCESS GRANTED</span>
+</div>
+</div>
+<!-- Course Body Details -->
+<div class="p-5 flex-1 flex flex-col justify-between">
+<div>
+<div class="flex items-center gap-2.5 mb-2.5">
+<span class="bg-tertiary-fixed text-on-tertiary-fixed font-headline-md text-[11px] font-bold px-2 py-0.5 rounded tracking-wider uppercase">ACTIVE</span>
+<span class="font-headline-md text-label-sm text-secondary">Last accessed: Yesterday</span>
+</div>
+<h2 class="font-headline-md text-headline-md font-bold text-on-surface mb-2 group-hover:text-primary transition-colors">
+                Speak in 30 Days — Fluency
+              </h2>
+<p class="font-body-md text-body-md text-secondary leading-relaxed line-clamp-3 mb-4">
+                Intensive verbal articulation, idiomatic expressions, conversational reflexes, and phonetics training designed for accelerated professional speaking.
+              </p>
+</div>
+<!-- Progress Metric & CTA -->
+<div class="pt-4 border-t border-outline-variant/30 mt-auto">
+<div class="flex items-center justify-between text-label-sm font-headline-md mb-2">
+<span class="text-secondary font-medium uppercase tracking-wider">Progress</span>
+<span class="text-primary font-bold">15%</span>
+</div>
+<!-- Progress Bar -->
+<div class="w-full bg-surface-container h-2 rounded-full overflow-hidden mb-4">
+<div class="bg-primary h-full rounded-full" style="width: 15%;"></div>
+</div>
+<button class="w-full py-3 px-4 bg-primary text-on-primary font-headline-md text-label-sm font-semibold rounded uppercase tracking-wider hover:-translate-y-[1px] active:translate-y-0 shadow-sm transition-transform duration-150 flex items-center justify-center gap-2">
+<span class="">CONTINUE COURSE</span>
+<span class="material-symbols-outlined text-[16px]">play_arrow</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Course Card 3: Executive Business Communication -->
+<div class="group bg-surface-container-lowest rounded-xl border border-outline-variant/50 shadow-sm hover:shadow-md hover:border-outline-variant transition-all duration-200 flex flex-col overflow-hidden">
+<!-- Course Card Banner Image -->
+<div class="relative h-48 w-full overflow-hidden bg-surface-container">
+<img alt="Executive Business Communication course material" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="A clean architectural view of an executive modern university lecture theater with warm wood paneling, structured minimalist seats, and refined soft natural lighting emphasizing serious academic focus." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCFwlaeCBWx5Dj_xr4XB0Gl-WpmTDBpEPY_x355m_BtiNjyhPBSPqAWcPUN9rtaUddrx1mOFM7F5YP0KWP0C_qdO4nDT8snzPqIyfobTPebjW_Hhbaz-XrQWpFG5ur_m2UMpknGe5CV4zADo7UHxlbgAONNBTZl_igYvFp1f9WMi4rmGoS82POnjOzaaz7XTz_2Vu8RNHHfjZUTRv_hNj4gPt-kBCGt_bKtGgJSV_3xKuEXYlupqV14dg">
+<!-- Access Granted Badge -->
+<div class="absolute top-3 right-3 bg-surface-container-lowest/90 backdrop-blur-sm border border-outline-variant/40 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+<span class="material-symbols-outlined text-primary text-[15px]">lock_open</span>
+<span class="font-headline-md text-[11px] font-bold tracking-wider uppercase text-primary">ACCESS GRANTED</span>
+</div>
+</div>
+<!-- Course Body Details -->
+<div class="p-5 flex-1 flex flex-col justify-between">
+<div>
+<div class="flex items-center gap-2.5 mb-2.5">
+<span class="bg-surface-container-high text-secondary font-headline-md text-[11px] font-bold px-2 py-0.5 rounded tracking-wider uppercase">ENROLLED</span>
+<span class="font-headline-md text-label-sm text-secondary">Not started yet</span>
+</div>
+<h2 class="font-headline-md text-headline-md font-bold text-on-surface mb-2 group-hover:text-primary transition-colors">
+                Executive Business Communication
+              </h2>
+<p class="font-body-md text-body-md text-secondary leading-relaxed line-clamp-3 mb-4">
+                High-stakes negotiation, corporate presentation precision, board-level correspondence, and formal business writing mastery.
+              </p>
+</div>
+<!-- Progress Metric & CTA -->
+<div class="pt-4 border-t border-outline-variant/30 mt-auto">
+<div class="flex items-center justify-between text-label-sm font-headline-md mb-2">
+<span class="text-secondary font-medium uppercase tracking-wider">Progress</span>
+<span class="text-secondary font-bold">0%</span>
+</div>
+<!-- Progress Bar -->
+<div class="w-full bg-surface-container h-2 rounded-full overflow-hidden mb-4">
+<div class="bg-secondary-container h-full rounded-full" style="width: 0%;"></div>
+</div>
+<button class="w-full py-3 px-4 bg-surface-container-lowest border-2 border-primary text-primary font-headline-md text-label-sm font-semibold rounded uppercase tracking-wider hover:bg-primary-container/20 hover:-translate-y-[1px] active:translate-y-0 transition-all duration-150 flex items-center justify-center gap-2">
+<span class="">START COURSE</span>
+<span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</div><div class="p-6 rounded-2xl bg-[#fcfaf4] border border-[#d0c5af]/60 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-sm"><div class="flex items-start gap-4"><div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-primary text-2xl">edit_note</span></div><div><h3 class="font-headline-md font-bold text-base text-on-surface tracking-tight">Daily Practice &amp; Vocabulary Mastery</h3><p class="font-body-md text-xs text-secondary mt-1 max-w-xl">For daily practice and expanding your vocabulary, make sure to visit your daily practice sessions regularly to reinforce learning retention.</p><div class="mt-2.5 flex items-center gap-2 text-[11px] text-[#705814] bg-primary/10 border border-outline-variant/40 px-3 py-1.5 rounded-lg w-fit"><span class="material-symbols-outlined text-[15px] shrink-0">menu_book</span><span class="font-medium">All related course books, lecture notes, and study PDFs will be provided to you as soon as possible.</span></div></div></div><div class="flex items-center gap-3 shrink-0"><button class="px-4 py-2.5 rounded-xl bg-primary text-white font-headline-md text-xs font-semibold hover:bg-[#5a4610] shadow-sm transition-all flex items-center gap-2" type="button"><span class="material-symbols-outlined text-sm">arrow_forward</span><span class="">Visit Practice Session</span></button></div></div>
+<!-- Academic Advising & Support Banner -->
+</main>
+<!-- Footer Simple Academic Citation -->
+</div>
+<!-- Floating Student Assistance Action Button (WhatsApp Help) -->
+<aside class="fixed bottom-6 right-6 z-50"></aside>
+<div aria-labelledby="cert-modal-title" aria-modal="true" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto transition-opacity duration-300" id="certificate-modal" role="dialog">
+<div class="relative w-full max-w-2xl bg-surface-container-lowest rounded-2xl shadow-2xl border border-outline-variant/50 overflow-hidden my-8 transform transition-all">
+<div class="bg-[#fcfaf4] px-6 py-5 border-b border-[#eeece7] flex items-start justify-between">
+<div>
+<div class="flex items-center gap-2 mb-1">
+<span class="material-symbols-outlined text-primary text-xl">workspace_premium</span>
+<h3 class="text-lg font-bold font-headline-md text-on-surface tracking-tight" id="cert-modal-title">Academic Certificates &amp; Credentials</h3>
+</div>
+<p class="text-xs text-secondary font-body-md">Verified credentials issued by ENG-LISTON Elite Scholar LMS</p>
+</div>
+<button aria-label="Close modal" class="text-neutral-400 hover:text-neutral-800 p-1.5 rounded-lg hover:bg-neutral-100 transition-colors" onclick="closeCertificateModal()" type="button">
+<span class="material-symbols-outlined text-xl">close</span>
+</button>
+</div>
+<div class="p-6 space-y-6 max-h-[75vh] overflow-y-auto font-body-md">
+<div class="p-5 rounded-xl border border-outline-variant/40 bg-[#faf8f4] space-y-3">
+<div class="flex items-center justify-between">
+<span class="text-[11px] font-bold font-headline-md tracking-wider uppercase px-2 py-0.5 rounded bg-amber-100 text-amber-900">In Progress (Unlocks at 100%)</span>
+<span class="text-xs font-semibold text-primary">35% Completed</span>
+</div>
+<div>
+<p class="text-xs uppercase tracking-wider text-neutral-500 font-semibold font-headline-md">Certificate of Completion</p>
+<h4 class="text-base font-bold font-headline-md text-[#1f1f1e]">Grammar Course — A1 (Foundations of English Syntax)</h4>
+<p class="text-xs text-neutral-600 mt-0.5">Issued to: <strong class="text-neutral-800">Mudassir Khan</strong></p>
+</div>
+<div class="w-full bg-surface-container h-2 rounded-full overflow-hidden">
+<div class="bg-primary h-full rounded-full" style="width: 35%;"></div>
+</div>
+<div class="pt-2 border-t border-outline-variant/30 text-xs text-neutral-600 space-y-1.5">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-emerald-600 text-sm">check_circle</span>
+<span class="">Complete all 6 core syntax modules (2/6 completed)</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-neutral-400 text-sm">radio_button_unchecked</span>
+<span class="">Score 80%+ on capstone proficiency assessment</span>
+</div>
+</div>
+</div>
+<div class="p-5 rounded-xl border-2 border-dashed border-[#d0c5af] bg-white relative group">
+<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+<div class="space-y-1">
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-headline-md text-[10px] font-bold tracking-wider uppercase">Verified &amp; Issued</span>
+<span class="text-[11px] text-neutral-400 font-mono">ENG-CERT-2025-9841</span>
+</div>
+<h4 class="font-headline-md font-bold text-sm text-[#1f1f1e]">Academic English Primer &amp; Phonetics</h4>
+<p class="text-xs text-neutral-500">Accredited on January 14, 2025 • Grade: Distinction (94%)</p>
+</div>
+<button class="px-3.5 py-2 bg-primary text-white text-xs font-semibold rounded-lg hover:bg-[#5a4610] shadow-sm flex items-center gap-1.5 transition-all" onclick="alert('Downloading verified credential ENG-CERT-2025-9841 (PDF)...')" type="button">
+<span class="material-symbols-outlined text-sm">download</span>
+<span class="">Download PDF</span>
+</button>
+</div>
+</div>
+</div>
+<div class="bg-[#fcfaf4] px-6 py-4 border-t border-[#eeece7] flex items-center justify-between gap-3">
+<button class="text-xs font-medium text-neutral-600 hover:text-neutral-900 underline underline-offset-4 flex items-center gap-1" onclick="alert('Downloading curriculum syllabus alignment documentation...')" type="button">
+<span class="material-symbols-outlined text-sm">description</span>
+<span class="">Download Syllabus Alignment</span>
+</button>
+<button class="px-5 py-2 bg-neutral-200 hover:bg-neutral-300 text-neutral-800 text-xs font-semibold rounded-lg transition-colors" onclick="closeCertificateModal()" type="button">
+        Close
+      </button>
+</div>
+</div>
+</div>
+<script class="">
+  function openCertificateModal() {
+    const modal = document.getElementById('certificate-modal');
+    if (modal) {
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      document.body.style.overflow = 'hidden';
+    }
+  }
+  function closeCertificateModal() {
+    const modal = document.getElementById('certificate-modal');
+    if (modal) {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      document.body.style.overflow = '';
+    }
+  }
+  document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+      closeCertificateModal();
+    }
+  });
+  document.addEventListener('click', function(event) {
+    const modal = document.getElementById('certificate-modal');
+    if (modal && event.target === modal) {
+      closeCertificateModal();
+    }
+  });
+</script>
+
+
+
+</body></html>

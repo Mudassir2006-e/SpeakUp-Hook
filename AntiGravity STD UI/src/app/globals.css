@@ -1,0 +1,194 @@
+@import url("https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap");
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    --bg-main: #fff8f0;
+    --text-main: #1a1a1a;
+    --text-muted: #5d5f5e;
+    --surface-lowest: #ffffff;
+    --surface-low: #f9f3eb;
+    --surface: #f4ede5;
+    --surface-high: #eee7df;
+    --surface-highest: #e8e1da;
+    --surface-border: rgba(26, 26, 26, 0.1);
+    --gold-accent: #d4af37;
+    --gold-hover: #b08e2b;
+    --outline: #747878;
+    --outline-variant: #d0c5af;
+    --primary: #1a1a1a;
+    --on-primary: #ffffff;
+    --inverse-surface: #141416;
+    --inverse-on-surface: #f7f0e8;
+  }
+
+  .dark {
+    --bg-main: #0a0a0a;
+    --text-main: #f7f0e8;
+    --text-muted: #a8a5a0;
+    --surface-lowest: #141416;
+    --surface-low: #1a1a1e;
+    --surface: #222226;
+    --surface-high: #2a2a2f;
+    --surface-highest: #333339;
+    --surface-border: rgba(255, 255, 255, 0.1);
+    --gold-accent: #d4af37;
+    --gold-hover: #e9c349;
+    --outline: #7f7663;
+    --outline-variant: #3a3a3e;
+    --primary: #d4af37;
+    --on-primary: #141416;
+    --inverse-surface: #f9f9f9;
+    --inverse-on-surface: #1a1c1c;
+  }
+
+  body {
+    background-color: var(--bg-main);
+    color: var(--text-main);
+    font-family: var(--font-source-serif), Georgia, serif;
+    min-height: 100vh;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  h1, h2, h3, h4, h5, h6, nav, button, label, .font-display, .font-headline {
+    font-family: var(--font-hanken-grotesk), system-ui, -apple-system, sans-serif;
+  }
+}
+
+/* Material Symbols configuration */
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined' !important;
+  font-weight: 300;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  display: inline-block;
+  text-transform: none;
+  letter-spacing: normal;
+  word-wrap: normal;
+  white-space: nowrap;
+  direction: ltr;
+  font-feature-settings: 'liga' 1 !important;
+  -webkit-font-feature-settings: 'liga' 1 !important;
+  -moz-font-feature-settings: 'liga' 1 !important;
+  -webkit-font-smoothing: antialiased;
+  vertical-align: middle;
+}
+
+/* SpeakUp Logo Microphone Stand: Dark in light theme, light silver in dark theme */
+.logo-mic-stand {
+  stroke: #141416 !important;
+}
+.dark .logo-mic-stand {
+  stroke: #e5e2e1 !important;
+}
+
+/* SpeakUp Brand Name Text: High-contrast dark in light theme, light in dark theme */
+.brand-name-text {
+  color: #141416 !important;
+}
+.dark .brand-name-text {
+  color: #f7f0e8 !important;
+}
+
+/* Global Input Styling & Dark Theme Autofill Protection */
+input, textarea, select {
+  color: var(--text-main) !important;
+  background-color: var(--surface-lowest) !important;
+  border-color: var(--surface-border);
+}
+
+input:focus, textarea:focus, select:focus {
+  background-color: var(--surface-lowest) !important;
+  color: var(--text-main) !important;
+  border-color: var(--gold-accent) !important;
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--text-muted) !important;
+  opacity: 0.65;
+}
+
+/* Browser autofill protection: prevents inputs turning white on typing or autofill */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text-main) !important;
+  -webkit-box-shadow: 0 0 0 1000px var(--surface-lowest) inset !important;
+  box-shadow: 0 0 0 1000px var(--surface-lowest) inset !important;
+  caret-color: var(--text-main) !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+.dark input:-webkit-autofill,
+.dark input:-webkit-autofill:hover,
+.dark input:-webkit-autofill:focus,
+.dark input:-webkit-autofill:active,
+.dark textarea:-webkit-autofill,
+.dark textarea:-webkit-autofill:hover,
+.dark textarea:-webkit-autofill:focus,
+.dark select:-webkit-autofill,
+.dark select:-webkit-autofill:hover,
+.dark select:-webkit-autofill:focus {
+  -webkit-text-fill-color: #f7f0e8 !important;
+  -webkit-box-shadow: 0 0 0 1000px #141416 inset !important;
+  box-shadow: 0 0 0 1000px #141416 inset !important;
+  caret-color: #f7f0e8 !important;
+}
+
+/* Custom scrollbars */
+.custom-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--outline-variant) transparent;
+}
+.custom-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scroll::-webkit-scrollbar-thumb {
+  background: var(--outline-variant);
+  border-radius: 4px;
+}
+.custom-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--gold-accent);
+}
+
+/* Utility animation & transitions */
+.bento-hover {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.bento-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 14px 34px -10px rgba(0, 0, 0, 0.08);
+}
+.dark .bento-hover:hover {
+  box-shadow: 0 14px 34px -10px rgba(0, 0, 0, 0.5);
+}
+
+/* Custom glow utility from Stitch */
+.hero-glow {
+  position: absolute;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(212,175,55,0.08) 0%, rgba(255,248,241,0) 70%);
+  top: -200px;
+  right: -100px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.dark .hero-glow {
+  background: radial-gradient(circle, rgba(212,175,55,0.12) 0%, rgba(10,10,10,0) 70%);
+}
