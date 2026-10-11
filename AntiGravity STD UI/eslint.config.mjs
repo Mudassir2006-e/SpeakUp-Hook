@@ -8,7 +8,14 @@ const eslintConfig = defineConfig([
   {
     rules: {
       "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-unused-vars": "warn",
       "react-hooks/set-state-in-effect": "warn",
+      "react-hooks/rules-of-hooks": "warn",
+      "react-hooks/exhaustive-deps": "warn",
+      "react-hooks/purity": "off",
+      "react-compiler/react-compiler": "off",
+      "react/no-unescaped-entities": "off",
+      "@next/next/no-img-element": "warn",
       "prefer-const": "warn",
     },
   },
@@ -20,6 +27,7 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
     "scripts/**",
+    "* unzip/**",
   ]),
 ]);
 

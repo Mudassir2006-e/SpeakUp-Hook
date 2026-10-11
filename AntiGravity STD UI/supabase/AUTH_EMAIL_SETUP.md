@@ -266,3 +266,41 @@ In your **Supabase Dashboard** -> **Authentication** -> **Email Templates**, cus
   1. **Google Workspace / BIMI**: Configure a BIMI (Brand Indicators for Message Identification) DNS TXT record for your domain (`default._bimi.yourdomain.com`) with an SVG logo. Requires DMARC enforcement (`p=quarantine` or `p=reject`).
   2. **Gravatar**: Create a free Gravatar profile for the sending address (e.g. `support@yourdomain.com`) and upload the SpeakUp logo. Many inboxes (Apple Mail, Thunderbird, WordPress, etc.) will automatically pull and display this image.
   3. **Google Account**: If the sender email is a Google Workspace or Gmail address, set the profile photo in Google Account Settings.
+
+---
+
+## 4. Supabase Security Advisor & Attack Protection Hardening
+
+### A. Leaked Password Protection (HaveIBeenPwned)
+- **Supabase Dashboard Path**:
+  1. Open your **Supabase Dashboard** -> Select Project `fyxbwfufmfoqnkgqunhq`.
+  2. Navigate to **Authentication** -> **Attack Protection** (or **Security / Password Protection**).
+  3. Toggle **"Prevent use of leaked passwords"** to **Enabled**.
+- **Underlying Mechanism**: Checks user passwords against HaveIBeenPwned's dataset of over 800+ million compromised credentials during sign-up, password reset, and password change operations.
+- **Plan Support & Tier Requirements**:
+  - The native automated HaveIBeenPwned API integration is available on **Supabase Pro, Team, and Enterprise** plans.
+  - On the Supabase Free tier, Attack Protection includes basic rate limiting and CAPTCHA / bot protection.
+- **Application Defense-in-Depth**:
+  - To protect accounts across all hosting tiers, SpeakUp LMS enforces rigorous server-side and client-side password complexity in `src/lib/validation.ts` (`validatePassword`):
+    - Minimum 8 characters.
+    - Mandatory combination of alphabetic characters and numeric digits.
+    - Automated session invalidation on password change (`session_version` increment and `password_changed_at` tracking in `src/lib/auth/sessionSecurity.ts`).
+
+### B. Database Security Advisor & RLS Policies (Migration 20261011_security_advisor_fixes.sql)
+The Supabase Database Linter report warnings dated October 11, 2026 have been resolved via tracked migration:
+1. **`public.booking_requests`**:
+   - Least-privilege `INSERT` policy with rigorous `WITH CHECK`: enforces `status = 'pending'`, validates applicant name (2-100 chars), validates RFC email syntax, validates phone length (5-30 chars), and caps message length.
+   - Restricts `SELECT`, `UPDATE`, and `DELETE` exclusively to verified administrators via `public.is_admin()`, safeguarding applicant PII.
+2. **`public.reviews`**:
+   - Least-privilege `INSERT` policy with rigorous `WITH CHECK`: enforces `status = 'pending'`, validates student name, email, rating range (1-5), and review text length (10-3000 chars).
+   - Public `SELECT` policy restricted to `status = 'published'`, preventing unmoderated reviews from appearing.
+   - `UPDATE` and `DELETE` restricted to verified administrators.
+3. **`public.rls_auto_enable()`**:
+   - `EXECUTE` privileges revoked from `PUBLIC`, `anon`, and `authenticated` roles.
+   - Restricted exclusively to `service_role` and `postgres` with immutable `search_path = pg_catalog, public, pg_temp;`.
+4. **`public.is_admin()`**:
+   - Execution privileges revoked from `PUBLIC` and `anon`.
+   - Granted exclusively to `authenticated`, `service_role`, and `postgres`.
+   - Immutable search path: `SET search_path = pg_catalog, public, pg_temp;`.
+5. **Routine Grants in `public`**:
+   - Broad default function execution (`EXECUTE ON ALL FUNCTIONS`) revoked from the `anon` role.

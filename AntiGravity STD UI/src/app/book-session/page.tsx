@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Logo from "@/components/Logo";
 import { useCmsContent } from "@/lib/cms/useCmsContent";
 
+import { submitBookingRequestAction } from "./booking-actions";
+
 function formatPersonName(name: string): string {
   return name
     .trim()
@@ -29,6 +31,7 @@ export default function BookSessionPage() {
 
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handleCancel = () => {
     if (typeof window !== "undefined" && window.history.length > 1) {
@@ -38,13 +41,32 @@ export default function BookSessionPage() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
     setLoading(true);
-    setTimeout(() => {
+
+    try {
+      const res = await submitBookingRequestAction({
+        fullName: formData.fullName,
+        email: formData.email,
+        countryCode: formData.countryCode,
+        phone: formData.phone,
+        network: formData.network,
+        status: formData.status,
+        message: formData.message,
+      });
+
+      if (res.success) {
+        setSubmitted(true);
+      } else {
+        setErrorMessage(res.error || "Failed to submit booking request. Please check your details.");
+      }
+    } catch (err: any) {
+      setErrorMessage(err?.message || "An unexpected error occurred. Please try again.");
+    } finally {
       setLoading(false);
-      setSubmitted(true);
-    }, 800);
+    }
   };
 
   return (
@@ -72,6 +94,12 @@ export default function BookSessionPage() {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-6">
+                {errorMessage && (
+                  <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 font-serif text-sm flex items-center gap-3">
+                    <span className="material-symbols-outlined text-lg">error</span>
+                    <span>{errorMessage}</span>
+                  </div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Full Name */}
                   <div className="flex flex-col gap-2">

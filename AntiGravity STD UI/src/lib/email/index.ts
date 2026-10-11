@@ -55,6 +55,7 @@ export interface SendEmailResult {
   success: boolean;
   resendId?: string;
   fromHeader?: string;
+  provider?: string;
   error?: string;
 }
 
@@ -247,6 +248,7 @@ export async function sendBrandedEmail(payload: SendEmailPayload): Promise<SendE
         success: true,
         resendId: gmailRes.messageId,
         fromHeader,
+        provider: "gmail",
       };
     } catch (err: any) {
       const errMsg = err?.message || "Unexpected exception dispatching via Gmail.";
@@ -348,6 +350,7 @@ export async function sendBrandedEmail(payload: SendEmailPayload): Promise<SendE
       success: true,
       resendId,
       fromHeader,
+      provider: "resend",
     };
   } catch (err: any) {
     const errMsg = err?.message || "Unexpected exception during email dispatch.";

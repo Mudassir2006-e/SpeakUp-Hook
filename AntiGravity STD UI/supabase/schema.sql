@@ -202,7 +202,7 @@ CREATE OR REPLACE FUNCTION public.is_admin()
 RETURNS BOOLEAN
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, pg_temp
+SET search_path = pg_catalog, public, pg_temp
 AS $$
 BEGIN
     RETURN EXISTS (
@@ -211,6 +211,10 @@ BEGIN
     );
 END;
 $$;
+
+REVOKE ALL ON FUNCTION public.is_admin() FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.is_admin() FROM anon;
+GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated, service_role, postgres;
 
 -- --- PROFILES POLICIES ---
 -- Users can view their own profile; Admins can view all profiles
@@ -412,16 +416,118 @@ DROP POLICY IF EXISTS "Admins can update email logs" ON public.email_logs;
 CREATE POLICY "Admins can update email logs" ON public.email_logs FOR UPDATE USING (public.is_admin());
 
 -- ==============================================================================
--- 12. PERMISSIONS GRANTS (anon, authenticated, service_role)
+-- --- 12. BOOKING REQUESTS (Advisory Sessions) ---
+CREATE TABLE IF NOT EXISTS public.booking_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    full_name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    country_code TEXT NOT NULL DEFAULT '+92',
+    phone TEXT NOT NULL,
+    network TEXT,
+    professional_status TEXT DEFAULT 'professional',
+    message TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.booking_requests ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public can submit validated booking requests" ON public.booking_requests;
+CREATE POLICY "Public can submit validated booking requests"
+    ON public.booking_requests FOR INSERT
+    WITH CHECK (
+        status = 'pending'
+        AND char_length(trim(full_name)) >= 2
+        AND char_length(trim(full_name)) <= 100
+        AND email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'
+        AND char_length(trim(phone)) >= 5
+        AND char_length(trim(phone)) <= 30
+        AND (message IS NULL OR char_length(message) <= 2000)
+    );
+
+DROP POLICY IF EXISTS "Admins can view booking requests" ON public.booking_requests;
+CREATE POLICY "Admins can view booking requests"
+    ON public.booking_requests FOR SELECT
+    USING (public.is_admin());
+
+DROP POLICY IF EXISTS "Admins can update booking requests" ON public.booking_requests;
+CREATE POLICY "Admins can update booking requests"
+    ON public.booking_requests FOR UPDATE
+    USING (public.is_admin());
+
+DROP POLICY IF EXISTS "Admins can delete booking requests" ON public.booking_requests;
+CREATE POLICY "Admins can delete booking requests"
+    ON public.booking_requests FOR DELETE
+    USING (public.is_admin());
+
+GRANT INSERT ON public.booking_requests TO anon, authenticated;
+GRANT SELECT, UPDATE, DELETE ON public.booking_requests TO authenticated, service_role;
+
+-- --- 13. REVIEWS & TESTIMONIALS ---
+CREATE TABLE IF NOT EXISTS public.reviews (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_name TEXT NOT NULL,
+    student_email TEXT NOT NULL,
+    rating INTEGER NOT NULL DEFAULT 5,
+    review_text TEXT NOT NULL,
+    program TEXT NOT NULL DEFAULT 'English Grammar Mastery — A1',
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    published_at TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public can submit validated student reviews" ON public.reviews;
+CREATE POLICY "Public can submit validated student reviews"
+    ON public.reviews FOR INSERT
+    WITH CHECK (
+        status = 'pending'
+        AND char_length(trim(student_name)) >= 2
+        AND char_length(trim(student_name)) <= 100
+        AND student_email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'
+        AND rating >= 1
+        AND rating <= 5
+        AND char_length(trim(review_text)) >= 10
+        AND char_length(trim(review_text)) <= 3000
+        AND (program IS NULL OR char_length(trim(program)) <= 120)
+    );
+
+DROP POLICY IF EXISTS "Public can view published reviews or admins view all" ON public.reviews;
+CREATE POLICY "Public can view published reviews or admins view all"
+    ON public.reviews FOR SELECT
+    USING (status = 'published' OR public.is_admin());
+
+DROP POLICY IF EXISTS "Admins can update reviews" ON public.reviews;
+CREATE POLICY "Admins can update reviews"
+    ON public.reviews FOR UPDATE
+    USING (public.is_admin());
+
+DROP POLICY IF EXISTS "Admins can delete reviews" ON public.reviews;
+CREATE POLICY "Admins can delete reviews"
+    ON public.reviews FOR DELETE
+    USING (public.is_admin());
+
+GRANT SELECT, INSERT ON public.reviews TO anon, authenticated;
+GRANT UPDATE, DELETE ON public.reviews TO authenticated, service_role;
+
+-- ==============================================================================
+-- 14. PERMISSIONS GRANTS (anon, authenticated, service_role)
 -- Grants PostgreSQL role access so RLS can control individual row access
 -- ==============================================================================
 
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
-GRANT ALL ON ALL ROUTINES IN SCHEMA public TO anon, authenticated, service_role;
+
+GRANT ALL ON ALL ROUTINES IN SCHEMA public TO authenticated, service_role;
+REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM anon;
 
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON ROUTINES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON ROUTINES TO authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM anon;
+
 

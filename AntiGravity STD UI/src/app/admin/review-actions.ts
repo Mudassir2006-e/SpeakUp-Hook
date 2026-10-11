@@ -104,11 +104,21 @@ export async function submitStudentReviewAction(payload: {
     } catch {
       supabase = await createClient();
     }
+    // Sync into cms_content
     await supabase.from("cms_content").upsert({
       page_key: "central_reviews",
       published_data: { reviews },
       draft_data: { reviews },
       updated_at: now,
+    });
+    // Attempt direct insert into public.reviews table conforming to RLS
+    await supabase.from("reviews").insert({
+      student_name: newReview.student_name,
+      student_email: newReview.student_email,
+      rating: newReview.rating,
+      review_text: newReview.review_text,
+      program: newReview.program,
+      status: "pending",
     });
   } catch {}
 

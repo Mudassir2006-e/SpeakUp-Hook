@@ -79,7 +79,9 @@ export default function LivePageVisualEditor({
   // Draft edits map: selector -> DraftEditItem
   const [draftEdits, setDraftEdits] = useState<Record<string, DraftEditItem>>({});
   const draftEditsRef = useRef<Record<string, DraftEditItem>>({});
-  draftEditsRef.current = draftEdits;
+  useEffect(() => {
+    draftEditsRef.current = draftEdits;
+  }, [draftEdits]);
 
   // Selected element for inline text editing
   const [selectedTextElement, setSelectedTextElement] = useState<{
