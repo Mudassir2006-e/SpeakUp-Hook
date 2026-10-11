@@ -1,10 +1,25 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
+import LmsWorkingVideoFrame from "@/components/LmsWorkingVideoFrame";
+import { getCentralBenefitsAction, CentralBenefitItem } from "@/app/admin/benefits-actions";
 
 export default function LMSJourneyPage() {
+  const [benefits, setBenefits] = useState<CentralBenefitItem[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    getCentralBenefitsAction().then((res) => {
+      if (isMounted && res.success && Array.isArray(res.data) && res.data.length > 0) {
+        setBenefits(res.data.filter((b) => b.isPublished));
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
   return (
     <div className="min-h-screen flex flex-col bg-[var(--bg-main)] text-[var(--text-main)]">
       <Navbar />
@@ -63,15 +78,7 @@ export default function LMSJourneyPage() {
             </div>
 
             <div className="lg:col-span-6">
-              <div className="w-full aspect-[4/3] rounded-xl overflow-hidden shadow-xl border border-[var(--surface-border)] relative">
-                <div
-                  className="w-full h-full bg-cover bg-center"
-                  style={{
-                    backgroundImage:
-                      "url('https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&w=1200&q=80')",
-                  }}
-                />
-              </div>
+              <LmsWorkingVideoFrame />
             </div>
           </section>
 
@@ -216,75 +223,32 @@ export default function LMSJourneyPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div className="bg-[var(--surface-lowest)] p-8 rounded-2xl border border-[var(--surface-border)] hover:border-[#d4af37]/40 shadow-xs flex flex-col items-start transition-all">
-                <div className="w-12 h-12 rounded-xl border border-[#d4af37]/30 flex items-center justify-center text-[#d4af37] mb-6 bg-[var(--surface-low)]">
-                  <span className="material-symbols-outlined text-[26px]">video_library</span>
+              {(benefits.length > 0 ? benefits : [
+                { id: "b1", title: "Recorded Classes", description: "On-Demand Curriculum: Access executive-level lessons across all time zones with our secure, high-definition digital library.", icon: "video_library" },
+                { id: "b2", title: "Practice Material", description: "Strategic Practice Assets: Access a curated suite of technical resources and case studies designed for immediate professional application.", icon: "menu_book" },
+                { id: "b3", title: "Live Classes", description: "Executive Sessions: Participate in immersive, high-stakes simulations and live rhetorical drills for real-time linguistic refinement.", icon: "live_tv" },
+                { id: "b4", title: "Personal Guidance", description: "Bespoke Mentorship: Receive dedicated, one-on-one strategic guidance tailored to your specific leadership trajectory and professional objectives.", icon: "psychology" },
+                { id: "b5", title: "Discussion Group", description: "Executive Peer Network: Engage with a global cohort of high-achieving professionals in a secure environment for collaborative growth.", icon: "groups" },
+                { id: "b6", title: "Direct Teacher Access", description: "Direct Pedagogical Access: Maintain an open line of communication with our expert faculty for precise, nuanced clarification on complex concepts.", icon: "school" },
+                { id: "b7", title: "Structured Notes", description: "Institutional Summaries: Receive authoritative, professionally structured dossiers summarizing key architectural principles from every module.", icon: "description" },
+              ]).map((b) => (
+                <div
+                  key={b.id}
+                  className="bg-[var(--surface-lowest)] p-8 rounded-2xl border border-[var(--surface-border)] hover:border-[#d4af37]/40 shadow-xs flex flex-col items-start transition-all"
+                >
+                  <div className="w-12 h-12 rounded-xl border border-[#d4af37]/30 flex items-center justify-center text-[#d4af37] mb-6 bg-[var(--surface-low)]">
+                    <span className="material-symbols-outlined text-[26px]">
+                      {b.icon || "verified"}
+                    </span>
+                  </div>
+                  <h3 className="font-display text-lg font-bold text-[var(--text-main)] mb-2">
+                    {b.title}
+                  </h3>
+                  <p className="font-serif text-sm text-[var(--text-muted)] leading-relaxed">
+                    {b.description}
+                  </p>
                 </div>
-                <h3 className="font-display text-lg font-bold text-[var(--text-main)] mb-2">Recorded Classes</h3>
-                <p className="font-serif text-sm text-[var(--text-muted)] leading-relaxed">
-                  On-Demand Curriculum: Access executive-level lessons across all time zones with our secure, high-definition digital library.
-                </p>
-              </div>
-
-              <div className="bg-[var(--surface-lowest)] p-8 rounded-2xl border border-[var(--surface-border)] hover:border-[#d4af37]/40 shadow-xs flex flex-col items-start transition-all">
-                <div className="w-12 h-12 rounded-xl border border-[#d4af37]/30 flex items-center justify-center text-[#d4af37] mb-6 bg-[var(--surface-low)]">
-                  <span className="material-symbols-outlined text-[26px]">menu_book</span>
-                </div>
-                <h3 className="font-display text-lg font-bold text-[var(--text-main)] mb-2">Practice Material</h3>
-                <p className="font-serif text-sm text-[var(--text-muted)] leading-relaxed">
-                  Strategic Practice Assets: Access a curated suite of technical resources and case studies designed for immediate professional application.
-                </p>
-              </div>
-
-              <div className="bg-[var(--surface-lowest)] p-8 rounded-2xl border border-[var(--surface-border)] hover:border-[#d4af37]/40 shadow-xs flex flex-col items-start transition-all">
-                <div className="w-12 h-12 rounded-xl border border-[#d4af37]/30 flex items-center justify-center text-[#d4af37] mb-6 bg-[var(--surface-low)]">
-                  <span className="material-symbols-outlined text-[26px]">live_tv</span>
-                </div>
-                <h3 className="font-display text-lg font-bold text-[var(--text-main)] mb-2">Live Classes</h3>
-                <p className="font-serif text-sm text-[var(--text-muted)] leading-relaxed">
-                  Executive Sessions: Participate in immersive, high-stakes simulations and live rhetorical drills for real-time linguistic refinement.
-                </p>
-              </div>
-
-              <div className="bg-[var(--surface-lowest)] p-8 rounded-2xl border border-[var(--surface-border)] hover:border-[#d4af37]/40 shadow-xs flex flex-col items-start transition-all">
-                <div className="w-12 h-12 rounded-xl border border-[#d4af37]/30 flex items-center justify-center text-[#d4af37] mb-6 bg-[var(--surface-low)]">
-                  <span className="material-symbols-outlined text-[26px]">psychology</span>
-                </div>
-                <h3 className="font-display text-lg font-bold text-[var(--text-main)] mb-2">Personal Guidance</h3>
-                <p className="font-serif text-sm text-[var(--text-muted)] leading-relaxed">
-                  Bespoke Mentorship: Receive dedicated, one-on-one strategic guidance tailored to your specific leadership trajectory and professional objectives.
-                </p>
-              </div>
-
-              <div className="bg-[var(--surface-lowest)] p-8 rounded-2xl border border-[var(--surface-border)] hover:border-[#d4af37]/40 shadow-xs flex flex-col items-start transition-all">
-                <div className="w-12 h-12 rounded-xl border border-[#d4af37]/30 flex items-center justify-center text-[#d4af37] mb-6 bg-[var(--surface-low)]">
-                  <span className="material-symbols-outlined text-[26px]">groups</span>
-                </div>
-                <h3 className="font-display text-lg font-bold text-[var(--text-main)] mb-2">Discussion Group</h3>
-                <p className="font-serif text-sm text-[var(--text-muted)] leading-relaxed">
-                  Executive Peer Network: Engage with a global cohort of high-achieving professionals in a secure environment for collaborative growth.
-                </p>
-              </div>
-
-              <div className="bg-[var(--surface-lowest)] p-8 rounded-2xl border border-[var(--surface-border)] hover:border-[#d4af37]/40 shadow-xs flex flex-col items-start transition-all">
-                <div className="w-12 h-12 rounded-xl border border-[#d4af37]/30 flex items-center justify-center text-[#d4af37] mb-6 bg-[var(--surface-low)]">
-                  <span className="material-symbols-outlined text-[26px]">school</span>
-                </div>
-                <h3 className="font-display text-lg font-bold text-[var(--text-main)] mb-2">Direct Teacher Access</h3>
-                <p className="font-serif text-sm text-[var(--text-muted)] leading-relaxed">
-                  Direct Pedagogical Access: Maintain an open line of communication with our expert faculty for precise, nuanced clarification on complex concepts.
-                </p>
-              </div>
-
-              <div className="bg-[var(--surface-lowest)] p-8 rounded-2xl border border-[var(--surface-border)] hover:border-[#d4af37]/40 shadow-xs flex flex-col items-start md:col-span-2 lg:col-span-1 transition-all">
-                <div className="w-12 h-12 rounded-xl border border-[#d4af37]/30 flex items-center justify-center text-[#d4af37] mb-6 bg-[var(--surface-low)]">
-                  <span className="material-symbols-outlined text-[26px]">description</span>
-                </div>
-                <h3 className="font-display text-lg font-bold text-[var(--text-main)] mb-2">Structured Notes</h3>
-                <p className="font-serif text-sm text-[var(--text-muted)] leading-relaxed">
-                  Institutional Summaries: Receive authoritative, professionally structured dossiers summarizing key architectural principles from every module.
-                </p>
-              </div>
+              ))}
             </div>
           </section>
         </div>

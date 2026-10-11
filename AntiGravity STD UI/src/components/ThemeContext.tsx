@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 
 type Theme = "light" | "dark";
 
@@ -18,25 +19,43 @@ const ThemeContext = createContext<ThemeContextType>({
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<Theme>("light");
+  const pathname = usePathname();
 
   useEffect(() => {
-    const saved = localStorage.getItem("speakup-theme") as Theme | null;
-    const initialTheme =
-      saved === "dark" || saved === "light"
-        ? saved
-        : window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
-        ? "dark"
-        : "light";
+    const isPublicWebsite =
+      !pathname ||
+      (!pathname.startsWith("/admin") && !pathname.startsWith("/lms"));
 
-    // Synchronize initial theme state from client storage
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    const saved = localStorage.getItem("speakup-theme") as Theme | null;
+    const userManuallySetPublic = sessionStorage.getItem("speakup-public-theme-explicit");
+
+    let initialTheme: Theme = "light";
+
+    if (isPublicWebsite) {
+      // Requirement G: Default website theme must ALWAYS be Light Mode for public entries
+      // Only use dark if the user explicitly switched theme during this visit
+      if (userManuallySetPublic && (saved === "dark" || saved === "light")) {
+        initialTheme = saved;
+      } else {
+        initialTheme = "light";
+      }
+    } else {
+      // Authenticated Admin / LMS areas: honor saved user preference
+      if (saved === "dark" || saved === "light") {
+        initialTheme = saved;
+      } else {
+        initialTheme = "light";
+      }
+    }
+
     setThemeState(initialTheme);
     document.documentElement.classList.toggle("dark", initialTheme === "dark");
-  }, []);
+  }, [pathname]);
 
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
     localStorage.setItem("speakup-theme", newTheme);
+    sessionStorage.setItem("speakup-public-theme-explicit", "true");
     document.documentElement.classList.toggle("dark", newTheme === "dark");
   };
 

@@ -1,64 +1,76 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
+import {
+  getPublicPublishedReviewsAction,
+  submitStudentReviewAction,
+  CentralReview,
+} from "@/app/admin/review-actions";
 
 export default function ReviewsPage() {
+  const [reviews, setReviews] = useState<CentralReview[]>([]);
+  const [loading, setLoading] = useState(true);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Form State
   const [shareName, setShareName] = useState("");
   const [shareEmail, setShareEmail] = useState("");
   const [shareCourse, setShareCourse] = useState("English Grammar Mastery — A1");
+  const [shareRating, setShareRating] = useState(5);
   const [shareReview, setShareReview] = useState("");
 
-  const reviews = [
-    {
-      quote:
-        "The curriculum is rigorous and perfectly tailored for high-level negotiations. It fundamentally changed how I approach international business communications and boardroom remarks.",
-      author: "Elena Rostova",
-      program: "Executive Leadership Program",
-      tag: "English",
-      rating: 5,
-    },
-    {
-      quote:
-        "What sets SpeakUp apart is not just the linguistic precision, but the deep cultural context embedded in every lesson. The instructors demand excellence, and the environment fosters it. An unparalleled educational experience for senior executives managing multinational stakeholder teams.",
-      author: "Marcus Chen",
-      program: "Advanced Corporate Negotiation",
-      tag: "Executive",
-      featured: true,
-      rating: 5,
-    },
-    {
-      quote:
-        "Sir Mudassir's cadence anchor method gave me the confidence to handle shareholder questions under immense scrutiny. The elimination of verbal fillers was dramatic within just three weeks.",
-      author: "Tariq Mehmood",
-      program: "Speak in 30 Days — Fluency",
-      tag: "English",
-      rating: 5,
-    },
-    {
-      quote:
-        "Every module felt like a private masterclass in executive diction. My spoken pauses are now intentional rather than nervous, and my team noticed the change immediately.",
-      author: "Claire Dubois",
-      program: "Professional Executive Series",
-      tag: "Advanced",
-      rating: 5,
-    },
-    {
-      quote:
-        "The distinction between passive textbook knowledge and active articulate presence was made clear in the first two weeks. The practice drills inside the student LMS are unmatched.",
-      author: "Dr. Arham Siddiqui",
-      program: "English Grammar Mastery — A1",
-      tag: "A1",
-      rating: 5,
-    },
-  ];
+  const loadReviews = async () => {
+    setLoading(true);
+    try {
+      const res = await getPublicPublishedReviewsAction();
+      if (res.success && res.data) {
+        setReviews(res.data);
+      }
+    } catch (err) {
+      console.error("Failed to load published reviews:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const handleShareSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    loadReviews();
+  }, []);
+
+  const handleShareSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
+    setSubmitError(null);
+    setSubmitting(true);
+
+    try {
+      const res = await submitStudentReviewAction({
+        student_name: shareName,
+        student_email: shareEmail,
+        program: shareCourse,
+        rating: shareRating,
+        review_text: shareReview,
+      });
+
+      if (res.success) {
+        setSubmitted(true);
+        // Clear form
+        setShareName("");
+        setShareEmail("");
+        setShareReview("");
+        setShareRating(5);
+      } else {
+        setSubmitError(res.error || "Failed to submit review.");
+      }
+    } catch (err: any) {
+      setSubmitError(err?.message || "Failed to submit review.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -92,6 +104,7 @@ export default function ReviewsPage() {
                 onClick={() => {
                   setShareModalOpen(true);
                   setSubmitted(false);
+                  setSubmitError(null);
                 }}
                 className="inline-flex items-center gap-2 bg-[var(--surface-low)] hover:bg-[#d4af37] text-[var(--text-main)] hover:text-[#1a1a1a] border border-[#d4af37] font-display text-[13px] sm:text-sm uppercase tracking-wider font-bold px-8 py-3.5 rounded-full transition-all duration-300 shadow-xs cursor-pointer active:scale-95"
               >
@@ -101,62 +114,95 @@ export default function ReviewsPage() {
             </div>
           </header>
 
-          {/* Reviews Grid (Bento Style) */}
-          <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
-            {reviews.map((r, idx) => (
-              <article
-                key={idx}
-                className={`bg-[var(--surface-lowest)] rounded-2xl p-8 border border-[var(--surface-border)] shadow-xs hover:-translate-y-1 hover:shadow-md transition-all duration-300 flex flex-col justify-between ${
-                  r.featured ? "md:col-span-2 lg:col-span-2 relative overflow-hidden" : ""
-                }`}
-              >
-                {r.featured && (
-                  <div className="absolute top-0 right-0 w-36 h-36 bg-[#d4af37]/10 rounded-bl-full pointer-events-none"></div>
-                )}
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <span
-                      className="material-symbols-outlined text-[#d4af37] opacity-60 text-3xl block"
-                      style={{ fontVariationSettings: "'FILL' 1" }}
-                    >
-                      format_quote
-                    </span>
-                    <div className="flex items-center gap-0.5 text-[#d4af37]">
-                      {[...Array(r.rating || 5)].map((_, i) => (
-                        <span
-                          key={i}
-                          className="material-symbols-outlined text-[18px]"
-                          style={{ fontVariationSettings: "'FILL' 1" }}
-                        >
-                          star
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <p
-                    className={`font-serif text-[var(--text-main)] leading-relaxed mb-6 ${
-                      r.featured ? "text-lg md:text-xl" : "text-base"
+          {/* Reviews Grid or Empty State */}
+          {loading ? (
+            <div className="p-16 text-center text-[var(--text-muted)] font-serif text-base">
+              Loading reviews...
+            </div>
+          ) : reviews.length === 0 ? (
+            <div className="bg-[var(--surface-lowest)] rounded-3xl p-12 sm:p-16 border border-[var(--surface-border)] text-center max-w-2xl mx-auto space-y-4 mb-16 shadow-xs">
+              <div className="w-16 h-16 rounded-full bg-[var(--surface-low)] border border-[var(--surface-border)] text-[#d4af37] flex items-center justify-center mx-auto">
+                <span className="material-symbols-outlined text-[32px]">rate_review</span>
+              </div>
+              <h3 className="font-display text-2xl font-bold text-[var(--text-main)]">
+                No reviews yet.
+              </h3>
+              <p className="font-serif text-base text-[var(--text-muted)] leading-relaxed">
+                When students complete their programs and submit feedback, approved testimonials will appear here on the alumni roll. Be the first to share your journey!
+              </p>
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShareModalOpen(true);
+                    setSubmitted(false);
+                  }}
+                  className="inline-flex items-center gap-2 border border-[#d4af37] text-[var(--text-main)] hover:bg-[#d4af37] hover:text-white px-6 py-3 rounded-full font-display text-xs uppercase tracking-wider font-bold transition-all cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[18px]">add_comment</span>
+                  <span>Submit the First Review</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
+              {reviews.map((r, idx) => {
+                const isFeatured = idx === 0 && reviews.length > 2;
+
+                return (
+                  <article
+                    key={r.id || idx}
+                    className={`bg-[var(--surface-lowest)] rounded-2xl p-8 border border-[var(--surface-border)] shadow-xs hover:-translate-y-1 hover:shadow-md transition-all duration-300 flex flex-col justify-between ${
+                      isFeatured ? "md:col-span-2 lg:col-span-2 relative overflow-hidden" : ""
                     }`}
                   >
-                    &quot;{r.quote}&quot;
-                  </p>
-                </div>
-                <div className="border-t border-[var(--surface-border)] pt-4 mt-auto flex items-center justify-between gap-3">
-                  <div>
-                    <h3 className="font-display text-base font-bold text-[var(--text-main)] uppercase tracking-wider">
-                      {r.author}
-                    </h3>
-                    <p className="font-serif text-xs text-[var(--text-muted)] mt-0.5">{r.program}</p>
-                  </div>
-                  {r.tag && (
-                    <span className="font-display text-[11px] uppercase tracking-wider font-bold text-[#d4af37] border border-[#d4af37]/35 bg-[var(--surface-low)] px-2.5 py-1 rounded-md shrink-0">
-                      {r.tag}
-                    </span>
-                  )}
-                </div>
-              </article>
-            ))}
-          </section>
+                    {isFeatured && (
+                      <div className="absolute top-0 right-0 w-36 h-36 bg-[#d4af37]/10 rounded-bl-full pointer-events-none"></div>
+                    )}
+                    <div>
+                      <div className="flex items-center justify-between mb-4">
+                        <span
+                          className="material-symbols-outlined text-[#d4af37] opacity-60 text-3xl block"
+                          style={{ fontVariationSettings: "'FILL' 1" }}
+                        >
+                          format_quote
+                        </span>
+                        <div className="flex items-center gap-0.5 text-[#d4af37]">
+                          {[...Array(r.rating || 5)].map((_, i) => (
+                            <span
+                              key={i}
+                              className="material-symbols-outlined text-[18px]"
+                              style={{ fontVariationSettings: "'FILL' 1" }}
+                            >
+                              star
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <p
+                        className={`font-serif text-[var(--text-main)] leading-relaxed mb-6 ${
+                          isFeatured ? "text-lg md:text-xl" : "text-base"
+                        }`}
+                      >
+                        &quot;{r.review_text}&quot;
+                      </p>
+                    </div>
+                    <div className="border-t border-[var(--surface-border)] pt-4 mt-auto flex items-center justify-between gap-3">
+                      <div>
+                        <h3 className="font-display text-base font-bold text-[var(--text-main)] uppercase tracking-wider">
+                          {r.student_name}
+                        </h3>
+                        <p className="font-serif text-xs text-[var(--text-muted)] mt-0.5">{r.program}</p>
+                      </div>
+                      <span className="font-display text-[11px] uppercase tracking-wider font-bold text-[#d4af37] border border-[#d4af37]/35 bg-[var(--surface-low)] px-2.5 py-1 rounded-md shrink-0">
+                        Verified Alumni
+                      </span>
+                    </div>
+                  </article>
+                );
+              })}
+            </section>
+          )}
 
           {/* Bottom Action */}
           <div className="text-center bg-[var(--surface-low)] border border-[#d4af37]/30 rounded-2xl p-10 max-w-2xl mx-auto shadow-xs">
@@ -214,11 +260,17 @@ export default function ReviewsPage() {
               </button>
             </div>
 
+            {submitError && (
+              <div className="mb-4 p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-500/30 text-red-700 dark:text-red-300 text-xs font-serif">
+                {submitError}
+              </div>
+            )}
+
             {!submitted ? (
               <form onSubmit={handleShareSubmit} className="space-y-4 font-serif">
                 <div>
                   <label className="font-display text-xs uppercase tracking-wider text-[var(--text-muted)] font-bold block mb-1.5">
-                    Your Full Name
+                    Your Full Name *
                   </label>
                   <input
                     type="text"
@@ -232,7 +284,7 @@ export default function ReviewsPage() {
 
                 <div>
                   <label className="font-display text-xs uppercase tracking-wider text-[var(--text-muted)] font-bold block mb-1.5">
-                    Email
+                    Email Address *
                   </label>
                   <input
                     type="email"
@@ -262,7 +314,34 @@ export default function ReviewsPage() {
 
                 <div>
                   <label className="font-display text-xs uppercase tracking-wider text-[var(--text-muted)] font-bold block mb-1.5">
-                    Your Testimonial
+                    Rating (1 to 5 Stars)
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setShareRating(s)}
+                        className="p-1 cursor-pointer transition-transform hover:scale-110"
+                      >
+                        <span
+                          className={`material-symbols-outlined text-[24px] ${
+                            s <= shareRating ? "text-[#d4af37]" : "text-[var(--surface-border)]"
+                          }`}
+                        >
+                          star
+                        </span>
+                      </button>
+                    ))}
+                    <span className="font-mono text-xs text-[var(--text-muted)] ml-2">
+                      {shareRating} / 5
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="font-display text-xs uppercase tracking-wider text-[var(--text-muted)] font-bold block mb-1.5">
+                    Your Testimonial *
                   </label>
                   <textarea
                     required
@@ -277,9 +356,10 @@ export default function ReviewsPage() {
                 <div className="pt-2">
                   <button
                     type="submit"
-                    className="w-full py-3.5 rounded-full bg-[#1a1a1a] dark:bg-[#d4af37] text-white dark:text-[#1a1a1a] font-display text-xs uppercase tracking-widest font-bold hover:bg-[#d4af37] hover:text-white transition-all shadow-xs cursor-pointer active:scale-95"
+                    disabled={submitting}
+                    className="w-full py-3.5 rounded-full bg-[#1a1a1a] dark:bg-[#d4af37] text-white dark:text-[#1a1a1a] font-display text-xs uppercase tracking-widest font-bold hover:bg-[#d4af37] hover:text-white transition-all shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
                   >
-                    Submit Alumni Experience
+                    {submitting ? "Submitting for Moderation..." : "Submit Alumni Experience"}
                   </button>
                 </div>
               </form>

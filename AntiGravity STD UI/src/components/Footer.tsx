@@ -1,12 +1,43 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Logo from "./Logo";
+import { useCmsContent } from "@/lib/cms/useCmsContent";
+import { getPublishedSocialLinksAction } from "@/app/admin/links-actions";
 
 export const Footer: React.FC = () => {
   const pathname = usePathname();
+  const cms = useCmsContent("home");
+  const cmsFooter = cms?.footer;
+  const cmsHeader = cms?.header;
+
+  const [socialLinks, setSocialLinks] = useState<{
+    linkedin: string;
+    instagram: string;
+    facebook?: string;
+    facebookActive?: boolean;
+    websiteDomain?: string;
+    websiteDomainActive?: boolean;
+  }>({
+    linkedin: "https://www.linkedin.com",
+    instagram: "https://www.instagram.com",
+    facebook: "",
+    facebookActive: false,
+    websiteDomain: "",
+    websiteDomainActive: false,
+  });
+
+  useEffect(() => {
+    getPublishedSocialLinksAction()
+      .then((res) => {
+        if (res.success && res.data) {
+          setSocialLinks(res.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // SpeakUp Footer is strictly a Homepage-only element
   if (pathname !== "/") {
@@ -18,16 +49,32 @@ export const Footer: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-8 lg:gap-12 px-6 md:px-12 py-12 max-w-[1200px] mx-auto relative z-10 items-start">
         {/* Col 1: Brand & Tagline */}
         <div className="flex flex-col items-start gap-4">
-          <Logo size="md" />
+          <Logo
+            size="md"
+            brandText={cmsHeader?.logoText}
+            tagline={cmsHeader?.logoTagline}
+            customImage={cmsHeader?.logoImage}
+          />
           <p className="text-[14px] text-[var(--text-muted)] font-serif max-w-[240px] leading-relaxed">
-            Premium linguistic education for the discerning global professional.
+            {cmsFooter?.brandTagline || "Premium linguistic education for the discerning global professional."}
           </p>
+          {socialLinks.websiteDomain && (
+            <a
+              href={socialLinks.websiteDomain}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[13px] text-[#d4af37] hover:underline font-serif flex items-center gap-1.5 transition-colors"
+            >
+              <span className="material-symbols-outlined text-[15px]">language</span>
+              {socialLinks.websiteDomain.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+            </a>
+          )}
           <div className="flex flex-col gap-1.5 mt-1 text-[13px] text-[var(--text-muted)] font-serif">
             <Link href="/privacy" className="hover:text-[#d4af37] transition-colors">
-              Privacy &amp; Policies
+              {cmsFooter?.privacyLinkText || "Privacy & Policies"}
             </Link>
             <Link href="/pricing?tab=terms" className="hover:text-[#d4af37] transition-colors">
-              Terms &amp; Conditions
+              {cmsFooter?.termsLinkText || "Terms & Conditions"}
             </Link>
           </div>
         </div>
@@ -56,41 +103,55 @@ export const Footer: React.FC = () => {
           <h4 className="font-display text-[12px] uppercase tracking-[0.2em] font-bold text-[var(--text-main)] mb-1">
             Social Platforms
           </h4>
-          <a
-            href="https://www.linkedin.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[14px] text-[var(--text-muted)] hover:text-[#d4af37] transition-colors font-serif"
-          >
-            LinkedIn
-          </a>
-          <a
-            href="https://www.instagram.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[14px] text-[var(--text-muted)] hover:text-[#d4af37] transition-colors font-serif"
-          >
-            Instagram
-          </a>
+          {socialLinks.linkedin && (
+            <a
+              href={socialLinks.linkedin}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[14px] text-[var(--text-muted)] hover:text-[#d4af37] transition-colors font-serif"
+            >
+              LinkedIn
+            </a>
+          )}
+          {socialLinks.instagram && (
+            <a
+              href={socialLinks.instagram}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[14px] text-[var(--text-muted)] hover:text-[#d4af37] transition-colors font-serif"
+            >
+              Instagram
+            </a>
+          )}
+          {socialLinks.facebookActive && socialLinks.facebook && (
+            <a
+              href={socialLinks.facebook}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[14px] text-[var(--text-muted)] hover:text-[#d4af37] transition-colors font-serif"
+            >
+              Facebook
+            </a>
+          )}
         </div>
 
         {/* Col 4: Contact Administration */}
         <div className="flex flex-col gap-2.5">
           <h4 className="font-display text-[12px] uppercase tracking-[0.2em] font-bold text-[var(--text-main)] mb-1">
-            Contact Administration
+            {cmsFooter?.contactHeading || "Contact Administration"}
           </h4>
           <p className="text-[13px] text-[var(--text-muted)] font-serif leading-relaxed mb-1">
-            Reach out to our academic administration for guidance on curriculum, enrollment, and verification.
+            {cmsFooter?.contactText || "Reach out to our academic administration for guidance on curriculum, enrollment, and verification."}
           </p>
           <div className="flex items-center gap-3 group mt-0.5">
             <div className="w-9 h-9 rounded-lg bg-[var(--surface-low)] border border-[var(--surface-border)] flex items-center justify-center text-[var(--text-muted)] group-hover:bg-[#d4af37] group-hover:text-white transition-colors shrink-0">
               <span className="material-symbols-outlined text-[17px]">mail</span>
             </div>
             <a
-              href="mailto:admissions@speakup.com"
+              href={`mailto:${cmsFooter?.contactEmail || "admissions@speakup.com"}`}
               className="text-[14px] font-serif text-[var(--text-main)] hover:text-[#d4af37] transition-colors truncate"
             >
-              admissions@speakup.com
+              {cmsFooter?.contactEmail || "admissions@speakup.com"}
             </a>
           </div>
         </div>
@@ -98,7 +159,7 @@ export const Footer: React.FC = () => {
 
       {/* Bottom Bar */}
       <div className="border-t border-[var(--surface-border)] px-6 md:px-12 py-5 max-w-[1200px] mx-auto flex flex-col sm:flex-row justify-between items-center gap-3 text-[12px] text-[var(--text-muted)] font-serif">
-        <span>© 2026 SpeakUp Premium Education. All rights reserved.</span>
+        <span>{cmsFooter?.copyrightText || "© 2026 SpeakUp Premium Education. All rights reserved."}</span>
         <span className="font-display uppercase tracking-wider text-[11px]">Editorial Heritage Design System</span>
       </div>
     </footer>

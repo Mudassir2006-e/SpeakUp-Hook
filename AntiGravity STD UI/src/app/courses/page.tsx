@@ -1,8 +1,12 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
+import { useCmsContent } from "@/lib/cms/useCmsContent";
+import { getPublicCoursesAction } from "@/app/admin/cms-actions";
+
+import { getUnifiedCourses } from "@/config/unifiedCourses";
 
 interface CourseItem {
   id: string;
@@ -14,60 +18,48 @@ interface CourseItem {
   level: string;
 }
 
-const courses: CourseItem[] = [
-  {
-    id: "grammar-a1",
-    title: "English Grammar Mastery — A1",
-    badge: "Available",
-    description:
-      "Master the foundational structures of spoken and written English. Perfect for establishing an authoritative communicative foundation with structural confidence.",
-    image: "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80",
-    duration: "6 Weeks",
-    level: "Foundational",
-  },
-  {
-    id: "speak-30",
-    title: "Speak in 30 Days — Fluency & Cadence",
-    badge: "Popular",
-    description:
-      "Intensive verbal articulation, eliminating conversational pauses and filler words, and training acoustic cadence for high-stakes meetings and formal defenses.",
-    image: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1200&q=80",
-    duration: "4 Weeks",
-    level: "Accelerated",
-  },
-  {
-    id: "strategic-negotiation",
-    title: "Strategic Negotiation & Persuasion",
-    badge: "Available",
-    description:
-      "Advanced linguistic tactics for cross-border transactions, executive conflict resolution, and steering high-stakes corporate discourse.",
-    image: "https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=1200&q=80",
-    duration: "8 Weeks",
-    level: "Executive",
-  },
-  {
-    id: "professional-mastery",
-    title: "Professional Executive Series",
-    badge: "Available",
-    description:
-      "Comprehensive curriculum integrating formal rhetoric, board reporting, articulate spontaneous replies, and boardroom influence.",
-    image: "https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&w=1200&q=80",
-    duration: "10 Weeks",
-    level: "Advanced",
-  },
-  {
-    id: "global-leadership",
-    title: "Global Leadership Intensive",
-    badge: "Waitlist",
-    description:
-      "Immersive capstone cohort program focused on keynote address delivery, speech crafting, and international diplomacy communication.",
-    image: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80",
-    duration: "12 Weeks",
-    level: "Elite Capstone",
-  },
-];
+const defaultCourses: CourseItem[] = getUnifiedCourses().map((c) => ({
+  id: c.id,
+  title: c.title,
+  badge: (c.badge || "Available") as any,
+  description: c.description,
+  image: c.image,
+  duration: c.duration,
+  level: c.level,
+}));
 
 export default function CoursesPage() {
+  const cms = useCmsContent("courses");
+  const [courses, setCourses] = useState<CourseItem[]>(defaultCourses);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const syncCourses = () => {
+      const unified = getUnifiedCourses().map((c) => ({
+        id: c.id,
+        title: c.title,
+        badge: (c.badge || "Available") as any,
+        description: c.description,
+        image: c.image,
+        duration: c.duration,
+        level: c.level,
+      }));
+      if (isMounted) {
+        setCourses(unified);
+      }
+    };
+
+    syncCourses();
+
+    window.addEventListener("speakup-central-courses-updated", syncCourses);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener("speakup-central-courses-updated", syncCourses);
+    };
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col bg-[var(--bg-main)] text-[var(--text-main)]">
       <Navbar />
@@ -79,7 +71,7 @@ export default function CoursesPage() {
             {/* Main Heading enclosed in stylish rectangular rounded box */}
             <div className="inline-flex items-center justify-center px-8 sm:px-12 py-3.5 sm:py-4 bg-gradient-to-b from-[var(--surface-low)] to-[var(--surface-lowest)] border border-[#d4af37]/45 rounded-2xl shadow-[0_4px_24px_-6px_rgba(212,175,55,0.18)] mb-5">
               <h1 className="font-display text-2xl sm:text-3xl md:text-4xl font-extrabold uppercase tracking-[0.08em] text-[var(--text-main)]">
-                Course Panel
+                {cms.header?.pageHeading || "Course Panel"}
               </h1>
             </div>
 
@@ -87,83 +79,99 @@ export default function CoursesPage() {
             <div className="flex items-center justify-center gap-3 sm:gap-4 mb-3">
               <span className="h-px w-6 sm:w-12 bg-gradient-to-r from-transparent to-[#d4af37]/60" />
               <h2 className="font-display text-lg sm:text-xl md:text-2xl font-semibold tracking-wide text-[#d4af37]">
-                Executive English Programs &amp; Pathways
+                {cms.header?.subheading || "Executive English Programs & Pathways"}
               </h2>
               <span className="h-px w-6 sm:w-12 bg-gradient-to-l from-transparent to-[#d4af37]/60" />
             </div>
+
+            {cms.header?.filterBadge && (
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#d4af37]/10 border border-[#d4af37]/30 text-[#d4af37] font-display text-[11px] uppercase tracking-wider font-semibold mb-3">
+                {cms.header.filterBadge}
+              </div>
+            )}
 
             <p className="font-serif text-base sm:text-lg text-[var(--text-muted)] leading-relaxed max-w-2xl mx-auto">
               Master global leadership through rigorous, focused curricula designed for ambitious professionals. Discover our structured pathways to articulate authority.
             </p>
           </div>
 
-          {/* Courses Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
-            {courses.map((course) => (
-              <div
-                key={course.id}
-                className="bg-[var(--surface-lowest)] border border-[var(--surface-border)] rounded-2xl overflow-hidden shadow-xs hover:border-[#d4af37]/50 hover:shadow-md transition-all duration-300 flex flex-col justify-between group"
-              >
-                <div>
-                  {/* Card Image Banner */}
-                  <div className="h-48 w-full relative overflow-hidden bg-[var(--surface-low)]">
-                    <div
-                      className="w-full h-full bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
-                      style={{ backgroundImage: `url(${course.image})` }}
-                    />
-                    <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors"></div>
-                    <div className="absolute top-4 left-4">
-                      <span
-                        className={`font-display text-xs uppercase tracking-wider font-bold px-3.5 py-1 rounded-full shadow-xs ${
-                          course.badge === "Popular"
-                            ? "bg-[#d4af37] text-[#1a1a1a]"
-                            : course.badge === "Waitlist"
-                            ? "bg-[var(--surface-lowest)] text-[var(--text-muted)]"
-                            : "bg-[var(--surface-lowest)] text-[#d4af37]"
-                        }`}
-                      >
-                        {course.badge}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Body Content */}
-                  <div className="p-6">
-                    <div className="flex items-center gap-3 text-xs sm:text-[13px] font-display uppercase tracking-widest text-[var(--text-muted)] mb-3">
-                      <span>{course.duration}</span>
-                      <span>•</span>
-                      <span className="text-[#d4af37] font-semibold">{course.level}</span>
-                    </div>
-
-                    <h3 className="font-display text-xl font-bold text-[var(--text-main)] mb-3 leading-snug group-hover:text-[#d4af37] transition-colors">
-                      {course.title}
-                    </h3>
-
-                    <p className="font-serif text-[14px] text-[var(--text-muted)] leading-relaxed line-clamp-3">
-                      {course.description}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Footer Action: Full Width, Cleanly Aligned Course Outline Button */}
-                <div className="p-6 pt-0">
-                  <div className="pt-4 border-t border-[var(--surface-border)]">
-                    <Link
-                      href={`/course-outline?course=${course.id}`}
-                      className="w-full block text-center py-3.5 rounded-full border border-[var(--surface-border)] hover:border-[#d4af37] text-[var(--text-main)] hover:text-[#d4af37] font-display text-[13px] sm:text-[14px] uppercase tracking-wider font-bold transition-all shadow-xs active:scale-95"
-                    >
-                      Course Outline
-                    </Link>
-                  </div>
-                </div>
+          {/* Courses Grid or Authentic Empty State */}
+          {courses.length === 0 ? (
+            <div className="text-center py-20 bg-[var(--surface-lowest)] border border-[var(--surface-border)] rounded-2xl p-8 max-w-lg mx-auto space-y-4 mb-16 shadow-xs animate-in fade-in duration-200">
+              <div className="w-16 h-16 rounded-full bg-[#d4af37]/10 text-[#d4af37] flex items-center justify-center mx-auto border border-[#d4af37]/20">
+                <span className="material-symbols-outlined text-[32px]">menu_book</span>
               </div>
-            ))}
-          </div>
+              <div className="space-y-1">
+                <h3 className="font-display text-xl font-bold text-[var(--text-main)]">
+                  No courses available
+                </h3>
+                <p className="font-serif text-sm text-[var(--text-muted)] leading-relaxed">
+                  There are currently no published courses available in the catalog. Please check back soon or contact SpeakUp administration.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
+              {courses.map((course) => (
+                <div
+                  key={course.id}
+                  className="bg-[var(--surface-lowest)] border border-[var(--surface-border)] rounded-2xl overflow-hidden shadow-xs hover:border-[#d4af37]/50 hover:shadow-md transition-all duration-300 flex flex-col justify-between group"
+                >
+                  <div>
+                    {/* Card Image Banner */}
+                    <div className="h-48 w-full relative overflow-hidden bg-[var(--surface-low)]">
+                      <div
+                        className="w-full h-full bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
+                        style={{ backgroundImage: `url(${course.image})` }}
+                      />
+                      <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors"></div>
+                      <div className="absolute top-4 left-4">
+                        <span
+                          className={`font-display text-xs uppercase tracking-wider font-bold px-3.5 py-1 rounded-full shadow-xs ${
+                            course.badge === "Popular"
+                              ? "bg-[#d4af37] text-[#1a1a1a]"
+                              : course.badge === "Waitlist"
+                              ? "bg-[var(--surface-lowest)] text-[var(--text-muted)]"
+                              : "bg-[var(--surface-lowest)] text-[#d4af37]"
+                          }`}
+                        >
+                          {course.badge}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Body Content */}
+                    <div className="p-6">
+                      <h3 className="font-display text-xl sm:text-2xl font-bold text-[var(--text-main)] mb-3 leading-snug group-hover:text-[#d4af37] transition-colors">
+                        {course.title}
+                      </h3>
+
+                      <p className="font-serif text-[14px] text-[var(--text-muted)] leading-relaxed line-clamp-3">
+                        {course.description}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Primary Action: Course Outline */}
+                  <div className="p-6 pt-0">
+                    <div className="pt-4 border-t border-[var(--surface-border)]">
+                      <Link
+                        href={`/course-outline?course=${course.id}`}
+                        className="w-full block py-3.5 text-center rounded-xl bg-[#d4af37] hover:bg-[#b08e2b] text-[#141416] font-display text-xs uppercase tracking-wider font-extrabold transition-all shadow-xs active:scale-98"
+                      >
+                        Course Outline
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Course Duration Access Note */}
           <div className="text-center mb-10">
             <p className="font-serif text-sm sm:text-base text-[var(--text-muted)] italic">
-              Note: Courses with a 3-month duration include 6 months of total access. Courses with a 2-month duration include 4 months of total access.
+              {cms.enrollment_notice?.noticeBody || "Note: Courses with a 3-month duration include 6 months of total access. Courses with a 2-month duration include 4 months of total access."}
             </p>
           </div>
 
@@ -187,10 +195,10 @@ export default function CoursesPage() {
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto">
               <Link
-                href="/pricing"
+                href={cms.enrollment_notice?.helpButtonLink || "/pricing"}
                 className="w-full sm:w-auto bg-[#1a1a1a] dark:bg-[#d4af37] text-white dark:text-[#1a1a1a] border-2 border-[#d4af37] font-display text-[13px] sm:text-[14px] uppercase tracking-widest px-10 py-4 rounded-full hover:bg-[#d4af37] hover:text-white transition-all duration-300 font-bold shadow-xs active:scale-95 text-center"
               >
-                Pricing &amp; Enrollment
+                {cms.enrollment_notice?.helpButtonText || "Pricing & Enrollment"}
               </Link>
               <Link
                 href="/pricing?tab=terms#terms-conditions"

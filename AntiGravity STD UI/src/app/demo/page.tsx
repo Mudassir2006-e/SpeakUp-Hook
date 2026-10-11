@@ -1,53 +1,149 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import SpeakUpVideoPlayer from "@/components/SpeakUpVideoPlayer";
+import { getCentralCoursesAction } from "@/app/admin/cms-actions";
+import { getFreeDemoConfigAction, FreeDemoEntry } from "@/app/admin/free-demo-actions";
+import { getAllCentralCourses, CentralCourse } from "@/config/unifiedCourses";
 
 interface DemoVideo {
   id: string;
+  courseId: string;
+  courseTitle: string;
+  moduleTitle?: string;
+  lessonTitle?: string;
   title: string;
   duration: string;
   description: string;
   thumbnail: string;
   instructor: string;
+  videoUrl: string;
+  videoSource?: string;
 }
 
+const DEFAULT_FALLBACK_DEMOS: DemoVideo[] = [
+  {
+    id: "A1G",
+    courseId: "A1G",
+    courseTitle: "A1 German",
+    moduleTitle: "Module 2: Essential Sentence Architecture",
+    lessonTitle: "Lesson 3: Spoken Cadence & Regular Verbs",
+    title: "A1 German — Spoken Cadence & Regular Verbs",
+    duration: "Included LMS",
+    description:
+      "Interactive lesson preview from Module 2: Essential Sentence Architecture of the official A1 German curriculum.",
+    thumbnail: "https://images.unsplash.com/photo-1527866959252-deab85ef7d1b?auto=format&fit=crop&w=1200&q=80",
+    instructor: "SpeakUp Faculty",
+    videoUrl: "https://www.youtube.com/watch?v=fJ9rUzIMcZQ",
+    videoSource: "youtube",
+  },
+  {
+    id: "ENG-GRAM-01",
+    courseId: "ENG-GRAM-01",
+    courseTitle: "English Grammar Mastery",
+    moduleTitle: "Module 1: Professional Linguistic Foundation",
+    lessonTitle: "Lesson 2: Cadence & Articulation",
+    title: "English Grammar Mastery — Cadence & Articulation",
+    duration: "Included LMS",
+    description:
+      "Master clause coordination and eliminate hesitation markers with authentic executive cadence.",
+    thumbnail: "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&w=1200&q=80",
+    instructor: "SpeakUp Faculty",
+    videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    videoSource: "youtube",
+  },
+];
+
 export default function DemoPage() {
+  const [demoVideos, setDemoVideos] = useState<DemoVideo[]>(DEFAULT_FALLBACK_DEMOS);
+  const [selectedVideo, setSelectedVideo] = useState<DemoVideo>(DEFAULT_FALLBACK_DEMOS[0]);
   const [activeVideo, setActiveVideo] = useState<DemoVideo | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const demoVideos: DemoVideo[] = [
-    {
-      id: "grammar-demo",
-      title: "English Grammar Mastery — A1 Demonstration",
-      duration: "12:40",
-      description:
-        "A focused breakdown of clause coordination and eliminating common subject-verb hesitation markers in professional discourse.",
-      thumbnail: "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&w=1200&q=80",
-      instructor: "Sir Mudassir Ali",
-    },
-    {
-      id: "fluency-demo",
-      title: "Speak in 30 Days — The Cadence Anchor in Action",
-      duration: "15:20",
-      description:
-        "Watch how intentional pause timing replaces verbal crutches ('um', 'you know') to project commanding executive authority.",
-      thumbnail: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=1200&q=80",
-      instructor: "Sir Mudassir Ali",
-    },
-    {
-      id: "negotiation-demo",
-      title: "Executive Cross-Examination & Objection Handling",
-      duration: "18:15",
-      description:
-        "Live seminar drill demonstrating diplomatic dissent phrasing and maintaining composure under intense stakeholder pushback.",
-      thumbnail: "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80",
-      instructor: "SpeakUp Executive Faculty",
-    },
-  ];
+  useEffect(() => {
+    async function loadDynamicDemos() {
+      try {
+        const [coursesRes, demoConfigRes] = await Promise.all([
+          getCentralCoursesAction(),
+          getFreeDemoConfigAction(),
+        ]);
 
-  const [selectedVideo, setSelectedVideo] = useState<DemoVideo>(demoVideos[0]);
+        let availableCourses: CentralCourse[] = [];
+        if (coursesRes.success && Array.isArray(coursesRes.data)) {
+          availableCourses = coursesRes.data.filter((c: any) => !/executive\s*speech/i.test(c.title));
+        } else {
+          availableCourses = getAllCentralCourses().filter((c: any) => !/executive\s*speech/i.test(c.title));
+        }
+
+        const configMap: Record<string, FreeDemoEntry> =
+          demoConfigRes.success && demoConfigRes.data ? demoConfigRes.data : {};
+
+        const dynamicDemos: DemoVideo[] = [];
+
+        // 1. Map general demonstrations
+        if (demoConfigRes.success && demoConfigRes.generalDemos && Array.isArray(demoConfigRes.generalDemos)) {
+          for (const gen of demoConfigRes.generalDemos) {
+            if (gen.videoUrl) {
+              dynamicDemos.push({
+                id: gen.id,
+                courseId: "general",
+                courseTitle: "General Demonstration",
+                moduleTitle: "Platform & Methodology Overview",
+                lessonTitle: gen.title,
+                title: gen.title,
+                duration: gen.duration || "Platform Demo",
+                description: gen.description || "General demonstration of SpeakUp methodology and learning tools.",
+                thumbnail: gen.thumbnail || "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&w=1200&q=80",
+                instructor: gen.instructor || "SpeakUp Academic Team",
+                videoUrl: gen.videoUrl,
+                videoSource: gen.videoSource || "youtube",
+              });
+            }
+          }
+        }
+
+        // 2. Map courses that have a configured free demo
+        for (const course of availableCourses) {
+          const cfg = configMap[course.id];
+          if (cfg && cfg.videoUrl) {
+            dynamicDemos.push({
+              id: course.id,
+              courseId: course.id,
+              courseTitle: course.title,
+              moduleTitle: cfg.moduleTitle,
+              lessonTitle: cfg.lessonTitle,
+              title: `${course.title} — ${cfg.lessonTitle || "Interactive Demo"}`,
+              duration: "Included LMS",
+              description: `Interactive LMS Lesson Preview from ${cfg.moduleTitle || "Curriculum"} of the official ${course.title} program.`,
+              thumbnail:
+                course.image ||
+                "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&w=1200&q=80",
+              instructor: "SpeakUp Faculty",
+              videoUrl: cfg.videoUrl,
+              videoSource: cfg.videoSource || "youtube",
+            });
+          }
+        }
+
+        if (dynamicDemos.length > 0) {
+          setDemoVideos(dynamicDemos);
+          setSelectedVideo(dynamicDemos[0]);
+        } else {
+          // If no custom free demos configured yet, fallback gracefully
+          setDemoVideos(DEFAULT_FALLBACK_DEMOS);
+          setSelectedVideo(DEFAULT_FALLBACK_DEMOS[0]);
+        }
+      } catch (err) {
+        console.error("Failed to load dynamic free demos:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadDynamicDemos();
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col bg-[var(--bg-main)] text-[var(--text-main)]">
@@ -92,7 +188,7 @@ export default function DemoPage() {
                 {/* Top Badges */}
                 <div className="absolute top-5 left-5 right-5 sm:top-6 sm:left-6 sm:right-6 flex items-center justify-between z-10">
                   <span className="font-display text-[11px] sm:text-xs uppercase tracking-[0.2em] bg-[#d4af37] text-[#1a1a1a] font-bold px-4 py-1.5 rounded-full shadow-sm">
-                    Masterclass Preview
+                    {selectedVideo.courseTitle || "Masterclass Preview"}
                   </span>
                   <span className="font-display text-xs font-semibold bg-black/75 backdrop-blur-sm text-white px-3 py-1.5 rounded-full border border-white/20">
                     {selectedVideo.duration}
@@ -103,7 +199,7 @@ export default function DemoPage() {
                 <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8 z-10 text-white flex flex-col sm:flex-row sm:items-end justify-between gap-4">
                   <div className="max-w-xl">
                     <span className="font-display text-xs uppercase tracking-wider text-[#d4af37] font-bold block mb-1">
-                      {selectedVideo.instructor}
+                      {selectedVideo.instructor} • {selectedVideo.moduleTitle || "Official Curriculum"}
                     </span>
                     <h2 className="font-display text-xl sm:text-2xl font-bold tracking-tight mb-1">
                       {selectedVideo.title}
@@ -121,7 +217,7 @@ export default function DemoPage() {
             </div>
 
             {/* Video Selector Options */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 mt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5 mt-4">
               {demoVideos.map((video) => (
                 <button
                   key={video.id}
@@ -146,7 +242,7 @@ export default function DemoPage() {
                       {video.title}
                     </h4>
                     <span className="font-serif text-[11px] text-[var(--text-muted)] block truncate">
-                      {video.instructor} • {video.duration}
+                      {video.courseTitle} • {video.duration}
                     </span>
                   </div>
                 </button>
@@ -191,7 +287,9 @@ export default function DemoPage() {
                 <span className="material-symbols-outlined text-[#d4af37]">play_circle</span>
                 <div>
                   <h4 className="font-display text-sm font-bold">{activeVideo.title}</h4>
-                  <span className="font-serif text-xs text-white/60">Instructor: {activeVideo.instructor}</span>
+                  <span className="font-serif text-xs text-white/60">
+                    {activeVideo.courseTitle} • {activeVideo.moduleTitle || "Official Curriculum"}
+                  </span>
                 </div>
               </div>
               <button
@@ -206,9 +304,11 @@ export default function DemoPage() {
                 </svg>
               </button>
             </div>
-            <div className="w-full bg-black">
+            <div className="w-full bg-black aspect-video">
               <SpeakUpVideoPlayer
-                videoId="iCvmsMzlF7o"
+                videoId={activeVideo.videoUrl}
+                videoUrl={activeVideo.videoUrl}
+                videoSource={(activeVideo.videoSource as any) || "youtube"}
                 title={activeVideo.title}
                 poster={activeVideo.thumbnail}
                 autoPlay={true}

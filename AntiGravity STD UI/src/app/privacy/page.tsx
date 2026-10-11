@@ -1,48 +1,59 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
+import {
+  getCentralPrivacyAction,
+  CentralPrivacyItem,
+} from "@/app/admin/privacy-actions";
+import { getPublishedSocialLinksAction } from "@/app/admin/links-actions";
+
+const FALLBACK_SECTIONS: CentralPrivacyItem[] = [
+  {
+    id: "priv-1",
+    number: 1,
+    title: "Certification Integrity & Public Registry",
+    content:
+      "Upon successful completion of course requirements, certificates are assigned a permanent serial code. Third-party employers may only verify certificate authenticity and completion date via our registry.",
+  },
+  {
+    id: "priv-2",
+    number: 2,
+    title: "Governance Inquiries & Account Deletion",
+    content:
+      "Students maintain the right to review registered personal information or request data archiving upon course completion by contacting our academic administration desk at admissions@speakup.com.",
+  },
+];
 
 export default function PrivacyPage() {
-  const pillars = [
-    {
-      num: "01",
-      badge: "Personal License Only",
-      title: "Account & Credential Privacy",
-      desc: "Each student credential represents an individual license. Credentials and learning progress telemetry are strictly tied to your authenticated email. Concurrent logins from disparate geographic IPs trigger security review to prevent unauthorized account sharing.",
-    },
-    {
-      num: "02",
-      badge: "Performance Telemetry",
-      title: "Learning Progress & Assessment Privacy",
-      desc: "Telemetry data regarding lesson completion percentages, assignment submissions, and oral defense feedback is encrypted and restricted to your personal student portal and your assigned academic mentor.",
-    },
-    {
-      num: "03",
-      badge: "Financial Confidentiality",
-      title: "Payment Receipts & Transaction Records",
-      desc: "Bank transfer receipts and transaction IDs provided during enrollment are retained solely for invoice generation and administrative reconciliation. Financial records are never sold or shared with commercial aggregators.",
-    },
-    {
-      num: "04",
-      badge: "Academic Copyright",
-      title: "Proprietary Curriculum Protection",
-      desc: "All audio-visual masterclasses, curated study notes, and cadence drill frameworks are the exclusive intellectual property of SpeakUp and Sir Mudassir Ali. Reproduction or distribution outside the LMS is strictly prohibited.",
-    },
-    {
-      num: "05",
-      badge: "Verifiable Credentialing",
-      title: "Certification Integrity & Public Registry",
-      desc: "Upon successful completion of course requirements, certificates are assigned a permanent serial code. Third-party employers may only verify certificate authenticity and completion date via our registry.",
-    },
-    {
-      num: "06",
-      badge: "Student Data Rights",
-      title: "Governance Inquiries & Account Deletion",
-      desc: "Students maintain the right to review registered personal information or request data archiving upon course completion by contacting our academic administration desk at admissions@speakup.com.",
-    },
-  ];
+  const [whatsAppNumber, setWhatsAppNumber] = useState("+92 300 0000000");
+  const [sections, setSections] = useState<CentralPrivacyItem[]>(FALLBACK_SECTIONS);
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const [socialRes, privRes] = await Promise.all([
+          getPublishedSocialLinksAction(),
+          getCentralPrivacyAction(),
+        ]);
+        if (socialRes.success && socialRes.data?.whatsappNumber) {
+          setWhatsAppNumber(socialRes.data.whatsappNumber);
+        }
+        if (privRes.success && Array.isArray(privRes.data) && privRes.data.length > 0) {
+          setSections(privRes.data);
+        }
+      } catch {
+        // Fallback gracefully to default sections
+      }
+    }
+    loadData();
+  }, []);
+
+  const cleanPhone = whatsAppNumber.replace(/[^0-9]/g, "");
+  const whatsAppComplianceUrl = cleanPhone
+    ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent("Hello SpeakUp Administration, I am inquiring regarding privacy, policy governance, or student compliance.")}`
+    : "https://wa.me";
 
   return (
     <div className="min-h-screen flex flex-col bg-[var(--bg-main)] text-[var(--text-main)]">
@@ -89,29 +100,29 @@ export default function PrivacyPage() {
             </div>
           </section>
 
-          {/* 6 Pillars Bento Grid */}
+          {/* Dynamic Policy Sections Bento Grid */}
           <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
-            {pillars.map((pillar) => (
+            {sections.map((item) => (
               <div
-                key={pillar.num}
+                key={item.id || item.number}
                 className="bg-[var(--surface-lowest)] border border-[var(--surface-border)] rounded-2xl p-8 shadow-xs hover:-translate-y-1 hover:border-[#d4af37]/50 hover:shadow-md transition-all duration-300 flex flex-col justify-between"
               >
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-6">
                     <span className="w-10 h-10 rounded-xl bg-[var(--surface-low)] border border-[var(--surface-border)] flex items-center justify-center text-[var(--text-main)] font-display font-bold text-sm">
-                      {pillar.num}
+                      {String(item.number).padStart(2, "0")}
                     </span>
                     <span className="px-3 py-1 rounded-full bg-[var(--surface-low)] border border-[var(--surface-border)] font-display text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">
-                      {pillar.badge}
+                      Section {item.number}
                     </span>
                   </div>
 
                   <h3 className="font-display text-lg font-bold text-[var(--text-main)] mb-3">
-                    {pillar.title}
+                    {item.title}
                   </h3>
 
-                  <p className="font-serif text-[14px] text-[var(--text-muted)] leading-relaxed">
-                    {pillar.desc}
+                  <p className="font-serif text-[14px] text-[var(--text-muted)] leading-relaxed whitespace-pre-line">
+                    {item.content}
                   </p>
                 </div>
 
@@ -132,7 +143,7 @@ export default function PrivacyPage() {
               If you have any questions or require clarification regarding data governance, student compliance, or platform policies, contact the SpeakUp administration team on WhatsApp.
             </p>
             <a
-              href="https://wa.me"
+              href={whatsAppComplianceUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2.5 bg-[#1a1a1a] dark:bg-[#d4af37] text-white dark:text-[#1a1a1a] hover:bg-[#d4af37] hover:text-white font-display text-xs uppercase tracking-widest font-bold px-8 py-3.5 rounded-full transition-all shadow-xs"

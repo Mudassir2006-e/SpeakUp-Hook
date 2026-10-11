@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Hanken_Grotesk, Source_Serif_4 } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeContext";
+import CmsPublishedHydrator from "@/components/CmsPublishedHydrator";
+import ChatbotWidget from "@/components/ChatbotWidget";
 
 const hankenGrotesk = Hanken_Grotesk({
   variable: "--font-hanken-grotesk",
@@ -41,7 +43,9 @@ export default function RootLayout({
       </head>
       <body className="antialiased selection:bg-[#d4af37]/20 selection:text-[#1a1a1a] dark:selection:text-[#f7f0e8]">
         <ThemeProvider>
+          <CmsPublishedHydrator />
           {children}
+          <ChatbotWidget />
         </ThemeProvider>
       </body>
     </html>

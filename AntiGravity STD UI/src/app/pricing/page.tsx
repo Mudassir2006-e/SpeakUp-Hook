@@ -3,10 +3,15 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
+import { useCmsContent } from "@/lib/cms/useCmsContent";
+
+import { getUnifiedCourses } from "@/config/unifiedCourses";
 
 export default function PricingPage() {
+  const cms = useCmsContent("pricing");
+  const cmsTerms = useCmsContent("terms");
   const [isPkr, setIsPkr] = useState<boolean>(false);
-  const [selectedCourseId, setSelectedCourseId] = useState<string>("advanced-strategic");
+  const [selectedCourseId, setSelectedCourseId] = useState<string>("speak-30");
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<string>("courses");
 
@@ -55,50 +60,27 @@ export default function PricingPage() {
     }
   };
 
-  const pricingCourses = [
-    {
-      id: "executive-series",
-      title: "English Grammar Mastery — A1",
-      usd: 15,
-      pkr: 4200,
-      description: "Foundational mastery of grammatical syntax, sentence mechanics, and structured expression.",
-      features: [
-        "Complete 4-Module video masterclasses",
-        "Curated lecture study notes PDF",
-        "Interactive sentence structure drills",
-        "Course completion certificate",
-      ],
-    },
-    {
-      id: "advanced-strategic",
-      title: "Speak in 30 Days — Accelerated Fluency",
-      usd: 25,
-      pkr: 7000,
-      featured: true,
-      description: "Fast-track verbal articulation, rhythm cadence, and confident executive conversational rhetoric.",
-      features: [
-        "Intensive verbal articulation curriculum",
-        "Cadence anchor & pause training",
-        "Colloquial & executive idiom breakdowns",
-        "Oral assessment feedback with mentor",
-        "Verified credential with unique ID",
-      ],
-    },
-    {
-      id: "professional-mastery",
-      title: "Strategic Negotiation & Executive Rhetoric",
-      usd: 40,
-      pkr: 11000,
-      description: "High-stakes communication, persuasive argument structures, and commanding boardroom authority.",
-      features: [
-        "Boardroom conflict & persuasion strategies",
-        "Cross-border executive discourse",
-        "Countering objections & pressure tactics",
-        "Live cohort defense session invitation",
-        "Direct email advisory with Sir Mudassir",
-      ],
-    },
-  ];
+  const [coursesList, setCoursesList] = useState(() => getUnifiedCourses());
+
+  useEffect(() => {
+    const handleCoursesUpdate = () => {
+      setCoursesList(getUnifiedCourses());
+    };
+    window.addEventListener("speakup-central-courses-updated", handleCoursesUpdate);
+    return () => {
+      window.removeEventListener("speakup-central-courses-updated", handleCoursesUpdate);
+    };
+  }, []);
+
+  const pricingCourses = coursesList.map((c) => ({
+    id: c.id,
+    title: c.title,
+    usd: c.pricing.usd,
+    pkr: c.pricing.pkr,
+    featured: c.pricing.featured || false,
+    description: c.description,
+    features: c.pricing.features,
+  }));
 
   return (
     <div className="min-h-screen flex flex-col bg-[var(--bg-main)] text-[var(--text-main)]">
@@ -111,20 +93,20 @@ export default function PricingPage() {
           <div className="text-center max-w-3xl mx-auto mb-12 sm:mb-14">
             <div className="inline-flex items-center justify-center px-8 sm:px-12 py-3.5 sm:py-4 bg-gradient-to-b from-[var(--surface-low)] to-[var(--surface-lowest)] border border-[#d4af37]/45 rounded-2xl shadow-[0_4px_24px_-6px_rgba(212,175,55,0.18)] mb-4">
               <h1 className="font-display text-2xl sm:text-3xl md:text-4xl font-extrabold uppercase tracking-[0.08em] text-[var(--text-main)]">
-                Pricing &amp; Enrollment
+                {cms.header?.title || "Pricing & Enrollment"}
               </h1>
             </div>
 
             <div className="flex items-center justify-center gap-3 sm:gap-4 mb-3">
               <span className="h-px w-6 sm:w-12 bg-gradient-to-r from-transparent to-[#d4af37]/60" />
               <h2 className="font-display text-base sm:text-lg md:text-xl font-semibold tracking-wide text-[#d4af37]">
-                Available Courses, Bank Details &amp; Institutional Terms
+                {cms.header?.subtitle || "Available Courses, Bank Details & Institutional Terms"}
               </h2>
               <span className="h-px w-6 sm:w-12 bg-gradient-to-l from-transparent to-[#d4af37]/60" />
             </div>
 
             <p className="font-serif text-base sm:text-lg text-[var(--text-muted)] leading-relaxed max-w-2xl mx-auto">
-              Transparent program tuition, verified banking channels, and institutional enrollment governance.
+              {cms.header?.currencyNote || "Transparent program tuition, verified banking channels, and institutional enrollment governance."}
             </p>
           </div>
 
@@ -200,23 +182,36 @@ export default function PricingPage() {
             </div>
 
             {/* Courses Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-stretch">
-              {pricingCourses.map((c) => {
-                const isSelected = selectedCourseId === c.id;
-                return (
-                  <div
-                    key={c.id}
-                    onClick={() => setSelectedCourseId(c.id)}
-                    className={`bg-[var(--surface-lowest)] rounded-2xl p-7 flex flex-col justify-between transition-all duration-200 cursor-pointer ${
-                      isSelected
-                        ? "border-2 border-[#d4af37] ring-1 ring-[#d4af37]/50 shadow-md"
-                        : "border border-[var(--surface-border)] hover:border-[#d4af37]/50 shadow-xs"
-                    }`}
-                  >
-                    <div>
-                      {/* Top Header Row */}
-                      <div className="flex items-center justify-between gap-2 mb-4">
-                        <div className="flex items-center gap-2">
+            {pricingCourses.length === 0 ? (
+              <div className="bg-[var(--surface-lowest)] border border-[var(--surface-border)] rounded-2xl p-12 text-center max-w-xl mx-auto shadow-xs">
+                <span className="material-symbols-outlined text-4xl text-[#d4af37] mb-3 block">
+                  school
+                </span>
+                <h3 className="font-display text-lg font-bold text-[var(--text-main)] mb-2">
+                  No courses available
+                </h3>
+                <p className="font-serif text-sm text-[var(--text-muted)] leading-relaxed">
+                  Enrollment schedules and course offerings are currently being updated. Please check back shortly or contact administration.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-stretch">
+                {pricingCourses.map((c) => {
+                  const isSelected = selectedCourseId === c.id;
+                  return (
+                    <div
+                      key={c.id}
+                      onClick={() => setSelectedCourseId(c.id)}
+                      className={`bg-[var(--surface-lowest)] rounded-2xl p-7 flex flex-col justify-between transition-all duration-200 cursor-pointer ${
+                        isSelected
+                          ? "border-2 border-[#d4af37] ring-1 ring-[#d4af37]/50 shadow-md"
+                          : "border border-[var(--surface-border)] hover:border-[#d4af37]/50 shadow-xs"
+                      }`}
+                    >
+                      <div>
+                        {/* Top Header Row */}
+                        <div className="flex items-center justify-between gap-2 mb-4">
+                          <div className="flex items-center gap-2">
                           <span
                             className={`w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${
                               isSelected
@@ -295,6 +290,7 @@ export default function PricingPage() {
                 );
               })}
             </div>
+            )}
 
             {/* Direct Study Material Notice */}
             <div className="mt-8 bg-[var(--surface-low)] border border-[var(--surface-border)] rounded-2xl p-6 sm:p-7 flex flex-col sm:flex-row items-center gap-5 shadow-xs">
@@ -332,7 +328,7 @@ export default function PricingPage() {
               <div className="bg-[var(--surface-low)] border border-[var(--surface-border)] rounded-xl p-5 sm:p-6 space-y-4 font-serif">
                 <div className="flex items-center justify-between pb-3 border-b border-[var(--surface-border)]">
                   <h3 className="font-display text-base sm:text-lg font-bold text-[var(--text-main)]">
-                    Meezan Bank
+                    {cms.payment_instructions?.bank1Name || "Meezan Bank"}
                   </h3>
                   <span className="font-display text-[10px] uppercase tracking-wider text-[#d4af37] font-bold px-2.5 py-0.5 rounded-full bg-[#d4af37]/10 border border-[#d4af37]/30">
                     Primary Account
@@ -344,7 +340,7 @@ export default function PricingPage() {
                     Account Title
                   </span>
                   <span className="font-bold text-[var(--text-main)] text-sm sm:text-base font-display">
-                    SPEAKUP EXECUTIVE EDUCATION
+                    {cms.payment_instructions?.bank1Account || "SPEAKUP EXECUTIVE EDUCATION"}
                   </span>
                 </div>
 
@@ -353,7 +349,7 @@ export default function PricingPage() {
                     Bank / Payment Channel
                   </span>
                   <span className="text-[var(--text-main)] text-sm">
-                    Meezan Bank Limited
+                    {cms.payment_instructions?.bank1Name || "Meezan Bank Limited"}
                   </span>
                 </div>
 
@@ -364,7 +360,7 @@ export default function PricingPage() {
                     </span>
                     <button
                       type="button"
-                      onClick={() => handleCopy("PK64MEZN0001040105829103", "meezan")}
+                      onClick={() => handleCopy(cms.payment_instructions?.bank1Iban || "PK64MEZN0001040105829103", "meezan")}
                       className="font-display text-[11px] uppercase tracking-wider text-[#d4af37] hover:underline font-bold inline-flex items-center gap-1 cursor-pointer"
                     >
                       <span className="material-symbols-outlined text-[14px]">
@@ -374,7 +370,7 @@ export default function PricingPage() {
                     </button>
                   </div>
                   <span className="font-mono text-sm sm:text-base font-bold text-[var(--text-main)] tracking-wider select-all block bg-[var(--surface-lowest)] px-3 py-2 rounded-lg border border-[var(--surface-border)]">
-                    PK64MEZN0001040105829103
+                    {cms.payment_instructions?.bank1Iban || "PK64MEZN0001040105829103"}
                   </span>
                 </div>
               </div>
@@ -383,7 +379,7 @@ export default function PricingPage() {
               <div className="bg-[var(--surface-low)] border border-[var(--surface-border)] rounded-xl p-5 sm:p-6 space-y-4 font-serif">
                 <div className="flex items-center justify-between pb-3 border-b border-[var(--surface-border)]">
                   <h3 className="font-display text-base sm:text-lg font-bold text-[var(--text-main)]">
-                    Standard Chartered Bank
+                    {cms.payment_instructions?.bank2Name || "Standard Chartered Bank"}
                   </h3>
                   <span className="font-display text-[10px] uppercase tracking-wider text-[#d4af37] font-bold px-2.5 py-0.5 rounded-full bg-[#d4af37]/10 border border-[#d4af37]/30">
                     Secondary Account
@@ -395,7 +391,7 @@ export default function PricingPage() {
                     Account Title
                   </span>
                   <span className="font-bold text-[var(--text-main)] text-sm sm:text-base font-display">
-                    SPEAKUP EXECUTIVE EDUCATION
+                    {cms.payment_instructions?.bank2Account || "SPEAKUP EXECUTIVE EDUCATION"}
                   </span>
                 </div>
 
@@ -404,7 +400,7 @@ export default function PricingPage() {
                     Bank / Payment Channel
                   </span>
                   <span className="text-[var(--text-main)] text-sm">
-                    Standard Chartered Bank
+                    {cms.payment_instructions?.bank2Name || "Standard Chartered Bank"}
                   </span>
                 </div>
 
@@ -415,7 +411,7 @@ export default function PricingPage() {
                     </span>
                     <button
                       type="button"
-                      onClick={() => handleCopy("PK36SCBL0000001124890201", "scb")}
+                      onClick={() => handleCopy(cms.payment_instructions?.bank2Iban || "PK36SCBL0000001124890201", "scb")}
                       className="font-display text-[11px] uppercase tracking-wider text-[#d4af37] hover:underline font-bold inline-flex items-center gap-1 cursor-pointer"
                     >
                       <span className="material-symbols-outlined text-[14px]">
@@ -425,7 +421,7 @@ export default function PricingPage() {
                     </button>
                   </div>
                   <span className="font-mono text-sm sm:text-base font-bold text-[var(--text-main)] tracking-wider select-all block bg-[var(--surface-lowest)] px-3 py-2 rounded-lg border border-[var(--surface-border)]">
-                    PK36SCBL0000001124890201
+                    {cms.payment_instructions?.bank2Iban || "PK36SCBL0000001124890201"}
                   </span>
                 </div>
               </div>
@@ -434,7 +430,7 @@ export default function PricingPage() {
             {/* Submit Payment Proof area with informational note */}
             <div className="pt-4 border-t border-[var(--surface-border)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <p className="font-serif text-xs sm:text-sm text-[var(--text-muted)] leading-relaxed max-w-xl">
-                After completing your payment, please send your payment receipt/proof via WhatsApp for record verification.
+                {cms.payment_instructions?.guidelineText || "After completing your payment, please send your payment receipt/proof via WhatsApp for record verification."}
               </p>
               <a
                 href="https://wa.me"
@@ -453,11 +449,11 @@ export default function PricingPage() {
             <div id="terms-conditions" className="scroll-mt-28" />
             <div className="mb-8 pb-4 border-b border-[var(--surface-border)]">
               <span className="font-display text-xs font-bold uppercase tracking-[0.2em] text-[#d4af37] block mb-2">
-                Institutional Agreement
+                {cmsTerms.header?.badgeText || "Institutional Agreement"}
               </span>
               <div className="inline-flex items-center px-6 py-2.5 bg-gradient-to-b from-[var(--surface-low)] to-[var(--surface-lowest)] border border-[#d4af37]/45 rounded-xl shadow-xs">
                 <h2 className="font-display text-xl sm:text-2xl font-bold text-[var(--text-main)]">
-                  Course Terms &amp; Conditions
+                  {cmsTerms.header?.pageHeading || "Course Terms & Conditions"}
                 </h2>
               </div>
             </div>
@@ -468,10 +464,10 @@ export default function PricingPage() {
               <div className="bg-[var(--surface-low)] border border-[var(--surface-border)] rounded-xl p-5 sm:p-6 space-y-2">
                 <h3 className="font-display text-base font-bold text-[var(--text-main)] flex items-center gap-2">
                   <span className="text-[#d4af37] font-bold">01.</span>
-                  <span>Individual Student License &amp; Credentials</span>
+                  <span>{cmsTerms.terms_list?.term1Title || "Individual Student License & Credentials"}</span>
                 </h3>
                 <p className="font-serif text-[13px] sm:text-[14px] text-[var(--text-muted)] leading-relaxed">
-                  Course access is strictly individual and non-transferable. Sharing credentials, lecture recordings, or course notes with third parties violates institutional policy and results in immediate access revocation without refund.
+                  {cmsTerms.terms_list?.term1Text || "Course access is strictly individual and non-transferable. Sharing credentials, lecture recordings, or course notes with third parties violates institutional policy and results in immediate access revocation without refund."}
                 </p>
               </div>
 
@@ -479,10 +475,10 @@ export default function PricingPage() {
               <div className="bg-[var(--surface-low)] border border-[var(--surface-border)] rounded-xl p-5 sm:p-6 space-y-2">
                 <h3 className="font-display text-base font-bold text-[var(--text-main)] flex items-center gap-2">
                   <span className="text-[#d4af37] font-bold">02.</span>
-                  <span>Verification &amp; Course Unlocking</span>
+                  <span>{cmsTerms.terms_list?.term2Title || "Verification & Course Unlocking"}</span>
                 </h3>
                 <p className="font-serif text-[13px] sm:text-[14px] text-[var(--text-muted)] leading-relaxed">
-                  Email verification confirms your student account. Course material unlocking is executed individually by academic administration upon receipt verification, ensuring structured progress control.
+                  {cmsTerms.terms_list?.term2Text || "Email verification confirms your student account. Course material unlocking is executed individually by academic administration upon receipt verification, ensuring structured progress control."}
                 </p>
               </div>
 
@@ -490,10 +486,10 @@ export default function PricingPage() {
               <div className="bg-[var(--surface-low)] border border-[var(--surface-border)] rounded-xl p-5 sm:p-6 space-y-2">
                 <h3 className="font-display text-base font-bold text-[var(--text-main)] flex items-center gap-2">
                   <span className="text-[#d4af37] font-bold">03.</span>
-                  <span>Certification Standards</span>
+                  <span>{cmsTerms.terms_list?.term3Title || "Certification Standards"}</span>
                 </h3>
                 <p className="font-serif text-[13px] sm:text-[14px] text-[var(--text-muted)] leading-relaxed">
-                  Official certificates of completion are issued only when a student achieves a minimum 80% completion metric on course modules and completes the practical capstone assignment or oral defense seminar.
+                  {cmsTerms.terms_list?.term3Text || "Official certificates of completion are issued only when a student achieves a minimum 80% completion metric on course modules and completes the practical capstone assignment or oral defense seminar."}
                 </p>
               </div>
 
@@ -501,10 +497,10 @@ export default function PricingPage() {
               <div className="bg-[var(--surface-low)] border border-[var(--surface-border)] rounded-xl p-5 sm:p-6 space-y-2">
                 <h3 className="font-display text-base font-bold text-[var(--text-main)] flex items-center gap-2">
                   <span className="text-[#d4af37] font-bold">04.</span>
-                  <span>Refund Policy</span>
+                  <span>{cmsTerms.terms_list?.term4Title || "Refund Policy"}</span>
                 </h3>
                 <p className="font-serif text-[13px] sm:text-[14px] text-[var(--text-muted)] leading-relaxed">
-                  Due to the proprietary nature of our curated PDFs and recorded masterclasses, enrollment fees are non-refundable once portal credentials and curriculum materials have been accessed.
+                  {cmsTerms.terms_list?.term4Text || "Due to the proprietary nature of our curated PDFs and recorded masterclasses, enrollment fees are non-refundable once portal credentials and curriculum materials have been accessed."}
                 </p>
               </div>
             </div>
@@ -512,13 +508,13 @@ export default function PricingPage() {
             {/* Bottom Governance and Action Bar */}
             <div className="pt-4 border-t border-[var(--surface-border)] flex flex-col sm:flex-row items-center justify-between gap-4">
               <span className="font-display text-xs text-[var(--text-muted)] uppercase tracking-wider font-semibold">
-                Governance Code: SPK-TRM-2026
+                {cmsTerms.governance?.governanceCode || "Governance Code: SPK-TRM-2026"}
               </span>
               <Link
                 href="/auth/register"
                 className="bg-[#1a1a1a] dark:bg-[#d4af37] text-white dark:text-[#1a1a1a] hover:bg-[#d4af37] hover:text-white transition-all font-display text-xs uppercase tracking-widest font-bold px-7 py-3 rounded-full shadow-xs"
               >
-                Register
+                {cmsTerms.governance?.registerButtonText || "Register"}
               </Link>
             </div>
           </section>

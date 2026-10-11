@@ -3,11 +3,10 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import Logo, { SpeakUpSymbol } from "@/components/Logo";
-import { useTheme } from "@/components/ThemeContext";
-
-const DEFAULT_AVATAR =
-  "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80";
+import Logo from "@/components/Logo";
+import { useTheme, ThemeToggle } from "@/components/ThemeContext";
+import { createClient } from "@/lib/supabase/client";
+import { recordStudentLmsActivityAction } from "./actions";
 
 export default function LMSLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -19,7 +18,7 @@ export default function LMSLayout({ children }: { children: React.ReactNode }) {
   const [signOutModalOpen, setSignOutModalOpen] = useState(false);
   const [certificateNotification, setCertificateNotification] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [profilePic, setProfilePic] = useState<string>(DEFAULT_AVATAR);
+  const [profilePic, setProfilePic] = useState<string>("");
 
   const isLearnPage = pathname === "/lms/learn" || pathname?.startsWith("/lms/learn");
   const isProfilePage = pathname === "/lms/profile" || pathname?.startsWith("/lms/profile");
@@ -27,9 +26,62 @@ export default function LMSLayout({ children }: { children: React.ReactNode }) {
   const isDashboardPage = pathname === "/lms/dashboard" || pathname === "/lms";
   const hideSidebar = isLearnPage || isProfilePage;
   const hideHeader = isLearnPage || isProfilePage || isCoursesPage;
-  const [studentName, setStudentName] = useState("Mudassir Ali");
+  const [studentName, setStudentName] = useState("");
 
   useEffect(() => {
+    let isMounted = true;
+    const supabase = createClient();
+
+    async function checkAuthSession() {
+      try {
+        const {
+          data: { user },
+          error,
+        } = await supabase.auth.getUser();
+
+        if (error || !user) {
+          if (isMounted) {
+            router.replace("/auth/login");
+          }
+          return;
+        }
+
+        const { data: profile } = await (supabase as any)
+          .from("profiles")
+          .select("full_name, avatar_url")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        const resolvedName =
+          profile?.full_name ||
+          (user.user_metadata?.full_name as string) ||
+          (user.user_metadata?.name as string) ||
+          "";
+
+        const rawProfileAvatar = profile?.avatar_url;
+        const rawMetaAvatar = user.user_metadata?.avatar_url as string | undefined;
+        const validAvatar = (rawProfileAvatar && !rawProfileAvatar.includes("unsplash.com"))
+          ? rawProfileAvatar
+          : (rawMetaAvatar && !rawMetaAvatar.includes("unsplash.com"))
+            ? rawMetaAvatar
+            : "";
+
+        if (isMounted) {
+          if (resolvedName) setStudentName(resolvedName);
+          if (validAvatar) setProfilePic(validAvatar);
+        }
+
+        // Record real student activity for admin audit (non-blocking)
+        recordStudentLmsActivityAction().catch(() => {});
+      } catch {
+        if (isMounted) {
+          router.replace("/auth/login");
+        }
+      }
+    }
+
+    checkAuthSession();
+
     const saved = localStorage.getItem("speakup_profile_pic");
     if (saved) setProfilePic(saved);
 
@@ -49,10 +101,11 @@ export default function LMSLayout({ children }: { children: React.ReactNode }) {
     window.addEventListener("speakup_profile_pic_updated", handlePicUpdate);
     window.addEventListener("speakup_student_name_updated", handleNameUpdate);
     return () => {
+      isMounted = false;
       window.removeEventListener("speakup_profile_pic_updated", handlePicUpdate);
       window.removeEventListener("speakup_student_name_updated", handleNameUpdate);
     };
-  }, []);
+  }, [router]);
 
   const handleCertificateClick = () => {
     setCertificateNotification(
@@ -69,28 +122,40 @@ export default function LMSLayout({ children }: { children: React.ReactNode }) {
     { label: "Upcoming Events", href: "/lms/events", icon: "event" },
   ];
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+    } catch {
+      // Ignore if offline
+    }
+    // Clean non-authoritative presentation storage
+    try {
+      localStorage.removeItem("speakup_student_name");
+      localStorage.removeItem("speakup_student_email");
+      localStorage.removeItem("speakup_student_phone");
+      localStorage.removeItem("speakup_enrolled_courses");
+    } catch {
+      // Storage access safety
+    }
     setSignOutModalOpen(false);
-    router.push("/auth/login");
+    router.replace("/auth/login");
   };
 
   return (
     <div className="min-h-screen flex bg-[#fdfbf7] dark:bg-[var(--bg-main)] text-[var(--text-main)] font-serif antialiased">
-      {/* Desktop Collapsible Sidebar - Hidden on Learning Player and Profile pages */}
+      {/* Desktop Sidebar (lg: screens) */}
       {!hideSidebar && (
         <aside
-          className={`hidden md:flex flex-col fixed left-0 top-0 h-screen border-r border-[var(--surface-border)] bg-white dark:bg-[#141416] z-30 transition-all duration-300 ${
+          className={`hidden lg:flex flex-col fixed left-0 top-0 h-screen border-r border-[var(--surface-border)] bg-white dark:bg-[#141416] z-30 transition-all duration-300 ${
             sidebarCollapsed ? "w-20" : "w-72"
           }`}
         >
           {/* Sidebar Header */}
-          <div className={`p-6 border-b border-[var(--surface-border)] flex items-center ${sidebarCollapsed ? "justify-center" : "gap-3"}`}>
-            <SpeakUpSymbol sizeClass="w-11 h-11" />
-            {!sidebarCollapsed && (
-              <span className="font-display text-2xl font-bold tracking-wider uppercase brand-name-text text-[#141416] dark:text-[#f7f0e8]">
-                SpeakUp
-              </span>
-            )}
+          <div className={`border-b border-[var(--surface-border)] flex items-center transition-all ${sidebarCollapsed ? "justify-center px-3 py-6" : "gap-3 p-6"}`}>
+            <div className="flex items-center shrink-0">
+              <Logo size="md" href="/lms/dashboard" brandText="SpeakUp" showText={!sidebarCollapsed} />
+            </div>
           </div>
 
           {/* Navigation Items */}
@@ -135,68 +200,30 @@ export default function LMSLayout({ children }: { children: React.ReactNode }) {
             </button>
           </nav>
 
-          {/* Sidebar Footer with Theme Toggle directly above Public Website button */}
-          <div className="p-4 border-t border-[var(--surface-border)] space-y-2">
+          {/* Sidebar Footer with Sidebar Collapse Control Only */}
+          <div className="p-4 border-t border-[var(--surface-border)]">
             {sidebarCollapsed ? (
-              <div className="space-y-2">
-                <button
-                  type="button"
-                  onClick={toggleTheme}
-                  className="w-full flex items-center justify-center p-2.5 rounded-xl text-xs font-display uppercase tracking-wider text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[#f7f2ea] dark:hover:bg-[var(--surface-low)] transition-colors cursor-pointer"
-                  title={`Switch to ${theme === "light" ? "Dark" : "Light"} Mode`}
-                  aria-label={`Switch to ${theme === "light" ? "Dark" : "Light"} Mode`}
-                >
-                  <span className="material-symbols-outlined text-[18px] text-[#d4af37]">
-                    {theme === "light" ? "dark_mode" : "light_mode"}
-                  </span>
-                </button>
-                <Link
-                  href="/"
-                  className="flex items-center justify-center p-2.5 rounded-xl text-xs font-display uppercase tracking-wider text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[#f7f2ea] dark:hover:bg-[var(--surface-low)] transition-colors"
-                  title="Public Website"
-                >
-                  <span className="material-symbols-outlined text-[18px]">public</span>
-                </Link>
-              </div>
+              <button
+                type="button"
+                onClick={() => setSidebarCollapsed(false)}
+                className="w-full flex items-center justify-center p-2.5 rounded-xl text-xs font-display uppercase tracking-wider text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[#f7f2ea] dark:hover:bg-[var(--surface-low)] transition-colors cursor-pointer border border-[var(--surface-border)] bg-[#f9f5ed] dark:bg-[var(--surface-low)]"
+                title="Expand Sidebar"
+                aria-label="Expand Sidebar"
+              >
+                <span className="material-symbols-outlined text-[18px]">chevron_right</span>
+              </button>
             ) : (
-              <div className="space-y-2">
-                {/* 1st Row: Theme Toggle directly above Public Website */}
-                <button
-                  type="button"
-                  onClick={toggleTheme}
-                  className="w-full h-10 px-3.5 flex items-center gap-3 rounded-xl text-xs font-display uppercase tracking-wider font-semibold text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[#f7f2ea] dark:hover:bg-[var(--surface-low)] transition-colors border border-[var(--surface-border)] bg-[#f9f5ed] dark:bg-[var(--surface-low)]/50 cursor-pointer"
-                  title={`Switch to ${theme === "light" ? "Dark" : "Light"} Mode`}
-                  aria-label={`Switch to ${theme === "light" ? "Dark" : "Light"} Mode`}
-                >
-                  <span className="material-symbols-outlined text-[18px] text-[#d4af37] shrink-0">
-                    {theme === "light" ? "dark_mode" : "light_mode"}
-                  </span>
-                  <span className="truncate">{theme === "light" ? "Dark Mode" : "Light Mode"}</span>
-                </button>
-
-                {/* 2nd Row: Public Website Button */}
-                <Link
-                  href="/"
-                  className="w-full h-10 px-3.5 flex items-center gap-3 rounded-xl text-xs font-display uppercase tracking-wider font-semibold text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[#f7f2ea] dark:hover:bg-[var(--surface-low)] transition-colors border border-[var(--surface-border)] bg-[#f9f5ed] dark:bg-[var(--surface-low)]/50"
-                  title="Public Website"
-                >
-                  <span className="material-symbols-outlined text-[18px] shrink-0">public</span>
-                  <span className="truncate">Public Website</span>
-                </Link>
-              </div>
+              <button
+                type="button"
+                onClick={() => setSidebarCollapsed(true)}
+                className="w-full h-10 flex items-center justify-between px-3.5 rounded-xl border border-[var(--surface-border)] bg-[#f9f5ed] dark:bg-[var(--surface-low)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors font-display text-xs uppercase tracking-wider font-semibold cursor-pointer"
+                title="Collapse Sidebar"
+                aria-label="Collapse Sidebar"
+              >
+                <span>Collapse</span>
+                <span className="material-symbols-outlined text-[18px]">chevron_left</span>
+              </button>
             )}
-
-            {/* Collapse Control directly below both buttons */}
-            <button
-              type="button"
-              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              className="w-full h-10 flex items-center justify-center gap-2 px-3 rounded-xl border border-[var(--surface-border)] bg-[#f9f5ed] dark:bg-[var(--surface-low)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors font-display text-xs uppercase tracking-wider font-semibold cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[18px]">
-                {sidebarCollapsed ? "keyboard_double_arrow_right" : "keyboard_double_arrow_left"}
-              </span>
-              {!sidebarCollapsed && <span>Collapse</span>}
-            </button>
           </div>
         </aside>
       )}
@@ -204,30 +231,46 @@ export default function LMSLayout({ children }: { children: React.ReactNode }) {
       {/* Main Content Area */}
       <div
         className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${
-          hideSidebar ? "w-full ml-0" : sidebarCollapsed ? "md:ml-20" : "md:ml-72"
+          hideSidebar ? "w-full ml-0" : sidebarCollapsed ? "lg:ml-20" : "lg:ml-72"
         }`}
       >
-        {/* Mobile-only header bar (Desktop header completely removed per requirement) */}
-        {!hideSidebar && (
-          <div className="md:hidden sticky top-0 z-20 h-16 bg-white/95 dark:bg-[var(--bg-main)]/95 backdrop-blur-md border-b border-[var(--surface-border)] px-4 flex items-center justify-between">
+        {/* Tablet & Mobile Header Bar (< 1024px) */}
+        <header className="lg:hidden sticky top-0 z-20 h-20 bg-white/95 dark:bg-[var(--bg-main)]/95 backdrop-blur-md border-b border-[var(--surface-border)] px-4 sm:px-6 flex items-center justify-between gap-4">
+          {/* Logo on Left - exact same visual presentation as main website */}
+          <div className="flex items-center shrink-0">
+            <Logo size="md" href="/lms/dashboard" brandText="SpeakUp" />
+          </div>
+
+          {/* Controls on Right */}
+          <div className="flex items-center gap-2.5 shrink-0">
+            <ThemeToggle />
             <button
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-lg border border-[var(--surface-border)] text-[var(--text-main)] cursor-pointer"
-              aria-label="Open navigation menu"
+              className="w-10 h-10 rounded-xl border border-[var(--surface-border)] bg-[#f9f5ed]/50 dark:bg-[var(--surface-low)]/50 text-[var(--text-main)] cursor-pointer flex items-center justify-center shrink-0 shadow-2xs hover:border-[#d4af37] transition-colors"
+              aria-label="Toggle navigation menu"
             >
-              <span className="material-symbols-outlined text-[24px]">menu</span>
+              <span className="material-symbols-outlined text-[22px]">
+                {mobileMenuOpen ? "close" : "menu"}
+              </span>
             </button>
-            <Logo size="sm" />
-            <div className="w-8"></div>
           </div>
-        )}
+        </header>
 
-
-
-        {/* Mobile Navigation Drawer */}
+        {/* Mobile / Tablet Navigation Drawer */}
         {mobileMenuOpen && (
-          <div className="md:hidden bg-[var(--surface-lowest)] border-b border-[var(--surface-border)] p-4 space-y-2 z-30 shadow-md">
+          <div className="lg:hidden bg-[var(--surface-lowest)] border-b border-[var(--surface-border)] p-4 sm:p-6 space-y-2 z-30 shadow-md">
+            <div className="pb-3 mb-2 border-b border-[var(--surface-border)]/60 flex items-center justify-between px-2">
+              <Logo size="md" href="/lms/dashboard" brandText="SpeakUp" />
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(false)}
+                className="p-1 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer"
+                aria-label="Close navigation menu"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
             {lmsNavItems.map((item) => (
               <Link
                 key={item.href}

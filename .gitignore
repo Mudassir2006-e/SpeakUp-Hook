@@ -2,6 +2,26 @@ node_modules/
 .next/
 __pycache__/
 *.pyc
+
+# Environment files & credentials (CRITICAL: NEVER COMMIT)
 .env
+.env.*
+!.env.example
+.env*.local
 .env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+*.key
+
+# Editor & Workspace settings
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local backups
+*.backup
+*.bak
 AntiGravity STD UI/.git_backup/

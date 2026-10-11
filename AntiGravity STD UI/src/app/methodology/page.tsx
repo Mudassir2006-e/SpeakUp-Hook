@@ -3,8 +3,12 @@
 import React from "react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
+import { useCmsContent } from "@/lib/cms/useCmsContent";
+import MethodologyMediaFrame from "@/components/MethodologyMediaFrame";
+import MethodologyVideoFrame from "@/components/MethodologyVideoFrame";
 
 export default function MethodologyPage() {
+  const cms = useCmsContent("methodology");
   const stages = [
     {
       num: "1",
@@ -92,11 +96,17 @@ export default function MethodologyPage() {
           <section className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center mb-20">
             <div className="lg:col-span-6 space-y-6">
               <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-[var(--text-main)] leading-[1.1]">
-                How We Help You <br />
-                <span className="text-[#d4af37] italic font-serif font-light">Become Fluent</span>
+                {cms.header?.heading ? (
+                  cms.header.heading
+                ) : (
+                  <>
+                    How We Help You <br />
+                    <span className="text-[#d4af37] italic font-serif font-light">Become Fluent</span>
+                  </>
+                )}
               </h1>
               <p className="font-serif text-lg md:text-xl text-[var(--text-muted)] leading-relaxed">
-                Discover a structured, proven methodology designed for high-achieving professionals. We blend academic rigor with practical application to ensure authoritative mastery of the English language.
+                {cms.header?.subheading || "Discover a structured, proven methodology designed for high-achieving professionals. We blend academic rigor with practical application to ensure authoritative mastery of the English language."}
               </p>
               <div className="flex flex-wrap gap-4 pt-2">
                 <Link
@@ -115,24 +125,7 @@ export default function MethodologyPage() {
             </div>
 
             <div className="lg:col-span-6">
-              <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl border border-[var(--surface-border)] bg-[var(--surface-low)]">
-                <div
-                  className="w-full h-full bg-cover bg-center transform hover:scale-105 transition-transform duration-700"
-                  style={{
-                    backgroundImage:
-                      "url('https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&w=1200&q=80')",
-                  }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
-                <div className="absolute bottom-6 left-6 right-6 text-white">
-                  <span className="font-display text-xs uppercase tracking-widest bg-[#d4af37] text-[#1a1a1a] px-3 py-1 rounded-full font-bold inline-block mb-2">
-                    Executive Atmosphere
-                  </span>
-                  <p className="font-serif text-sm opacity-90">
-                    High-engagement seminar room simulation where real-world articulation habits are forged.
-                  </p>
-                </div>
-              </div>
+              <MethodologyMediaFrame />
             </div>
           </section>
 
@@ -175,6 +168,11 @@ export default function MethodologyPage() {
                 </div>
               ))}
             </div>
+          </section>
+
+          {/* Guided LMS Video Section (Req 3) */}
+          <section className="bg-[var(--surface-low)] border border-[var(--surface-border)] rounded-2xl p-8 md:p-12 mb-20 shadow-xs">
+            <MethodologyVideoFrame />
           </section>
 
           {/* Still Have Questions Support Section */}

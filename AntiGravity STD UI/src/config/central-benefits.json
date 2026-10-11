@@ -1,0 +1,65 @@
+[
+  {
+    "id": "ben-1",
+    "title": "Recorded Classes",
+    "description": "On-Demand Curriculum: Access executive-level lessons across all time zones with our secure, high-definition digital library.",
+    "icon": "video_library",
+    "order": 1,
+    "isPublished": true,
+    "updatedAt": "2026-10-10T00:00:00.000Z"
+  },
+  {
+    "id": "ben-2",
+    "title": "Practice Material",
+    "description": "Strategic Practice Assets: Access a curated suite of technical resources and case studies designed for immediate professional application.",
+    "icon": "menu_book",
+    "order": 2,
+    "isPublished": true,
+    "updatedAt": "2026-10-10T00:00:00.000Z"
+  },
+  {
+    "id": "ben-3",
+    "title": "Live Classes",
+    "description": "Executive Sessions: Participate in immersive, high-stakes simulations and live rhetorical drills for real-time linguistic refinement.",
+    "icon": "live_tv",
+    "order": 3,
+    "isPublished": true,
+    "updatedAt": "2026-10-10T00:00:00.000Z"
+  },
+  {
+    "id": "ben-4",
+    "title": "Personal Guidance",
+    "description": "Bespoke Mentorship: Receive dedicated, one-on-one strategic guidance tailored to your specific leadership trajectory and professional objectives.",
+    "icon": "psychology",
+    "order": 4,
+    "isPublished": true,
+    "updatedAt": "2026-10-10T00:00:00.000Z"
+  },
+  {
+    "id": "ben-5",
+    "title": "Discussion Group",
+    "description": "Executive Peer Network: Engage with a global cohort of high-achieving professionals in a secure environment for collaborative growth.",
+    "icon": "groups",
+    "order": 5,
+    "isPublished": true,
+    "updatedAt": "2026-10-10T00:00:00.000Z"
+  },
+  {
+    "id": "ben-6",
+    "title": "Direct Teacher Access",
+    "description": "Direct Pedagogical Access: Maintain an open line of communication with our expert faculty for precise, nuanced clarification on complex concepts.",
+    "icon": "school",
+    "order": 6,
+    "isPublished": true,
+    "updatedAt": "2026-10-10T00:00:00.000Z"
+  },
+  {
+    "id": "ben-7",
+    "title": "Structured Notes",
+    "description": "Institutional Summaries: Receive authoritative, professionally structured dossiers summarizing key architectural principles from every module.",
+    "icon": "description",
+    "order": 7,
+    "isPublished": true,
+    "updatedAt": "2026-10-10T00:00:00.000Z"
+  }
+]

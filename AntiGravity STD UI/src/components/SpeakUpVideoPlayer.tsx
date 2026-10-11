@@ -33,30 +33,65 @@ declare global {
   }
 }
 
+export type VideoSourceType = "youtube" | "upload" | "drive" | "hosted" | "other";
+
 interface SpeakUpVideoPlayerProps {
   videoId?: string;
+  videoUrl?: string;
+  videoSource?: VideoSourceType;
   title?: string;
   poster?: string;
   autoPlay?: boolean;
   onEnded?: () => void;
   className?: string;
+  watermarkText?: string;
 }
 
 const SPEED_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 
 export default function SpeakUpVideoPlayer({
   videoId = "iCvmsMzlF7o",
+  videoUrl,
+  videoSource = "youtube",
   title = "SpeakUp Executive Masterclass Demo",
   poster = "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&w=1200&q=80",
   autoPlay = false,
   onEnded,
   className = "",
+  watermarkText,
 }: SpeakUpVideoPlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const iframeTargetRef = useRef<HTMLDivElement>(null);
+  const nativeVideoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<YTPlayerInstance | null>(null);
   const progressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const hideControlsTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Determine effective player mode
+  const effectiveUrl = videoUrl || "";
+  const isDirectVideo =
+    videoSource === "upload" ||
+    videoSource === "hosted" ||
+    /\.(mp4|webm|ogg|mov)(\?|$)/i.test(effectiveUrl) ||
+    effectiveUrl.startsWith("/videos/") ||
+    effectiveUrl.startsWith("blob:");
+
+  const isDriveVideo =
+    videoSource === "drive" ||
+    effectiveUrl.includes("drive.google.com");
+
+  // Resolve YouTube ID
+  let resolvedYtId = videoId;
+  if (!isDirectVideo && !isDriveVideo && effectiveUrl) {
+    const match = effectiveUrl.match(
+      /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/
+    );
+    if (match) {
+      resolvedYtId = match[1];
+    } else if (/^[a-zA-Z0-9_-]{11}$/.test(effectiveUrl.trim())) {
+      resolvedYtId = effectiveUrl.trim();
+    }
+  }
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -93,14 +128,59 @@ export default function SpeakUpVideoPlayer({
     }
   }, [isPlaying]);
 
-  // Load YouTube IFrame API
+  // ================= 1. NATIVE HTML5 VIDEO CONTROLS =================
   useEffect(() => {
+    if (!isDirectVideo || !nativeVideoRef.current) return;
+    const v = nativeVideoRef.current;
+
+    const handleLoadedMetadata = () => {
+      setDuration(v.duration || 0);
+    };
+
+    const handleTimeUpdate = () => {
+      setCurrentTime(v.currentTime || 0);
+    };
+
+    const handlePlay = () => {
+      setIsPlaying(true);
+      setHasStartedPlaying(true);
+      resetControlsTimeout();
+    };
+
+    const handlePause = () => {
+      setIsPlaying(false);
+      setControlsVisible(true);
+    };
+
+    const handleEnded = () => {
+      setIsPlaying(false);
+      setControlsVisible(true);
+      if (onEnded) onEnded();
+    };
+
+    v.addEventListener("loadedmetadata", handleLoadedMetadata);
+    v.addEventListener("timeupdate", handleTimeUpdate);
+    v.addEventListener("play", handlePlay);
+    v.addEventListener("pause", handlePause);
+    v.addEventListener("ended", handleEnded);
+
+    return () => {
+      v.removeEventListener("loadedmetadata", handleLoadedMetadata);
+      v.removeEventListener("timeupdate", handleTimeUpdate);
+      v.removeEventListener("play", handlePlay);
+      v.removeEventListener("pause", handlePause);
+      v.removeEventListener("ended", handleEnded);
+    };
+  }, [isDirectVideo, onEnded, resetControlsTimeout]);
+
+  // ================= 2. YOUTUBE IFRAME API CONTROLS =================
+  useEffect(() => {
+    if (isDirectVideo || isDriveVideo) return;
     let isMounted = true;
 
     const initPlayer = () => {
       if (!isMounted || !window.YT || !window.YT.Player || !iframeTargetRef.current) return;
 
-      // Clean up previous instance if any
       if (playerRef.current && playerRef.current.destroy) {
         try {
           playerRef.current.destroy();
@@ -111,7 +191,7 @@ export default function SpeakUpVideoPlayer({
 
       try {
         playerRef.current = new window.YT.Player(iframeTargetRef.current, {
-          videoId,
+          videoId: resolvedYtId,
           playerVars: {
             autoplay: autoPlay ? 1 : 0,
             controls: 0,
@@ -130,15 +210,12 @@ export default function SpeakUpVideoPlayer({
               if (dur) setDuration(dur);
               event.target.setVolume(volume);
 
-              // Extract available quality levels
               try {
                 const qualities = event.target.getAvailableQualityLevels();
                 if (Array.isArray(qualities) && qualities.length > 0) {
                   setAvailableQualities(qualities);
                 }
-              } catch {
-                // Ignore quality fetch if restricted
-              }
+              } catch {}
 
               if (autoPlay) {
                 event.target.playVideo();
@@ -147,7 +224,6 @@ export default function SpeakUpVideoPlayer({
             },
             onStateChange: (event: YTEvent) => {
               if (!isMounted) return;
-              // YT.PlayerState: PLAYING = 1, PAUSED = 2, ENDED = 0, BUFFERING = 3
               if (event.data === 1) {
                 setIsPlaying(true);
                 setHasStartedPlaying(true);
@@ -206,12 +282,11 @@ export default function SpeakUpVideoPlayer({
         }
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [videoId, autoPlay, onEnded]);
+  }, [resolvedYtId, autoPlay, onEnded, isDirectVideo, isDriveVideo, resetControlsTimeout, volume]);
 
-  // Polling current time while playing
+  // Polling current time while playing YouTube
   useEffect(() => {
-    if (isPlaying) {
+    if (!isDirectVideo && !isDriveVideo && isPlaying) {
       progressTimerRef.current = setInterval(() => {
         if (playerRef.current && playerRef.current.getCurrentTime) {
           try {
@@ -219,21 +294,19 @@ export default function SpeakUpVideoPlayer({
             const dur = playerRef.current.getDuration();
             setCurrentTime(cur);
             if (dur && dur !== duration) setDuration(dur);
-          } catch {
-            // ignore
-          }
+          } catch {}
         }
       }, 250);
-    } else {
+    } else if (!isDirectVideo && !isDriveVideo) {
       if (progressTimerRef.current) clearInterval(progressTimerRef.current);
     }
 
     return () => {
       if (progressTimerRef.current) clearInterval(progressTimerRef.current);
     };
-  }, [isPlaying, duration]);
+  }, [isPlaying, duration, isDirectVideo, isDriveVideo]);
 
-  // Listen to fullscreen change
+  // Fullscreen change listener
   useEffect(() => {
     const handleFullscreenChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
@@ -242,66 +315,98 @@ export default function SpeakUpVideoPlayer({
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
 
-  // Controls actions
+  // Play / Pause Toggle
   const togglePlay = () => {
-    if (!playerRef.current) return;
-    try {
+    if (isDirectVideo && nativeVideoRef.current) {
       if (isPlaying) {
-        playerRef.current.pauseVideo();
+        nativeVideoRef.current.pause();
       } else {
-        playerRef.current.playVideo();
+        nativeVideoRef.current.play().catch(() => {});
         setHasStartedPlaying(true);
       }
-    } catch {
-      // fallback
+      return;
+    }
+
+    if (playerRef.current) {
+      try {
+        if (isPlaying) {
+          playerRef.current.pauseVideo();
+        } else {
+          playerRef.current.playVideo();
+          setHasStartedPlaying(true);
+        }
+      } catch {}
     }
   };
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const targetTime = parseFloat(e.target.value);
     setCurrentTime(targetTime);
+
+    if (isDirectVideo && nativeVideoRef.current) {
+      nativeVideoRef.current.currentTime = targetTime;
+      return;
+    }
+
     if (playerRef.current && playerRef.current.seekTo) {
       try {
         playerRef.current.seekTo(targetTime, true);
-      } catch {
-        // ignore
-      }
+      } catch {}
     }
   };
 
   const handleSeekRelative = (seconds: number) => {
+    if (isDirectVideo && nativeVideoRef.current) {
+      const cur = nativeVideoRef.current.currentTime;
+      const targetTime = Math.max(0, Math.min(duration, cur + seconds));
+      nativeVideoRef.current.currentTime = targetTime;
+      setCurrentTime(targetTime);
+      return;
+    }
+
     if (!playerRef.current || !playerRef.current.getCurrentTime) return;
     try {
       const cur = playerRef.current.getCurrentTime();
       const targetTime = Math.max(0, Math.min(duration, cur + seconds));
       setCurrentTime(targetTime);
       playerRef.current.seekTo(targetTime, true);
-    } catch {
-      // ignore
-    }
+    } catch {}
   };
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVol = parseInt(e.target.value, 10);
     setVolume(newVol);
-    if (newVol === 0) {
-      setIsMuted(true);
-    } else {
-      setIsMuted(false);
+    setIsMuted(newVol === 0);
+
+    if (isDirectVideo && nativeVideoRef.current) {
+      nativeVideoRef.current.volume = newVol / 100;
+      nativeVideoRef.current.muted = newVol === 0;
+      return;
     }
+
     if (playerRef.current) {
       try {
         playerRef.current.setVolume(newVol);
         if (newVol > 0 && playerRef.current.isMuted && playerRef.current.isMuted()) {
           playerRef.current.unMute();
         }
-      } catch {
-        // ignore
-      }
+      } catch {}
     }
   };
 
   const toggleMute = () => {
+    if (isDirectVideo && nativeVideoRef.current) {
+      if (isMuted) {
+        nativeVideoRef.current.muted = false;
+        nativeVideoRef.current.volume = (volume || 50) / 100;
+        setIsMuted(false);
+      } else {
+        nativeVideoRef.current.muted = true;
+        setIsMuted(true);
+      }
+      return;
+    }
+
     if (!playerRef.current) return;
     try {
       if (isMuted) {
@@ -312,20 +417,22 @@ export default function SpeakUpVideoPlayer({
         playerRef.current.mute();
         setIsMuted(true);
       }
-    } catch {
-      // ignore
-    }
+    } catch {}
   };
 
   const changeSpeed = (speed: number) => {
     setPlaybackSpeed(speed);
     setSpeedMenuOpen(false);
+
+    if (isDirectVideo && nativeVideoRef.current) {
+      nativeVideoRef.current.playbackRate = speed;
+      return;
+    }
+
     if (playerRef.current && playerRef.current.setPlaybackRate) {
       try {
         playerRef.current.setPlaybackRate(speed);
-      } catch {
-        // ignore
-      }
+      } catch {}
     }
   };
 
@@ -335,9 +442,7 @@ export default function SpeakUpVideoPlayer({
     if (playerRef.current && playerRef.current.setPlaybackQuality) {
       try {
         playerRef.current.setPlaybackQuality(quality);
-      } catch {
-        // ignore
-      }
+      } catch {}
     }
   };
 
@@ -352,7 +457,6 @@ export default function SpeakUpVideoPlayer({
     }
   };
 
-  // Readable quality name
   const formatQualityLabel = (q: string) => {
     switch (q) {
       case "highres":
@@ -377,6 +481,32 @@ export default function SpeakUpVideoPlayer({
 
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
 
+  // Render Google Drive Embed
+  if (isDriveVideo) {
+    const driveEmbedUrl = effectiveUrl.includes("/preview")
+      ? effectiveUrl
+      : effectiveUrl.replace(/\/view(\?.*)?$/, "/preview");
+
+    return (
+      <div
+        ref={containerRef}
+        className={`relative w-full aspect-video bg-[#0a0a0a] rounded-2xl overflow-hidden border border-[var(--surface-border)] shadow-xl ${className}`}
+      >
+        <iframe
+          src={driveEmbedUrl}
+          className="w-full h-full border-0"
+          allow="autoplay; fullscreen"
+          title={title}
+        />
+        {watermarkText && (
+          <div className="absolute top-3.5 right-3.5 z-25 pointer-events-none px-2.5 py-1 rounded-md bg-black/60 backdrop-blur-xs border border-white/10 text-white/70 font-mono text-[10px] tracking-wider select-none shadow-xs">
+            {watermarkText}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div
       ref={containerRef}
@@ -386,17 +516,34 @@ export default function SpeakUpVideoPlayer({
         isFullscreen ? "rounded-none max-h-screen flex items-center justify-center border-none" : ""
       } ${className}`}
     >
-      {/* YouTube IFrame Container */}
-      <div className="absolute inset-0 w-full h-full pointer-events-none overflow-hidden">
-        {/* Slightly scaled to hide top YouTube title bar gracefully if rendered by iframe */}
-        <div
-          ref={iframeTargetRef}
-          className="w-full h-full pointer-events-auto scale-[1.01] transform origin-center"
+      {/* Direct Video (HTML5) OR YouTube Embed Container */}
+      {isDirectVideo ? (
+        <video
+          ref={nativeVideoRef}
+          src={effectiveUrl}
+          poster={poster}
+          playsInline
+          className="w-full h-full object-contain bg-black"
+          onClick={togglePlay}
         />
-      </div>
+      ) : (
+        <div className="absolute inset-0 w-full h-full pointer-events-none overflow-hidden">
+          <div
+            ref={iframeTargetRef}
+            className="w-full h-full pointer-events-auto scale-[1.01] transform origin-center"
+          />
+        </div>
+      )}
 
-      {/* Poster preview before first play if not autoPlay and not ready */}
-      {!hasStartedPlaying && (
+      {/* Dynamic Security Watermark Overlay */}
+      {watermarkText && (
+        <div className="absolute top-3.5 right-3.5 z-25 pointer-events-none px-2.5 py-1 rounded-md bg-black/50 backdrop-blur-xs border border-white/10 text-white/70 font-mono text-[10px] tracking-wider select-none shadow-xs">
+          {watermarkText}
+        </div>
+      )}
+
+      {/* Poster preview before first play (if not direct video which shows its poster natively) */}
+      {!isDirectVideo && !hasStartedPlaying && (
         <div
           className="absolute inset-0 bg-cover bg-center flex items-center justify-center z-10"
           style={{ backgroundImage: `url(${poster})` }}
@@ -418,7 +565,7 @@ export default function SpeakUpVideoPlayer({
           <div className="absolute bottom-6 left-6 right-6 z-20 text-white flex items-center justify-between">
             <div className="max-w-md">
               <span className="font-display text-[11px] uppercase tracking-[0.2em] text-[#d4af37] font-bold block mb-1">
-                SpeakUp Studio Masterclass
+                SpeakUp Learning Experience
               </span>
               <h3 className="font-display text-lg sm:text-xl font-bold truncate">{title}</h3>
             </div>
@@ -426,14 +573,13 @@ export default function SpeakUpVideoPlayer({
         </div>
       )}
 
-      {/* Transparent Click-to-Play Overlay (catches clicks on video area) */}
-      {hasStartedPlaying && (
+      {/* Click-to-Play Overlay for YouTube */}
+      {!isDirectVideo && hasStartedPlaying && (
         <div
           onClick={togglePlay}
           className="absolute inset-0 z-20 cursor-pointer"
           title={isPlaying ? "Click to Pause" : "Click to Play"}
         >
-          {/* Subtle center pause/play flash indicator */}
           {!isPlaying && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-[2px] transition-all">
               <div className="w-20 h-20 rounded-full bg-[#141416]/90 border border-[#d4af37] text-[#d4af37] flex items-center justify-center shadow-2xl hover:scale-105 transition-transform">
@@ -477,7 +623,6 @@ export default function SpeakUpVideoPlayer({
         <div className="flex items-center justify-between text-white text-xs gap-3">
           {/* Left Controls: Play/Pause, Rewind, Forward, Volume, Time */}
           <div className="flex items-center gap-3 sm:gap-4">
-            {/* Play/Pause */}
             <button
               type="button"
               onClick={togglePlay}
@@ -489,7 +634,6 @@ export default function SpeakUpVideoPlayer({
               </span>
             </button>
 
-            {/* Replay 10s */}
             <button
               type="button"
               onClick={() => handleSeekRelative(-10)}
@@ -499,7 +643,6 @@ export default function SpeakUpVideoPlayer({
               <span className="material-symbols-outlined text-[20px]">replay_10</span>
             </button>
 
-            {/* Forward 10s */}
             <button
               type="button"
               onClick={() => handleSeekRelative(10)}
@@ -509,15 +652,15 @@ export default function SpeakUpVideoPlayer({
               <span className="material-symbols-outlined text-[20px]">forward_10</span>
             </button>
 
-            {/* Volume Control */}
-            <div className="flex items-center gap-2 group/volume relative">
+            {/* Volume & Mute */}
+            <div className="flex items-center gap-2 group/vol">
               <button
                 type="button"
                 onClick={toggleMute}
-                aria-label={isMuted ? "Unmute" : "Mute"}
-                className="text-white/90 hover:text-[#d4af37] transition-colors p-1 rounded-md hover:bg-white/10 cursor-pointer"
+                aria-label={isMuted || volume === 0 ? "Unmute" : "Mute"}
+                className="text-white/80 hover:text-[#d4af37] transition-colors p-1 rounded-md hover:bg-white/10 cursor-pointer"
               >
-                <span className="material-symbols-outlined text-[22px]">
+                <span className="material-symbols-outlined text-[20px]">
                   {isMuted || volume === 0
                     ? "volume_off"
                     : volume < 50
@@ -531,27 +674,22 @@ export default function SpeakUpVideoPlayer({
                 max={100}
                 value={isMuted ? 0 : volume}
                 onChange={handleVolumeChange}
-                aria-label="Volume level"
-                className="w-16 sm:w-20 h-1.5 bg-white/20 rounded-full appearance-none cursor-pointer accent-[#d4af37]"
-                style={{
-                  background: `linear-gradient(to right, #d4af37 0%, #d4af37 ${
-                    isMuted ? 0 : volume
-                  }%, rgba(255, 255, 255, 0.25) ${isMuted ? 0 : volume}%, rgba(255, 255, 255, 0.25) 100%)`,
-                }}
+                aria-label="Volume control"
+                className="w-14 sm:w-20 h-1 bg-white/30 rounded-full appearance-none cursor-pointer accent-[#d4af37] focus:outline-none"
               />
             </div>
 
             {/* Time Stamp */}
-            <div className="font-display text-[11px] sm:text-xs text-white/80 font-semibold tracking-wider whitespace-nowrap">
+            <div className="font-mono text-[11px] text-white/80 select-none">
               <span>{formatTime(currentTime)}</span>
-              <span className="text-white/40 mx-1">/</span>
+              <span className="mx-1 text-white/40">/</span>
               <span>{formatTime(duration)}</span>
             </div>
           </div>
 
           {/* Right Controls: Speed, Quality, Fullscreen */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Playback Speed Menu */}
+            {/* Speed Menu */}
             <div className="relative">
               <button
                 type="button"
@@ -559,30 +697,29 @@ export default function SpeakUpVideoPlayer({
                   setSpeedMenuOpen(!speedMenuOpen);
                   setQualityMenuOpen(false);
                 }}
-                aria-label="Playback speed"
-                className="px-2.5 py-1 rounded-full bg-white/10 hover:bg-[#d4af37] text-white hover:text-[#1a1a1a] font-display font-bold text-[11px] sm:text-xs transition-all flex items-center gap-1 cursor-pointer"
+                className="px-2 py-1 rounded-md bg-white/10 hover:bg-white/20 text-white font-mono text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                title="Playback Speed"
               >
-                <span>{playbackSpeed}×</span>
+                <span>{playbackSpeed}x</span>
+                <span className="material-symbols-outlined text-[14px]">expand_less</span>
               </button>
 
               {speedMenuOpen && (
-                <div className="absolute bottom-full right-0 mb-2 w-32 bg-[#141416]/95 border border-[var(--surface-border)] rounded-xl shadow-2xl py-1.5 z-50 backdrop-blur-md animate-in fade-in duration-150">
-                  <div className="px-3 py-1 text-[10px] font-display uppercase tracking-widest text-[#d4af37] font-bold border-b border-white/10 mb-1">
-                    Playback Speed
+                <div className="absolute bottom-full right-0 mb-2 w-28 bg-[#141416] border border-white/15 rounded-xl shadow-2xl py-1.5 z-40">
+                  <div className="px-3 py-1 text-[10px] uppercase tracking-wider text-[#d4af37] font-bold border-b border-white/10 font-display">
+                    Speed
                   </div>
-                  {SPEED_OPTIONS.map((rate) => (
+                  {SPEED_OPTIONS.map((spd) => (
                     <button
-                      key={rate}
+                      key={spd}
                       type="button"
-                      onClick={() => changeSpeed(rate)}
-                      className={`w-full text-left px-3 py-1.5 text-xs font-display flex items-center justify-between hover:bg-white/10 transition-colors cursor-pointer ${
-                        playbackSpeed === rate
-                          ? "text-[#d4af37] font-bold bg-[#d4af37]/10"
-                          : "text-white/80"
+                      onClick={() => changeSpeed(spd)}
+                      className={`w-full text-left px-3 py-1.5 text-xs font-mono hover:bg-[#d4af37]/20 flex items-center justify-between cursor-pointer ${
+                        playbackSpeed === spd ? "text-[#d4af37] font-bold" : "text-white"
                       }`}
                     >
-                      <span>{rate}×</span>
-                      {playbackSpeed === rate && (
+                      <span>{spd}x</span>
+                      {playbackSpeed === spd && (
                         <span className="material-symbols-outlined text-[14px]">check</span>
                       )}
                     </button>
@@ -591,55 +728,53 @@ export default function SpeakUpVideoPlayer({
               )}
             </div>
 
-            {/* Quality Settings Menu */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => {
-                  setQualityMenuOpen(!qualityMenuOpen);
-                  setSpeedMenuOpen(false);
-                }}
-                aria-label="Quality settings"
-                className="text-white/80 hover:text-[#d4af37] transition-colors p-1.5 rounded-md hover:bg-white/10 cursor-pointer flex items-center"
-              >
-                <span className="material-symbols-outlined text-[20px]">settings</span>
-              </button>
+            {/* Quality Menu (if YouTube) */}
+            {!isDirectVideo && availableQualities.length > 0 && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQualityMenuOpen(!qualityMenuOpen);
+                    setSpeedMenuOpen(false);
+                  }}
+                  className="px-2 py-1 rounded-md bg-white/10 hover:bg-white/20 text-white font-mono text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors hidden sm:inline-flex"
+                  title="Quality Selection"
+                >
+                  <span className="material-symbols-outlined text-[14px]">settings</span>
+                  <span>{formatQualityLabel(currentQuality)}</span>
+                </button>
 
-              {qualityMenuOpen && (
-                <div className="absolute bottom-full right-0 mb-2 w-36 bg-[#141416]/95 border border-[var(--surface-border)] rounded-xl shadow-2xl py-1.5 z-50 backdrop-blur-md animate-in fade-in duration-150">
-                  <div className="px-3 py-1 text-[10px] font-display uppercase tracking-widest text-[#d4af37] font-bold border-b border-white/10 mb-1">
-                    Quality
+                {qualityMenuOpen && (
+                  <div className="absolute bottom-full right-0 mb-2 w-36 bg-[#141416] border border-white/15 rounded-xl shadow-2xl py-1.5 z-40 max-h-48 overflow-y-auto custom-scroll">
+                    <div className="px-3 py-1 text-[10px] uppercase tracking-wider text-[#d4af37] font-bold border-b border-white/10 font-display">
+                      Quality
+                    </div>
+                    {["auto", ...availableQualities].map((qual) => (
+                      <button
+                        key={qual}
+                        type="button"
+                        onClick={() => changeQuality(qual)}
+                        className={`w-full text-left px-3 py-1.5 text-xs font-mono hover:bg-[#d4af37]/20 flex items-center justify-between cursor-pointer ${
+                          currentQuality === qual ? "text-[#d4af37] font-bold" : "text-white"
+                        }`}
+                      >
+                        <span>{formatQualityLabel(qual)}</span>
+                        {currentQuality === qual && (
+                          <span className="material-symbols-outlined text-[14px]">check</span>
+                        )}
+                      </button>
+                    ))}
                   </div>
-                  {(availableQualities.length > 0
-                    ? availableQualities
-                    : ["hd720", "large", "medium", "auto"]
-                  ).map((q) => (
-                    <button
-                      key={q}
-                      type="button"
-                      onClick={() => changeQuality(q)}
-                      className={`w-full text-left px-3 py-1.5 text-xs font-display flex items-center justify-between hover:bg-white/10 transition-colors cursor-pointer ${
-                        currentQuality === q
-                          ? "text-[#d4af37] font-bold bg-[#d4af37]/10"
-                          : "text-white/80"
-                      }`}
-                    >
-                      <span>{formatQualityLabel(q)}</span>
-                      {currentQuality === q && (
-                        <span className="material-symbols-outlined text-[14px]">check</span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
 
-            {/* Fullscreen Toggle */}
+            {/* Fullscreen Button */}
             <button
               type="button"
               onClick={toggleFullscreen}
-              aria-label={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
-              className="text-white/80 hover:text-[#d4af37] transition-colors p-1.5 rounded-md hover:bg-white/10 cursor-pointer flex items-center"
+              aria-label={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+              className="text-white hover:text-[#d4af37] transition-colors p-1 rounded-md hover:bg-white/10 cursor-pointer"
             >
               <span className="material-symbols-outlined text-[22px]">
                 {isFullscreen ? "fullscreen_exit" : "fullscreen"}

@@ -1,6 +1,47 @@
+# Dependencies
 node_modules/
+/.pnp
+.pnp.js
+
+# Testing and build outputs
 .next/
+out/
+build/
+dist/
+tsconfig.tsbuildinfo
+
+# Python caches
 __pycache__/
 *.pyc
+
+# Environment files and credentials (CRITICAL: NEVER COMMIT)
 .env
+.env.*
+!.env.example
+.env*.local
 .env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+*.key
+
+# Operating System files
+.DS_Store
+Thumbs.db
+
+# IDE caches and workspace settings
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local backups
+*.backup
+*.bak
+
+# Local student submissions — do not publish
+/src/config/central-submissions.json
+
+# Uploaded files — keep local unless explicitly approved
+/public/uploads/

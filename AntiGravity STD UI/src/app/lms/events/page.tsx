@@ -2,34 +2,46 @@
 
 import React, { useState, useEffect } from "react";
 import LmsProfileDropdown from "@/components/LmsProfileDropdown";
-import { LmsEvent, INITIAL_LMS_EVENTS } from "@/config/lmsEvents";
+import { getCentralEventsAction, LmsEvent } from "@/app/admin/event-actions";
+import { getPublishedSocialLinksAction } from "@/app/admin/links-actions";
 
 export default function UpcomingEventsPage() {
-  const [events, setEvents] = useState<LmsEvent[]>(INITIAL_LMS_EVENTS);
-  const [adminWhatsApp, setAdminWhatsApp] = useState<string>("");
+  const [events, setEvents] = useState<LmsEvent[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [adminWhatsApp, setAdminWhatsApp] = useState<string>("+92 300 0000000");
 
   useEffect(() => {
-    // Load events from localStorage or fallback to initial institutional events
-    const savedEvents = localStorage.getItem("speakup_upcoming_events");
-    if (savedEvents !== null) {
+    async function fetchEvents() {
+      setLoading(true);
       try {
-        const parsed = JSON.parse(savedEvents);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setEvents(parsed);
-        } else {
-          setEvents(INITIAL_LMS_EVENTS);
+        const res = await getCentralEventsAction();
+        if (res.success && res.data) {
+          setEvents(res.data);
         }
-      } catch {
-        setEvents(INITIAL_LMS_EVENTS);
+      } catch (e) {
+        console.error("Failed to load central events in LMS:", e);
+      } finally {
+        setLoading(false);
       }
     }
+    fetchEvents();
 
-    // Load administration WhatsApp number if configured
-    const savedPhone =
-      process.env.NEXT_PUBLIC_ADMIN_WHATSAPP ||
-      localStorage.getItem("speakup_admin_whatsapp") ||
-      "";
-    setAdminWhatsApp(savedPhone);
+    async function loadPhone() {
+      try {
+        const res = await getPublishedSocialLinksAction();
+        if (res.success && res.data?.whatsappNumber) {
+          setAdminWhatsApp(res.data.whatsappNumber);
+          return;
+        }
+      } catch {
+        // Fallback below
+      }
+      const savedPhone =
+        process.env.NEXT_PUBLIC_ADMIN_WHATSAPP ||
+        (typeof window !== "undefined" ? localStorage.getItem("speakup_admin_whatsapp") || "+92 300 0000000" : "+92 300 0000000");
+      setAdminWhatsApp(savedPhone);
+    }
+    loadPhone();
   }, []);
 
   const handleWhatsAppContact = () => {
@@ -148,9 +160,9 @@ export default function UpcomingEventsPage() {
             </div>
           </div>
         ) : (
-          /* Student-Focused Event Cards Grid (1 to 2 upcoming events) */
+          /* Student-Focused Event Cards Grid */
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {events.slice(0, 2).map((event) => (
+            {events.map((event) => (
               <div
                 key={event.id}
                 className="rounded-2xl bg-white dark:bg-[#141418]/60 border border-[var(--surface-border)] hover:border-[#d4af37]/60 p-6 sm:p-7 shadow-xs hover:shadow-sm transition-all duration-200 flex flex-col justify-between space-y-6"

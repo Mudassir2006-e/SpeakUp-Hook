@@ -1,0 +1,74 @@
+[
+  {
+    "id": "faq-1",
+    "question": "How does the course enrollment process work?",
+    "answer": "Enrollment begins by creating an account on the SpeakUp portal. Once registered, select your desired course from the catalog, submit tuition verification details, and our academic administration will approve your enrollment to unlock all course masterclasses and notes.",
+    "category": "Registration",
+    "status": "published",
+    "order_index": 1,
+    "updated_at": "2026-10-05T00:00:00.000Z"
+  },
+  {
+    "id": "faq-2",
+    "question": "What is the difference between account verification and course approval?",
+    "answer": "Account verification is an instant email security confirmation that unlocks your student portal access. Course approval is granted by academic administrators once tuition receipt verification is completed, granting access to curriculum lectures and practice materials.",
+    "category": "General",
+    "status": "published",
+    "order_index": 2,
+    "updated_at": "2026-10-05T00:00:00.000Z"
+  },
+  {
+    "id": "faq-3",
+    "question": "What payment methods are supported for tuition fees?",
+    "answer": "We accept direct domestic bank transfers via Meezan Bank, Raast, JazzCash, Nayapay, and EasyPaisa, as well as international wire transfers and Wise transactions via our Standard Chartered institutional bank account.",
+    "category": "Payment",
+    "status": "published",
+    "order_index": 3,
+    "updated_at": "2026-10-05T00:00:00.000Z"
+  },
+  {
+    "id": "faq-4",
+    "question": "What materials are included inside the SpeakUp LMS?",
+    "answer": "Each module in the SpeakUp Student LMS includes high-definition studio video masterclasses, downloadable and readable lecture notes with visual attachments, and instructor-guided articulation drills and practice materials.",
+    "category": "LMS",
+    "status": "published",
+    "order_index": 4,
+    "updated_at": "2026-10-05T00:00:00.000Z"
+  },
+  {
+    "id": "faq-5",
+    "question": "Can I access the student learning portal on mobile and tablet devices?",
+    "answer": "Yes. The SpeakUp Student LMS is fully responsive and tailored for smartphones, tablets, laptops, and desktop computers. You can review lecture notes, watch videos, and copy practice directives seamlessly across all screens.",
+    "category": "LMS",
+    "status": "published",
+    "order_index": 5,
+    "updated_at": "2026-10-05T00:00:00.000Z"
+  },
+  {
+    "id": "faq-6",
+    "question": "Are the lectures pre-recorded or live interactive sessions?",
+    "answer": "Core syntactic cadence lectures are delivered via studio-grade on-demand masterclasses for flexible self-paced study. In addition, enrolled scholars receive calendar invites to live oral defense seminars and master coaching clinics.",
+    "category": "Courses",
+    "status": "published",
+    "order_index": 6,
+    "updated_at": "2026-10-05T00:00:00.000Z"
+  },
+  {
+    "id": "faq-7",
+    "question": "How do I earn an official verified SpeakUp Certificate?",
+    "answer": "To qualify for verified certification, students must complete all curriculum modules, review lecture notes, and complete capstone oral assessment evaluations. Certificates feature a tamper-proof verification serial number.",
+    "category": "Certificate",
+    "status": "published",
+    "order_index": 7,
+    "updated_at": "2026-10-05T00:00:00.000Z"
+  },
+  {
+    "id": "faq-8",
+    "question": "Are tuition fees all-inclusive or are there hidden examination charges?",
+    "answer": "All listed course tuition fees are completely transparent and comprehensive. Course fees cover masterclass streaming, lecture notes, interactive practice resources, mentor review sessions, and credential verification.",
+    "category": "Pricing",
+    "status": "published",
+    "order_index": 8,
+    "updated_at": "2026-10-05T00:00:00.000Z"
+  }
+]

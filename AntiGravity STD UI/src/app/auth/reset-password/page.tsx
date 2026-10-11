@@ -1,9 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { SpeakUpSymbol } from "@/components/Logo";
+import Logo from "@/components/Logo";
+import { createClient } from "@/lib/supabase/client";
+import { validatePassword } from "@/lib/validation";
+import { invalidateSessionOnResetAction } from "@/app/lms/actions";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -13,43 +16,172 @@ export default function ResetPasswordPage() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [isInvitation, setIsInvitation] = useState(false);
+  const [isLinkInvalid, setIsLinkInvalid] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newPassword !== confirmPassword) {
-      alert("Passwords do not match.");
+  useEffect(() => {
+    // 1. Inspect URL hash and search params for errors or invitation flow
+    const hashStr = typeof window !== "undefined" ? window.location.hash.replace(/^#/, "") : "";
+    const hashParams = new URLSearchParams(hashStr);
+    const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
+
+    const error = searchParams.get("error") || hashParams.get("error");
+    const errorDescription = searchParams.get("error_description") || hashParams.get("error_description");
+    const errorCode = searchParams.get("error_code") || hashParams.get("error_code");
+    const flowType = searchParams.get("type") || hashParams.get("type");
+
+    if (flowType === "invite") {
+      setIsInvitation(true);
+    }
+
+    if (error || errorCode) {
+      setIsLinkInvalid(true);
+      if (errorCode === "otp_expired" || (errorDescription && errorDescription.toLowerCase().includes("expired"))) {
+        setErrorMessage("This password setup or recovery link has expired. Please request a new link or contact SpeakUp administration.");
+      } else {
+        setErrorMessage(errorDescription || "This password setup link is invalid or has already been used.");
+      }
       return;
     }
+
+    // 2. Exchange code for session if PKCE code is present
+    const code = searchParams.get("code");
+    const supabase = createClient();
+    if (code) {
+      supabase.auth.exchangeCodeForSession(code).then(({ error: exchangeErr }) => {
+        if (exchangeErr) {
+          setIsLinkInvalid(true);
+          setErrorMessage(exchangeErr.message || "Failed to establish secure authentication session.");
+        }
+      });
+    }
+
+    // 3. Listen to auth state changes
+    const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setErrorMessage(null);
+      }
+    });
+
+    return () => {
+      authListener?.subscription?.unsubscribe();
+    };
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+
+    const errors: Record<string, string> = {};
+    const pwCheck = validatePassword(newPassword);
+    if (!pwCheck.valid) {
+      errors.newPassword = pwCheck.error!;
+    }
+    if (!confirmPassword) {
+      errors.confirmPassword = "Confirm password is required.";
+    } else if (newPassword !== confirmPassword) {
+      errors.confirmPassword = "Passwords do not match.";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      return;
+    }
+
+    setFieldErrors({});
     setLoading(true);
-    setTimeout(() => {
+
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (error) {
+        setErrorMessage(error.message || "Failed to update password. Please request a new reset link.");
+        setLoading(false);
+        return;
+      }
+
+      // Revoke all existing sessions globally and register revocation timestamp
+      try {
+        await invalidateSessionOnResetAction();
+      } catch {}
+    } catch {
+      setErrorMessage("An unexpected error occurred. Please verify your connection.");
       setLoading(false);
-      setSuccess(true);
-      setTimeout(() => {
-        router.push("/auth/login");
-      }, 1000);
-    }, 600);
+      return;
+    }
+
+    setLoading(false);
+    setSuccess(true);
+    setTimeout(() => {
+      router.push("/auth/login?message=password_updated");
+    }, 1200);
   };
 
   return (
     <div className="w-full max-w-[460px] bg-[var(--surface-lowest)] border border-[var(--surface-border)] rounded-2xl shadow-sm p-8 sm:p-10 relative overflow-hidden transition-all">
       {/* Logo & Headings */}
       <div className="flex flex-col items-center text-center mb-8">
-        <SpeakUpSymbol sizeClass="w-18 h-18 mb-4" />
+        <Logo size="lg" showText={false} href="/" className="mb-4" />
         <h1 className="font-display text-2xl sm:text-3xl font-bold text-[var(--text-main)] tracking-tight mb-2">
-          Reset Password
+          {isInvitation ? "Welcome to SpeakUp LMS" : "Reset Password"}
         </h1>
         <p className="font-serif text-sm sm:text-base text-[var(--text-muted)] leading-relaxed">
-          Enter your new password below to secure and regain access to your account.
+          {isInvitation
+            ? "Create a secure password below to activate your student account."
+            : "Enter your new password below to secure and regain access to your account."}
         </p>
       </div>
 
-      {!success ? (
+      {isLinkInvalid ? (
+        /* Expired or Invalid Link State */
+        <div className="space-y-5 text-center py-4">
+          <div className="w-16 h-16 rounded-full bg-rose-500/10 text-rose-600 border border-rose-500/30 flex items-center justify-center mx-auto">
+            <span className="material-symbols-outlined text-4xl">link_off</span>
+          </div>
+          <div className="space-y-2">
+            <h3 className="font-display text-lg font-bold text-[var(--text-main)]">
+              Link Expired or Invalid
+            </h3>
+            <p className="font-serif text-xs text-[var(--text-muted)] leading-relaxed max-w-sm mx-auto">
+              {errorMessage || "This password setup or recovery link has expired or has already been used. Please request a new link or contact administration."}
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3 pt-2">
+            <Link
+              href="/auth/forgot-password"
+              className="flex-1 py-3 px-4 rounded-xl bg-[#d4af37] text-black font-display text-xs uppercase tracking-wider font-bold hover:bg-[#c29d2b] transition-colors"
+            >
+              Request New Link
+            </Link>
+            <Link
+              href="/auth/login"
+              className="flex-1 py-3 px-4 rounded-xl border border-[var(--surface-border)] text-[var(--text-main)] font-display text-xs uppercase tracking-wider font-bold hover:border-[#d4af37] transition-colors"
+            >
+              Back to Login
+            </Link>
+          </div>
+        </div>
+      ) : !success ? (
         <form onSubmit={handleSubmit} className="space-y-5">
+          {errorMessage && (
+            <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/25 text-rose-700 dark:text-rose-400 text-xs font-display font-semibold flex items-center gap-2">
+              <span className="material-symbols-outlined text-[18px]">error</span>
+              <span>{errorMessage}</span>
+            </div>
+          )}
+
           {/* Field 1: New Password */}
           <div>
-            <label className="block font-display text-xs uppercase tracking-wider text-[var(--text-main)] font-bold mb-2" htmlFor="new-pw">
-              New Password
-            </label>
+            <div className="flex justify-between items-center mb-2">
+              <label className="block font-display text-xs uppercase tracking-wider text-[var(--text-main)] font-bold" htmlFor="new-pw">
+                New Password *
+              </label>
+            </div>
             <div className="relative">
               <input
                 id="new-pw"
@@ -57,13 +189,21 @@ export default function ResetPasswordPage() {
                 required
                 minLength={8}
                 value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
+                onChange={(e) => {
+                  setNewPassword(e.target.value);
+                  if (fieldErrors.newPassword) setFieldErrors((prev) => ({ ...prev, newPassword: "" }));
+                }}
                 placeholder="••••••••••••"
-                className="w-full border border-[var(--surface-border)] rounded-xl py-3.5 px-4 bg-[var(--surface-lowest)] text-[var(--text-main)] font-serif text-base focus:outline-none focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37] transition-all pr-12"
+                className={`w-full border rounded-xl py-3.5 px-4 bg-[var(--surface-lowest)] text-[var(--text-main)] font-serif text-base focus:outline-none transition-all pr-12 ${
+                  fieldErrors.newPassword
+                    ? "border-rose-500 focus:border-rose-500 focus:ring-1 focus:ring-rose-500"
+                    : "border-[var(--surface-border)] focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]"
+                }`}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
                 className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[20px]">
@@ -71,31 +211,47 @@ export default function ResetPasswordPage() {
                 </span>
               </button>
             </div>
-            {/* Policy note */}
-            <div className="flex items-center gap-2 mt-2 text-xs font-serif text-[var(--text-muted)]">
-              <span className="material-symbols-outlined text-[#d4af37] text-[16px]">info</span>
-              <span>Must be at least 8 characters, including a number and symbol.</span>
-            </div>
+            {fieldErrors.newPassword ? (
+              <p className="mt-1.5 text-xs text-rose-500 font-serif flex items-center gap-1">
+                <span className="material-symbols-outlined text-[14px]">error</span>
+                {fieldErrors.newPassword}
+              </p>
+            ) : (
+              <div className="flex items-center gap-2 mt-2 text-xs font-serif text-[var(--text-muted)]">
+                <span className="material-symbols-outlined text-[#d4af37] text-[16px]">info</span>
+                <span>Must be at least 8 characters, including both letters and numbers.</span>
+              </div>
+            )}
           </div>
 
           {/* Field 2: Confirm New Password */}
           <div>
-            <label className="block font-display text-xs uppercase tracking-wider text-[var(--text-main)] font-bold mb-2" htmlFor="confirm-pw">
-              Confirm New Password
-            </label>
+            <div className="flex justify-between items-center mb-2">
+              <label className="block font-display text-xs uppercase tracking-wider text-[var(--text-main)] font-bold" htmlFor="confirm-pw">
+                Confirm New Password *
+              </label>
+            </div>
             <div className="relative">
               <input
                 id="confirm-pw"
                 type={showConfirm ? "text" : "password"}
                 required
                 value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                onChange={(e) => {
+                  setConfirmPassword(e.target.value);
+                  if (fieldErrors.confirmPassword) setFieldErrors((prev) => ({ ...prev, confirmPassword: "" }));
+                }}
                 placeholder="••••••••••••"
-                className="w-full border border-[var(--surface-border)] rounded-xl py-3.5 px-4 bg-[var(--surface-lowest)] text-[var(--text-main)] font-serif text-base focus:outline-none focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37] transition-all pr-12"
+                className={`w-full border rounded-xl py-3.5 px-4 bg-[var(--surface-lowest)] text-[var(--text-main)] font-serif text-base focus:outline-none transition-all pr-12 ${
+                  fieldErrors.confirmPassword
+                    ? "border-rose-500 focus:border-rose-500 focus:ring-1 focus:ring-rose-500"
+                    : "border-[var(--surface-border)] focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]"
+                }`}
               />
               <button
                 type="button"
                 onClick={() => setShowConfirm(!showConfirm)}
+                aria-label={showConfirm ? "Hide password" : "Show password"}
                 className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[20px]">
@@ -103,6 +259,12 @@ export default function ResetPasswordPage() {
                 </span>
               </button>
             </div>
+            {fieldErrors.confirmPassword && (
+              <p className="mt-1.5 text-xs text-rose-500 font-serif flex items-center gap-1">
+                <span className="material-symbols-outlined text-[14px]">error</span>
+                {fieldErrors.confirmPassword}
+              </p>
+            )}
           </div>
 
           {/* Actions */}
@@ -115,11 +277,11 @@ export default function ResetPasswordPage() {
               {loading ? (
                 <>
                   <span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
-                  <span>Updating Password...</span>
+                  <span>{isInvitation ? "Activating Account..." : "Updating Password..."}</span>
                 </>
               ) : (
                 <>
-                  <span>Update Password</span>
+                  <span>{isInvitation ? "Set Password & Activate" : "Update Password"}</span>
                   <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
                 </>
               )}
@@ -136,16 +298,16 @@ export default function ResetPasswordPage() {
       ) : (
         /* Success State */
         <div className="text-center py-6 space-y-4 animate-in fade-in duration-300">
-          <div className="w-16 h-16 rounded-full bg-[#d4af37]/20 text-[#d4af37] border border-[#d4af37]/40 flex items-center justify-center mx-auto">
+          <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 flex items-center justify-center mx-auto">
             <span className="material-symbols-outlined text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>
               check_circle
             </span>
           </div>
           <h3 className="font-display text-xl font-bold text-[var(--text-main)]">
-            Password Updated Successfully
+            {isInvitation ? "Account Activated Successfully" : "Password Updated Successfully"}
           </h3>
           <p className="font-serif text-sm text-[var(--text-muted)]">
-            Redirecting to login with your new credentials...
+            Redirecting to sign in with your new credentials...
           </p>
         </div>
       )}

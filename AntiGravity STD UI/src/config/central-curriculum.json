@@ -1,0 +1,52 @@
+{
+  "A1G": {
+    "modules": [
+      {
+        "id": "mod_a1g_1",
+        "title": "Module 1: Foundations & Phonetics",
+        "description": "Core pronunciation, alphabet, and foundational syntax",
+        "order_index": 1,
+        "lessons": [
+          {
+            "id": "les_a1g_1",
+            "title": "Lesson 1: Introduction to German Phonetics",
+            "duration": "Included LMS",
+            "order_index": 1,
+            "video_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+            "video_source": "youtube",
+            "notes": "Welcome to A1 German! Foundational vowel articulation and greetings.",
+            "practice": "Repeat the core alphabet phonemes in daily discourse."
+          },
+          {
+            "id": "les_a1g_2",
+            "title": "Lesson 2: Daily Greetings and Articles",
+            "duration": "Included LMS",
+            "order_index": 2,
+            "video_url": "https://www.youtube.com/watch?v=kJQP7kiw5Fk",
+            "video_source": "youtube",
+            "notes": "Mastering Der, Die, Das and informal introductions.",
+            "practice": "Construct 5 introductory sentences."
+          }
+        ]
+      },
+      {
+        "id": "mod_a1g_2",
+        "title": "Module 2: Essential Sentence Architecture",
+        "description": "Verb conjugation and basic conversational structures",
+        "order_index": 2,
+        "lessons": [
+          {
+            "id": "les_a1g_3",
+            "title": "Lesson 3: Spoken Cadence & Regular Verbs",
+            "duration": "Included LMS",
+            "order_index": 1,
+            "video_url": "https://www.youtube.com/watch?v=fJ9rUzIMcZQ",
+            "video_source": "youtube",
+            "notes": "Rules of regular verb conjugations in present tense.",
+            "practice": "Complete oral sentence drill 2."
+          }
+        ]
+      }
+    ]
+  }
+}

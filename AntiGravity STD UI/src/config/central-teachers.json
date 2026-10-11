@@ -1,0 +1,35 @@
+[
+  {
+    "id": "t1",
+    "name": "Dr. Eleanor Vance",
+    "title": "Senior Linguistics Mentor",
+    "description": "Specialist in phonetics and vocal resonance. Trains executives to project authority and eradicate vocal strain in prolonged speaking sessions.",
+    "initials": "EV",
+    "avatarUrl": "",
+    "order": 1,
+    "isPublished": true,
+    "updatedAt": "2026-10-10T12:00:00.000Z"
+  },
+  {
+    "id": "t2",
+    "name": "Robert Harrison",
+    "title": "Strategic Rhetoric Lead",
+    "description": "Focuses on persuasive argumentation, rapid impromptu response framing, and high-pressure cross-examination defenses.",
+    "initials": "RH",
+    "avatarUrl": "",
+    "order": 2,
+    "isPublished": true,
+    "updatedAt": "2026-10-10T12:00:00.000Z"
+  },
+  {
+    "id": "t3",
+    "name": "Sophia Al-Mansoor",
+    "title": "Cross-Cultural Communication Specialist",
+    "description": "Advises multinational diplomats and C-suite leaders on global stakeholder diplomacy, tone calibration, and boardroom presence.",
+    "initials": "SA",
+    "avatarUrl": "",
+    "order": 3,
+    "isPublished": true,
+    "updatedAt": "2026-10-10T12:00:00.000Z"
+  }
+]

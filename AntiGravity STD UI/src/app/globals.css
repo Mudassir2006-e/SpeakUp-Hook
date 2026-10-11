@@ -77,12 +77,12 @@
   vertical-align: middle;
 }
 
-/* SpeakUp Logo Microphone Stand: Dark in light theme, light silver in dark theme */
+/* SpeakUp Logo Microphone Stand: Deep charcoal #141416 in light theme, luminous silver #e5e2e1 in dark theme */
 .logo-mic-stand {
-  stroke: #141416 !important;
+  stroke: #141416;
 }
 .dark .logo-mic-stand {
-  stroke: #e5e2e1 !important;
+  stroke: #e5e2e1;
 }
 
 /* SpeakUp Brand Name Text: High-contrast dark in light theme, light in dark theme */
@@ -192,3 +192,22 @@ select:-webkit-autofill:focus {
 .dark .hero-glow {
   background: radial-gradient(circle, rgba(212,175,55,0.12) 0%, rgba(10,10,10,0) 70%);
 }
+
+/* LMS Protected Content Print Deterrence */
+@media print {
+  .lms-protected-content {
+    display: none !important;
+  }
+  .lms-print-protection-notice {
+    display: block !important;
+    text-align: center;
+    padding: 60px 20px;
+    font-family: var(--font-hanken-grotesk), sans-serif;
+    color: #1a1a1a;
+  }
+}
+
+.lms-print-protection-notice {
+  display: none;
+}
+

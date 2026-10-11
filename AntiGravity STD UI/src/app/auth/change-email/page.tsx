@@ -3,7 +3,8 @@
 import React, { useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { SpeakUpSymbol } from "@/components/Logo";
+import Logo from "@/components/Logo";
+import { createClient } from "@/lib/supabase/client";
 
 function ChangeEmailContent() {
   const router = useRouter();
@@ -13,22 +14,48 @@ function ChangeEmailContent() {
 
   const [newEmail, setNewEmail] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
+    setSuccessMessage(null);
     setLoading(true);
-    setTimeout(() => {
+
+    try {
+      const supabase = createClient();
+      const targetEmail = newEmail.trim();
+
+      const { error } = await supabase.auth.updateUser({
+        email: targetEmail,
+      });
+
+      if (error) {
+        setErrorMessage(error.message);
+        setLoading(false);
+        return;
+      }
+
       setLoading(false);
-      const targetEmail = newEmail || currentEmail || "scholar@example.com";
-      router.push(`/auth/verify?email=${encodeURIComponent(targetEmail)}${flowParam ? `&flow=${flowParam}` : ""}`);
-    }, 600);
+      setSuccessMessage("Verification message dispatched to your new email. Redirecting to verification...");
+
+      setTimeout(() => {
+        router.push(
+          `/auth/verify?email=${encodeURIComponent(targetEmail)}&flow=email_change`
+        );
+      }, 1200);
+    } catch {
+      setErrorMessage("Unable to process email change. Please check your connection and try again.");
+      setLoading(false);
+    }
   };
 
   return (
     <div className="w-full max-w-[440px] bg-[var(--surface-lowest)] border border-[var(--surface-border)] rounded-2xl shadow-sm p-8 sm:p-10 relative overflow-hidden transition-all">
       {/* Logo & Headings */}
       <div className="flex flex-col items-center text-center mb-8">
-        <SpeakUpSymbol sizeClass="w-18 h-18 mb-4" />
+        <Logo size="lg" showText={false} href="/" className="mb-4" />
         <h1 className="font-display text-2xl sm:text-3xl font-bold text-[var(--text-main)] tracking-tight mb-2">
           Change Your Email
         </h1>
@@ -38,6 +65,20 @@ function ChangeEmailContent() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {errorMessage && (
+          <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/25 text-rose-700 dark:text-rose-400 text-xs font-display font-semibold flex items-center gap-2">
+            <span className="material-symbols-outlined text-[18px]">error</span>
+            <span>{errorMessage}</span>
+          </div>
+        )}
+
+        {successMessage && (
+          <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-700 dark:text-emerald-400 text-xs font-display font-semibold flex items-center gap-2">
+            <span className="material-symbols-outlined text-[18px]">check_circle</span>
+            <span>{successMessage}</span>
+          </div>
+        )}
+
         <div>
           <label className="block font-display text-xs uppercase tracking-wider text-[var(--text-main)] font-bold mb-2" htmlFor="new-email">
             New Email Address

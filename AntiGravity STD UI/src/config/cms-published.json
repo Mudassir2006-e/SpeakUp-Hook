@@ -1,0 +1,46 @@
+{
+  "outline": {
+    "div:nth-of-type(2) > main > div > section > div:nth-of-type(2) > div > h1": {
+      "selector": "div:nth-of-type(2) > main > div > section > div:nth-of-type(2) > div > h1",
+      "type": "text",
+      "value": "Course Outline",
+      "originalValue": "Course Panel",
+      "elementTag": "H1",
+      "label": "Headline (H1)"
+    },
+    "#course-selector-btn": {
+      "selector": "#course-selector-btn",
+      "type": "text",
+      "value": "schoolA1G\nExecutive Seriesexpand_more",
+      "originalValue": "schoolA1GExecutive Seriesexpand_more",
+      "elementTag": "BUTTON",
+      "label": "Button Text"
+    }
+  },
+  "course-outline": {
+    "div:nth-of-type(2) > main > div > section > div:nth-of-type(2) > div > h1": {
+      "selector": "div:nth-of-type(2) > main > div > section > div:nth-of-type(2) > div > h1",
+      "type": "text",
+      "value": "Course Outline",
+      "originalValue": "Course Panel",
+      "elementTag": "H1",
+      "label": "Headline (H1)"
+    },
+    "div:nth-of-type(2) > main > div > div > div > div:nth-of-type(2) > div > div:nth-of-type(2) > div:nth-of-type(2) > span": {
+      "selector": "div:nth-of-type(2) > main > div > div > div > div:nth-of-type(2) > div > div:nth-of-type(2) > div:nth-of-type(2) > span",
+      "type": "text",
+      "value": "Included In LMS ",
+      "originalValue": "45 mins",
+      "elementTag": "SPAN",
+      "label": "Content Text"
+    },
+    "div:nth-of-type(2) > main > div > div > div > div:nth-of-type(2) > div > div > div:nth-of-type(2) > span": {
+      "selector": "div:nth-of-type(2) > main > div > div > div > div:nth-of-type(2) > div > div > div:nth-of-type(2) > span",
+      "type": "text",
+      "value": "Included In LMS",
+      "originalValue": "45 mins",
+      "elementTag": "SPAN",
+      "label": "Content Text"
+    }
+  }
+}

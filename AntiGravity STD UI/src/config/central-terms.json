@@ -1,0 +1,26 @@
+[
+  {
+    "id": "term-1",
+    "number": 1,
+    "title": "Individual Student License & Credentials",
+    "content": "Course access is strictly individual and non-transferable. Sharing credentials, lecture recordings, or course notes with third parties violates institutional policy and results in immediate access revocation without refund."
+  },
+  {
+    "id": "term-2",
+    "number": 2,
+    "title": "Verification & Course Unlocking",
+    "content": "Email verification confirms your student account. Course material unlocking is executed individually by academic administration upon receipt verification, ensuring structured progress control."
+  },
+  {
+    "id": "term-3",
+    "number": 3,
+    "title": "Certification Standards",
+    "content": "Official certificates of completion are issued only when a student achieves a minimum 80% completion metric on course modules and completes the practical capstone assignment or oral defense seminar."
+  },
+  {
+    "id": "term-4",
+    "number": 4,
+    "title": "Refund Policy",
+    "content": "Due to the proprietary nature of our curated PDFs and recorded masterclasses, enrollment fees are non-refundable once portal credentials and curriculum materials have been accessed."
+  }
+]

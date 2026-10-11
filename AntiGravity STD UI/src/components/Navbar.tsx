@@ -5,13 +5,14 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import Logo from "./Logo";
 import { ThemeToggle } from "./ThemeContext";
+import { useCmsContent } from "@/lib/cms/useCmsContent";
 
 interface NavLink {
   label: string;
   href: string;
 }
 
-const navLinks: NavLink[] = [
+const defaultNavLinks: NavLink[] = [
   { label: "Home", href: "/" },
   { label: "Courses", href: "/courses" },
   { label: "Methodology", href: "/methodology" },
@@ -23,6 +24,16 @@ export const Navbar: React.FC = () => {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const cms = useCmsContent("home");
+  const cmsHeader = cms?.header;
+
+  const navLinks: NavLink[] = [
+    { label: cmsHeader?.nav1Label || "Home", href: cmsHeader?.nav1Link || "/" },
+    { label: cmsHeader?.nav2Label || "Courses", href: cmsHeader?.nav2Link || "/courses" },
+    { label: cmsHeader?.nav3Label || "Methodology", href: cmsHeader?.nav3Link || "/methodology" },
+    { label: cmsHeader?.nav4Label || "Pricing", href: cmsHeader?.nav4Link || "/pricing" },
+    { label: cmsHeader?.nav5Label || "Privacy", href: cmsHeader?.nav5Link || "/privacy" },
+  ];
 
   const isHomepage = pathname === "/";
 
@@ -46,7 +57,12 @@ export const Navbar: React.FC = () => {
     <nav className="w-full top-0 sticky z-50 border-b border-[var(--surface-border)] shadow-[0_4px_30px_rgba(0,0,0,0.02)] transition-all duration-300 backdrop-blur-md bg-[var(--bg-main)]/90">
       <div className="flex justify-between items-center px-6 md:px-12 max-w-[1200px] mx-auto h-[88px]">
         {/* Brand Logo [SpeakUp logo] + [SpeakUp brand name] */}
-        <Logo size="md" />
+        <Logo
+          size="md"
+          brandText={cmsHeader?.logoText}
+          tagline={cmsHeader?.logoTagline}
+          customImage={cmsHeader?.logoImage}
+        />
 
         {/* HOMEPAGE: Desktop Nav Links (Home, Courses, Methodology, Pricing, Privacy) */}
         {isHomepage && (

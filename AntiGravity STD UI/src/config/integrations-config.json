@@ -1,0 +1,50 @@
+{
+  "ai": {
+    "enabled": false,
+    "activeProvider": "openai",
+    "systemPrompt": "You are SpeakUp's official language learning assistant. Help students with German and English grammar, vocabulary, course inquiries, and study guidance with a supportive, scholarly, and polite tone.",
+    "openai": {
+      "apiKey": "",
+      "model": "gpt-4o-mini",
+      "temperature": 0.7,
+      "maxTokens": 800,
+      "lastTestedAt": null,
+      "lastTestStatus": null
+    },
+    "gemini": {
+      "apiKey": "",
+      "model": "gemini-1.5-flash",
+      "temperature": 0.7,
+      "maxTokens": 800,
+      "lastTestedAt": null,
+      "lastTestStatus": null
+    }
+  },
+  "whatsapp": {
+    "enabled": true,
+    "integrationType": "click_to_chat",
+    "clickToChatNumber": "+4915212345678",
+    "clickToChatMessage": "Hello SpeakUp! I would like to inquire about language courses and enrollment.",
+    "businessApi": {
+      "phoneNumberId": "",
+      "accessToken": "",
+      "wabaId": "",
+      "webhookVerifyToken": "",
+      "lastTestedAt": null,
+      "lastTestStatus": null
+    }
+  },
+  "facebook": {
+    "enabled": true,
+    "integrationType": "page_link",
+    "pageUrl": "https://facebook.com/speakup.institute",
+    "graphApi": {
+      "pageId": "",
+      "pageAccessToken": "",
+      "appSecret": "",
+      "lastTestedAt": null,
+      "lastTestStatus": null
+    }
+  },
+  "updatedAt": "2026-10-10T10:00:00.000Z"
+}

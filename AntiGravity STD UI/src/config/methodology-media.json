@@ -1,0 +1,91 @@
+{
+  "items": [
+    {
+      "id": "meth-1",
+      "url": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80",
+      "title": "Interactive Lecture Classroom",
+      "caption": "High-definition masterclasses with granular pause control, phonetic guidance, and synchronized study notes.",
+      "order": 1
+    },
+    {
+      "id": "meth-2",
+      "url": "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=1200&q=80",
+      "title": "Acoustic Drill & Cadence Lab",
+      "caption": "Precision verbal cadence drills, oral articulation directives, and self-evaluation pacing benchmarks.",
+      "order": 2
+    },
+    {
+      "id": "meth-3",
+      "url": "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1200&q=80",
+      "title": "Executive Boardroom Simulation",
+      "caption": "Simulated high-pressure rhetoric scenarios and defense seminars to cement natural subconscious fluency.",
+      "order": 3
+    },
+    {
+      "id": "meth-4",
+      "url": "https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=1200&q=80",
+      "title": "Personalized Feedback Matrix",
+      "caption": "Comprehensive mentor evaluation summaries focusing on voice modulation, syntactic clarity, and rhetoric.",
+      "order": 4
+    },
+    {
+      "id": "meth-1791367757371",
+      "url": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80",
+      "title": "Interactive Learning Interface",
+      "caption": "Interactive learning module and live oral speech feedback showcase.",
+      "order": 5
+    },
+    {
+      "id": "meth-1791367760969",
+      "url": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80",
+      "title": "Spoken Practice Lab",
+      "caption": "Interactive learning module and live oral speech feedback showcase.",
+      "order": 6
+    }
+  ],
+  "publishedItems": [
+    {
+      "id": "meth-1",
+      "url": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80",
+      "title": "Interactive Lecture Classroom",
+      "caption": "High-definition masterclasses with granular pause control, phonetic guidance, and synchronized study notes.",
+      "order": 1
+    },
+    {
+      "id": "meth-2",
+      "url": "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=1200&q=80",
+      "title": "Acoustic Drill & Cadence Lab",
+      "caption": "Precision verbal cadence drills, oral articulation directives, and self-evaluation pacing benchmarks.",
+      "order": 2
+    },
+    {
+      "id": "meth-3",
+      "url": "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1200&q=80",
+      "title": "Executive Boardroom Simulation",
+      "caption": "Simulated high-pressure rhetoric scenarios and defense seminars to cement natural subconscious fluency.",
+      "order": 3
+    },
+    {
+      "id": "meth-4",
+      "url": "https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=1200&q=80",
+      "title": "Personalized Feedback Matrix",
+      "caption": "Comprehensive mentor evaluation summaries focusing on voice modulation, syntactic clarity, and rhetoric.",
+      "order": 4
+    },
+    {
+      "id": "meth-1791367757371",
+      "url": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80",
+      "title": "Interactive Learning Interface",
+      "caption": "Interactive learning module and live oral speech feedback showcase.",
+      "order": 5
+    },
+    {
+      "id": "meth-1791367760969",
+      "url": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80",
+      "title": "Spoken Practice Lab",
+      "caption": "Interactive learning module and live oral speech feedback showcase.",
+      "order": 6
+    }
+  ],
+  "updated_at": "2026-10-07T10:17:40.239Z"
+}

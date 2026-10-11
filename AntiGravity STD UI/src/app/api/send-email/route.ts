@@ -1,35 +1,33 @@
-import { Resend } from "resend";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
+import { sendBrandedEmail } from "@/lib/email";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-
-    const { to, subject, html } = body;
+    const { to, subject, html, text, replyTo } = body;
 
     if (!to || !subject || !html) {
       return Response.json(
-        { error: "Missing required fields" },
+        { error: "Missing required fields (to, subject, html)" },
         { status: 400 }
       );
     }
 
-    const { data, error } = await resend.emails.send({
-      from: "SpeakUp <onboarding@resend.dev>",
+    const res = await sendBrandedEmail({
       to,
       subject,
       html,
+      text,
+      replyTo,
     });
 
-    if (error) {
-      return Response.json({ error }, { status: 500 });
+    if (!res.success) {
+      return Response.json({ error: res.error }, { status: 500 });
     }
 
-    return Response.json({ success: true, data });
-  } catch (error) {
+    return Response.json({ success: true, resendId: res.resendId, fromHeader: res.fromHeader });
+  } catch (error: any) {
     return Response.json(
-      { error: "Failed to send email" },
+      { error: error?.message || "Failed to send email" },
       { status: 500 }
     );
   }

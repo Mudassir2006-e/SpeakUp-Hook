@@ -3,9 +3,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-
-const DEFAULT_AVATAR =
-  "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80";
+import { createClient } from "@/lib/supabase/client";
+import { useTheme } from "@/components/ThemeContext";
+import InitialsAvatar from "@/components/InitialsAvatar";
 
 interface LmsProfileDropdownProps {
   variant?: "dashboard" | "header";
@@ -17,46 +17,60 @@ export default function LmsProfileDropdown({
   showName = false,
 }: LmsProfileDropdownProps) {
   const router = useRouter();
-  const [studentName, setStudentName] = useState("Mudassir Ali");
-  const [studentEmail, setStudentEmail] = useState("mudassir.ali@gmail.com");
-  const [profilePic, setProfilePic] = useState<string>(DEFAULT_AVATAR);
+  const { theme, toggleTheme } = useTheme();
+  const [studentName, setStudentName] = useState("");
+  const [studentEmail, setStudentEmail] = useState("");
+  const [profilePic, setProfilePic] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [signOutModalOpen, setSignOutModalOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const isHeaderMode = showName;
 
   useEffect(() => {
-    const savedName = localStorage.getItem("speakup_student_name");
-    if (savedName) setStudentName(savedName);
+    const loadAuthIdentity = async () => {
+      try {
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (user) {
+          if (user.email) setStudentEmail(user.email);
+          const { data: profile } = await (supabase as any)
+            .from("profiles")
+            .select("full_name, avatar_url")
+            .eq("id", user.id)
+            .maybeSingle();
 
-    const savedEmail = localStorage.getItem("speakup_student_email");
-    if (savedEmail) {
-      setStudentEmail(savedEmail);
-    } else {
-      localStorage.setItem("speakup_student_email", "mudassir.ali@gmail.com");
-    }
+          const resolvedName =
+            profile?.full_name ||
+            (user.user_metadata?.full_name as string) ||
+            (user.user_metadata?.name as string) ||
+            "";
+          if (resolvedName) setStudentName(resolvedName);
 
-    const savedPic = localStorage.getItem("speakup_profile_pic");
-    if (savedPic) setProfilePic(savedPic);
-
-    const handleNameUpdate = () => {
-      const updated = localStorage.getItem("speakup_student_name");
-      if (updated) setStudentName(updated);
+          const resolvedAvatar =
+            (profile?.avatar_url && !profile.avatar_url.startsWith("data:") && !profile.avatar_url.includes("unsplash.com"))
+              ? profile.avatar_url
+              : (user.user_metadata?.avatar_url && !user.user_metadata.avatar_url.startsWith("data:") && !user.user_metadata.avatar_url.includes("unsplash.com"))
+                ? user.user_metadata.avatar_url
+                : null;
+          setProfilePic(resolvedAvatar);
+        }
+      } catch (err) {
+        console.error("Failed to load student dropdown identity:", err);
+      }
     };
 
-    const handleEmailUpdate = () => {
-      const updatedEmail = localStorage.getItem("speakup_student_email");
-      if (updatedEmail) setStudentEmail(updatedEmail);
+    loadAuthIdentity();
+
+    const handleAvatarUpdate = (e: Event) => {
+      const custom = e as CustomEvent;
+      if (custom?.detail && typeof custom.detail === "string" && !custom.detail.startsWith("data:")) {
+        setProfilePic(custom.detail);
+      }
     };
 
-    const handlePicUpdate = () => {
-      const updatedPic = localStorage.getItem("speakup_profile_pic");
-      if (updatedPic) setProfilePic(updatedPic);
-    };
-
-    window.addEventListener("speakup_student_name_updated", handleNameUpdate);
-    window.addEventListener("speakup_student_email_updated", handleEmailUpdate);
-    window.addEventListener("speakup_profile_pic_updated", handlePicUpdate);
+    window.addEventListener("speakup:avatar-updated", handleAvatarUpdate);
 
     const handleClickOutside = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
@@ -66,16 +80,28 @@ export default function LmsProfileDropdown({
     document.addEventListener("mousedown", handleClickOutside);
 
     return () => {
-      window.removeEventListener("speakup_student_name_updated", handleNameUpdate);
-      window.removeEventListener("speakup_student_email_updated", handleEmailUpdate);
-      window.removeEventListener("speakup_profile_pic_updated", handlePicUpdate);
+      window.removeEventListener("speakup:avatar-updated", handleAvatarUpdate);
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+    } catch {
+      // Ignore if offline
+    }
+    try {
+      localStorage.removeItem("speakup_student_name");
+      localStorage.removeItem("speakup_student_email");
+      localStorage.removeItem("speakup_student_phone");
+      localStorage.removeItem("speakup_enrolled_courses");
+    } catch {
+      // Safe fallback
+    }
     setSignOutModalOpen(false);
-    router.push("/auth/login");
+    router.replace("/auth/login");
   };
 
   return (
@@ -90,12 +116,12 @@ export default function LmsProfileDropdown({
           aria-expanded={isOpen}
           aria-label="Student profile menu"
         >
-          <div className="w-12 h-12 rounded-full border-2 border-[#d4af37] p-0.5 bg-white dark:bg-[#141416] overflow-hidden shadow-xs transition-transform duration-200 group-hover:scale-105 shrink-0">
-            <div
-              className="w-full h-full rounded-full bg-cover bg-center"
-              style={{ backgroundImage: `url('${profilePic}')` }}
-            />
-          </div>
+          <InitialsAvatar
+            name={studentName}
+            avatarUrl={profilePic}
+            sizeClass="w-12 h-12"
+            textSizeClass="text-sm"
+          />
 
           <div className="flex flex-col text-left pr-1">
             <span className="font-display font-bold text-sm text-[var(--text-main)] group-hover:text-[#d4af37] transition-colors leading-tight flex items-center gap-1">
@@ -110,7 +136,7 @@ export default function LmsProfileDropdown({
           </div>
         </button>
       ) : (
-        /* Standard Prominently Sized Circular Profile Picture (Dashboard, Enrolled Courses, Learning Player, Events) */
+        /* Standard Prominently Sized Circular Profile Picture */
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
@@ -118,13 +144,12 @@ export default function LmsProfileDropdown({
           aria-expanded={isOpen}
           aria-label="Student profile menu"
         >
-          {/* Slightly increased profile picture size for clear visibility and balance */}
-          <div className="w-16 h-16 sm:w-[68px] sm:h-[68px] rounded-full border-2 border-[#d4af37] p-0.5 bg-white dark:bg-[#141416] overflow-hidden shadow-sm transition-transform duration-200 group-hover:scale-105 shrink-0">
-            <div
-              className="w-full h-full rounded-full bg-cover bg-center"
-              style={{ backgroundImage: `url('${profilePic}')` }}
-            />
-          </div>
+          <InitialsAvatar
+            name={studentName}
+            avatarUrl={profilePic}
+            sizeClass="w-16 h-16 sm:w-[68px] sm:h-[68px]"
+            textSizeClass="text-xl"
+          />
         </button>
       )}
 
@@ -140,7 +165,8 @@ export default function LmsProfileDropdown({
             </p>
           </div>
 
-          <div className="py-1">
+          <div className="py-1 space-y-0.5">
+            {/* 1. Profile */}
             <Link
               href="/lms/profile"
               onClick={() => setIsOpen(false)}
@@ -149,13 +175,39 @@ export default function LmsProfileDropdown({
               <span className="material-symbols-outlined text-[18px] text-[#d4af37]">manage_accounts</span>
               <span>Profile</span>
             </Link>
+
+            {/* 2. Public Website */}
+            <Link
+              href="/"
+              onClick={() => setIsOpen(false)}
+              className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-display text-xs uppercase tracking-wider font-semibold text-[var(--text-main)] hover:bg-[#f9f5ed] dark:hover:bg-[var(--surface-low)] transition-colors"
+            >
+              <span className="material-symbols-outlined text-[18px] text-[#d4af37]">public</span>
+              <span>Public Website</span>
+            </Link>
+
+            {/* 4. Light / Dark Mode Toggle */}
+            <button
+              type="button"
+              onClick={() => {
+                toggleTheme();
+              }}
+              className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-display text-xs uppercase tracking-wider font-semibold text-[var(--text-main)] hover:bg-[#f9f5ed] dark:hover:bg-[var(--surface-low)] transition-colors cursor-pointer text-left"
+            >
+              <span className="material-symbols-outlined text-[18px] text-[#d4af37]">
+                {theme === "light" ? "dark_mode" : "light_mode"}
+              </span>
+              <span>{theme === "light" ? "Dark Mode" : "Light Mode"}</span>
+            </button>
+
+            {/* 4. Sign Out */}
             <button
               type="button"
               onClick={() => {
                 setIsOpen(false);
                 setSignOutModalOpen(true);
               }}
-              className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-display text-xs uppercase tracking-wider font-semibold text-rose-600 hover:bg-rose-500/10 transition-colors cursor-pointer"
+              className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-display text-xs uppercase tracking-wider font-semibold text-rose-600 hover:bg-rose-500/10 transition-colors cursor-pointer text-left"
             >
               <span className="material-symbols-outlined text-[18px]">logout</span>
               <span>Sign Out</span>

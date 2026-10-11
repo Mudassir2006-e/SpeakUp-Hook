@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { uploadStudentAvatarAction } from "./actions";
 
 interface ProfilePictureModalProps {
   isOpen: boolean;
   onClose: () => void;
-  currentImage: string;
+  currentImage: string | null;
   onSave: (newImage: string) => void;
 }
 
@@ -15,23 +16,26 @@ export default function ProfilePictureModal({
   currentImage,
   onSave,
 }: ProfilePictureModalProps) {
-  const [imageSrc, setImageSrc] = useState(currentImage);
+  const [imageSrc, setImageSrc] = useState(currentImage || "");
   const [zoom, setZoom] = useState(1);
   const [posX, setPosX] = useState(0);
   const [posY, setPosY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [previewCanvasUrl, setPreviewCanvasUrl] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    setImageSrc(currentImage);
+    setImageSrc(currentImage || "");
     setZoom(1);
     setPosX(0);
     setPosY(0);
+    setErrorMsg(null);
   }, [currentImage, isOpen]);
 
   // Update real-time cropped preview using canvas
@@ -44,18 +48,11 @@ export default function ProfilePictureModal({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const size = 200;
+    const size = 360;
     canvas.width = size;
     canvas.height = size;
 
     ctx.clearRect(0, 0, size, size);
-
-    // Circular clipping for preview
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
-    ctx.closePath();
-    ctx.clip();
 
     // Calculate source rect with zoom and offset
     const imgAspect = img.naturalWidth / img.naturalHeight;
@@ -77,31 +74,59 @@ export default function ProfilePictureModal({
       // Cross-origin image fallback
       setPreviewCanvasUrl(null);
     }
-    ctx.restore();
   }, [imageSrc, zoom, posX, posY, isOpen]);
 
   if (!isOpen) return null;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setErrorMsg(null);
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setImageSrc(event.target.result as string);
-          setZoom(1);
-          setPosX(0);
-          setPosY(0);
-        }
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    const allowed = ["image/jpeg", "image/png", "image/webp"];
+    if (!allowed.includes(file.type)) {
+      setErrorMsg("Please select a valid image file. Accepted formats: PNG, JPG, or WebP only.");
+      return;
     }
+
+    if (file.size > 8 * 1024 * 1024) {
+      setErrorMsg(`Image exceeds maximum 8MB size limit (selected: ${(file.size / (1024 * 1024)).toFixed(2)} MB).`);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      if (!dataUrl) return;
+
+      const img = new Image();
+      img.onload = () => {
+        if (img.naturalWidth < 128 || img.naturalHeight < 128) {
+          setErrorMsg(
+            `Image resolution is too low (${img.naturalWidth} × ${img.naturalHeight}px). Minimum required is 128 × 128 pixels so profile pictures remain clear.`
+          );
+          return;
+        }
+
+        setImageSrc(dataUrl);
+        setZoom(1);
+        setPosX(0);
+        setPosY(0);
+      };
+      img.onerror = () => {
+        setErrorMsg("Failed to decode image dimensions. Please try another image file.");
+      };
+      img.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleZoomIn = () => setZoom((prev) => Math.min(prev + 0.15, 3));
   const handleZoomOut = () => setZoom((prev) => Math.max(prev - 0.15, 0.7));
 
-  // Drag interaction to position picture
+  // Drag interaction to position picture with dynamic bounds
+  const maxOffset = Math.max(80, 70 * zoom);
+
   const handleMouseDown = (e: React.MouseEvent) => {
     setIsDragging(true);
     setDragStart({ x: e.clientX - posX, y: e.clientY - posY });
@@ -109,8 +134,8 @@ export default function ProfilePictureModal({
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDragging) return;
-    const newX = Math.max(Math.min(e.clientX - dragStart.x, 80), -80);
-    const newY = Math.max(Math.min(e.clientY - dragStart.y, 80), -80);
+    const newX = Math.max(Math.min(e.clientX - dragStart.x, maxOffset), -maxOffset);
+    const newY = Math.max(Math.min(e.clientY - dragStart.y, maxOffset), -maxOffset);
     setPosX(newX);
     setPosY(newY);
   };
@@ -126,8 +151,8 @@ export default function ProfilePictureModal({
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!isDragging || e.touches.length !== 1) return;
-    const newX = Math.max(Math.min(e.touches[0].clientX - dragStart.x, 80), -80);
-    const newY = Math.max(Math.min(e.touches[0].clientY - dragStart.y, 80), -80);
+    const newX = Math.max(Math.min(e.touches[0].clientX - dragStart.x, maxOffset), -maxOffset);
+    const newY = Math.max(Math.min(e.touches[0].clientY - dragStart.y, maxOffset), -maxOffset);
     setPosX(newX);
     setPosY(newY);
   };
@@ -135,9 +160,41 @@ export default function ProfilePictureModal({
   const handleTouchEnd = () => setIsDragging(false);
 
   const handleSave = () => {
-    const finalUrl = previewCanvasUrl || imageSrc;
-    onSave(finalUrl);
-    onClose();
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      onClose();
+      return;
+    }
+
+    setSaving(true);
+    setErrorMsg(null);
+
+    // Compress cropped canvas to a lightweight JPEG blob (<= 300KB)
+    canvas.toBlob(
+      async (blob) => {
+        if (!blob) {
+          setErrorMsg("Could not process cropped image.");
+          setSaving(false);
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append("file", blob, "avatar.jpg");
+
+        const res = await uploadStudentAvatarAction(formData);
+        if (!res.success || !res.data) {
+          setErrorMsg(res.error || "Failed to upload avatar to storage.");
+          setSaving(false);
+          return;
+        }
+
+        onSave(res.data.avatarUrl);
+        setSaving(false);
+        onClose();
+      },
+      "image/jpeg",
+      0.85
+    );
   };
 
   return (
@@ -326,13 +383,21 @@ export default function ProfilePictureModal({
           </div>
         </div>
 
+        {/* Error notification */}
+        {errorMsg && (
+          <div className="mt-3 p-3 rounded-xl bg-rose-500/20 border border-rose-500/30 text-rose-300 text-xs font-serif flex items-center gap-2">
+            <span className="material-symbols-outlined text-[16px]">error</span>
+            <span>{errorMsg}</span>
+          </div>
+        )}
+
         {/* Footer Buttons */}
-        <div className="flex items-center justify-between pt-4 border-t border-white/10">
+        <div className="flex items-center justify-between pt-4 border-t border-white/10 mt-4">
           <div>
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept="image/png, image/jpeg, image/webp"
               className="hidden"
               onChange={handleFileChange}
             />
@@ -350,16 +415,21 @@ export default function ProfilePictureModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-full border border-white/20 text-white/80 hover:bg-white/10 font-display text-xs uppercase tracking-wider font-semibold transition-colors cursor-pointer"
+              disabled={saving}
+              className="px-4 py-2 rounded-full border border-white/20 text-white/80 hover:bg-white/10 font-display text-xs uppercase tracking-wider font-semibold transition-colors cursor-pointer disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={handleSave}
-              className="px-6 py-2 rounded-full bg-[#d4af37] hover:bg-[#e9c349] text-[#141416] font-display text-xs uppercase tracking-wider font-bold transition-all shadow-xs cursor-pointer"
+              disabled={saving}
+              className="px-6 py-2 rounded-full bg-[#d4af37] hover:bg-[#e9c349] disabled:opacity-50 text-[#141416] font-display text-xs uppercase tracking-wider font-bold transition-all shadow-xs cursor-pointer flex items-center gap-2"
             >
-              Save Changes
+              {saving && (
+                <span className="material-symbols-outlined animate-spin text-[16px]">progress_activity</span>
+              )}
+              <span>{saving ? "Saving..." : "Save Changes"}</span>
             </button>
           </div>
         </div>

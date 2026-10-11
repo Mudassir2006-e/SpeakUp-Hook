@@ -3,18 +3,20 @@
 import React, { useState, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { SpeakUpSymbol } from "@/components/Logo";
+import Logo from "@/components/Logo";
+import { createClient } from "@/lib/supabase/client";
 
 function VerifyContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const emailParam = searchParams.get("email") || "scholar@example.com";
-  const flowParam = searchParams.get("flow"); // "reset" or null
+  const flowParam = searchParams.get("flow"); // "reset" or "email_change" or null
 
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [timer, setTimer] = useState(59);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const canResend = timer === 0;
   const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
@@ -65,36 +67,89 @@ function VerifyContent() {
     inputsRef.current[nextIdx]?.focus();
   };
 
-  const handleResend = () => {
+  const handleResend = async () => {
     if (!canResend) return;
+    setErrorMessage(null);
     setTimer(59);
     setOtp(["", "", "", "", "", ""]);
     inputsRef.current[0]?.focus();
+
+    try {
+      const supabase = createClient();
+      if (flowParam === "reset") {
+        const origin = typeof window !== "undefined" ? window.location.origin : "";
+        await supabase.auth.resetPasswordForEmail(emailParam, {
+          redirectTo: `${origin}/auth/reset-password`,
+        });
+      } else if (flowParam === "email_change") {
+        await supabase.auth.updateUser({ email: emailParam });
+      } else {
+        await supabase.auth.resend({
+          type: "signup",
+          email: emailParam,
+        });
+      }
+    } catch {
+      // Safe fallback
+    }
   };
 
-  const handleVerify = (e: React.FormEvent) => {
+  const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
+
+    const token = otp.join("");
+    if (token.length < 6) {
+      setErrorMessage("Please enter all 6 digits of the verification code.");
+      return;
+    }
+
     setLoading(true);
 
-    setTimeout(() => {
+    try {
+      const supabase = createClient();
+      let type: "signup" | "recovery" | "email_change" = "signup";
+      if (flowParam === "reset") {
+        type = "recovery";
+      } else if (flowParam === "email_change") {
+        type = "email_change";
+      }
+
+      const { error } = await supabase.auth.verifyOtp({
+        email: emailParam,
+        token,
+        type,
+      });
+
+      if (error) {
+        setErrorMessage(error.message || "Invalid or expired verification code. Please request a new one.");
+        setLoading(false);
+        return;
+      }
+
       setLoading(false);
       setSuccess(true);
 
       setTimeout(() => {
         if (flowParam === "reset") {
           router.push(`/auth/reset-password?email=${encodeURIComponent(emailParam)}`);
+        } else if (flowParam === "email_change") {
+          router.push("/lms/profile?verified=email_updated");
         } else {
           router.push("/auth/login?verified=true");
         }
       }, 900);
-    }, 600);
+    } catch {
+      setErrorMessage("Verification failed. Please check your network connection and try again.");
+      setLoading(false);
+    }
   };
 
   return (
     <div className="w-full max-w-[460px] bg-[var(--surface-lowest)] border border-[var(--surface-border)] rounded-2xl shadow-sm p-8 sm:p-10 relative overflow-hidden transition-all">
       {/* Top Logo & Headings */}
       <div className="flex flex-col items-center text-center mb-8">
-        <SpeakUpSymbol sizeClass="w-18 h-18 mb-4" />
+        <Logo size="lg" showText={false} href="/" className="mb-4" />
         <h1 className="font-display text-2xl sm:text-3xl font-bold text-[var(--text-main)] tracking-tight mb-2">
           Verify Your Email
         </h1>
@@ -108,6 +163,13 @@ function VerifyContent() {
 
       {!success ? (
         <form onSubmit={handleVerify} className="space-y-6">
+          {errorMessage && (
+            <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/25 text-rose-700 dark:text-rose-400 text-xs font-display font-semibold flex items-center gap-2">
+              <span className="material-symbols-outlined text-[18px]">error</span>
+              <span>{errorMessage}</span>
+            </div>
+          )}
+
           {/* OTP 6-Digit Container */}
           <div className="flex justify-center gap-2 sm:gap-3" onPaste={handlePaste}>
             {otp.map((digit, idx) => (

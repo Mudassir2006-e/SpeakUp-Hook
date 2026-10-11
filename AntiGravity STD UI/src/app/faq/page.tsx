@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
+import { useCmsContent } from "@/lib/cms/useCmsContent";
 
 interface FAQItem {
   q: string;
@@ -14,15 +15,33 @@ interface FAQCategory {
   items: FAQItem[];
 }
 
+import { getCentralFaqsAction, CentralFaq } from "@/app/admin/faq-actions";
+
 export default function FAQPage() {
+  const cms = useCmsContent("faq");
   const [openItems, setOpenItems] = useState<Record<string, boolean>>({
     "0-0": true,
     "1-0": true,
   });
+  const [dynamicFaqs, setDynamicFaqs] = useState<CentralFaq[] | null>(null);
 
-  const faqData: FAQCategory[] = [
+  React.useEffect(() => {
+    async function loadFaqs() {
+      try {
+        const res = await getCentralFaqsAction();
+        if (res.success && res.data && res.data.length > 0) {
+          setDynamicFaqs(res.data.filter((f) => f.status !== "draft"));
+        }
+      } catch {
+        // Fallback to built-in faqData
+      }
+    }
+    loadFaqs();
+  }, []);
+
+  const fallbackFaqData: FAQCategory[] = [
     {
-      category: "Enrollment & Admission",
+      category: "Enrollment & Registration",
       items: [
         {
           q: "How does the enrollment process work?",
@@ -70,6 +89,26 @@ export default function FAQPage() {
     },
   ];
 
+  // Group dynamic central FAQs by category if available
+  const faqData: FAQCategory[] = React.useMemo(() => {
+    if (!dynamicFaqs || dynamicFaqs.length === 0) {
+      return fallbackFaqData;
+    }
+
+    const categoryMap = new Map<string, FAQItem[]>();
+    for (const faq of dynamicFaqs) {
+      const cat = faq.category || "General";
+      const existing = categoryMap.get(cat) || [];
+      existing.push({ q: faq.question, a: faq.answer });
+      categoryMap.set(cat, existing);
+    }
+
+    return Array.from(categoryMap.entries()).map(([category, items]) => ({
+      category,
+      items,
+    }));
+  }, [dynamicFaqs]);
+
   const toggleItem = (catIdx: number, itemIdx: number) => {
     const key = `${catIdx}-${itemIdx}`;
     setOpenItems((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -86,7 +125,7 @@ export default function FAQPage() {
             {/* Main Heading enclosed in stylish rectangular rounded box */}
             <div className="inline-flex items-center justify-center px-8 sm:px-12 py-3.5 sm:py-4 bg-gradient-to-b from-[var(--surface-low)] to-[var(--surface-lowest)] border border-[#d4af37]/45 rounded-2xl shadow-[0_4px_24px_-6px_rgba(212,175,55,0.18)] mb-5">
               <h1 className="font-display text-2xl sm:text-3xl md:text-4xl font-extrabold uppercase tracking-[0.08em] text-[var(--text-main)]">
-                Frequently Asked Questions
+                {cms.header?.heading || "Frequently Asked Questions"}
               </h1>
             </div>
 
@@ -94,7 +133,7 @@ export default function FAQPage() {
             <div className="flex items-center justify-center gap-3 sm:gap-4 mb-3">
               <span className="h-px w-6 sm:w-12 bg-gradient-to-r from-transparent to-[#d4af37]/60" />
               <h2 className="font-display text-base sm:text-lg md:text-xl font-semibold tracking-wide text-[#d4af37]">
-                Clear Answers &amp; Academic Guidance
+                {cms.header?.subheading || "Clear Answers & Academic Guidance"}
               </h2>
               <span className="h-px w-6 sm:w-12 bg-gradient-to-l from-transparent to-[#d4af37]/60" />
             </div>

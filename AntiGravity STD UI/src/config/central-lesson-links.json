@@ -1,0 +1,11 @@
+{
+  "les_a1g_1": {
+    "courseId": "A1G",
+    "moduleId": "mod_a1g_1",
+    "lessonId": "les_a1g_1",
+    "enabled": true,
+    "text": "Open German Phonetics Guide",
+    "url": "https://example.com/german-phonetics",
+    "description": "Interactive alphabet and vowel articulation reference guide"
+  }
+}

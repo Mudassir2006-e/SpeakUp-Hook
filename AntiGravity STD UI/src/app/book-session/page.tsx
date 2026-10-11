@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import Logo from "@/components/Logo";
+import { useCmsContent } from "@/lib/cms/useCmsContent";
 
 function formatPersonName(name: string): string {
   return name
@@ -13,6 +14,7 @@ function formatPersonName(name: string): string {
 }
 
 export default function BookSessionPage() {
+  const cms = useCmsContent("contact");
   const router = useRouter();
   const [formData, setFormData] = useState({
     fullName: "",
@@ -61,11 +63,11 @@ export default function BookSessionPage() {
                 {/* Main Heading enclosed in stylish rectangular rounded box */}
                 <div className="inline-flex items-center justify-center px-8 sm:px-12 py-3.5 sm:py-4 bg-gradient-to-b from-[var(--surface-low)] to-[var(--surface-lowest)] border border-[#d4af37]/45 rounded-2xl shadow-[0_4px_24px_-6px_rgba(212,175,55,0.18)] mb-4">
                   <h1 className="font-display text-2xl sm:text-3xl text-[var(--text-main)] uppercase tracking-[0.08em] font-extrabold">
-                    Book a Session
+                    {cms.header?.heading || "Book a Session"}
                   </h1>
                 </div>
                 <p className="font-serif text-base md:text-lg text-[var(--text-muted)] leading-relaxed max-w-lg mx-auto">
-                  Tell us a little about yourself and our academic advisors will contact you to establish your personalized schedule.
+                  {cms.header?.subheading || "Tell us a little about yourself and our academic advisors will contact you to establish your personalized schedule."}
                 </p>
               </div>
 

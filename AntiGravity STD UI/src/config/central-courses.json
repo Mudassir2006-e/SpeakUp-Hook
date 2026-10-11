@@ -1,0 +1,17 @@
+[
+  {
+    "id": "A1G",
+    "slug": "a1-german",
+    "title": "A1 German",
+    "description": "Foundational German language training covering core grammatical syntax, daily conversation, and oral pronunciation.",
+    "price": 7000,
+    "price_usd": 25,
+    "availability": "available",
+    "duration_weeks": 6,
+    "status": "published",
+    "level": "A1",
+    "image": "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80",
+    "created_at": "2026-10-04T22:45:12.023Z",
+    "updated_at": "2026-10-07T10:00:00.000Z"
+  }
+]
