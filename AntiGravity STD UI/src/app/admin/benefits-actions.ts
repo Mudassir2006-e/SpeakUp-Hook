@@ -3,7 +3,7 @@
 import fs from "fs";
 import path from "path";
 import { revalidatePath } from "next/cache";
-import { getCurrentUserRole } from "@/lib/auth/roles";
+import { verifyAdminCaller as verifyAdminMfaCaller } from "@/lib/auth/adminVerification";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 
 export interface CentralBenefitItem {
@@ -50,15 +50,7 @@ function writeBenefitsStore(items: CentralBenefitItem[]) {
 }
 
 async function verifyAdminCaller(): Promise<{ adminId: string } | { error: string }> {
-  try {
-    const { userId, role } = await getCurrentUserRole();
-    if (!userId || role !== "admin") {
-      return { error: "Forbidden: Administrative privileges required." };
-    }
-    return { adminId: userId };
-  } catch {
-    return { error: "Authentication verification failed." };
-  }
+  return verifyAdminMfaCaller();
 }
 
 /**
@@ -66,6 +58,21 @@ async function verifyAdminCaller(): Promise<{ adminId: string } | { error: strin
  */
 export async function getCentralBenefitsAction(): Promise<ActionResponse<CentralBenefitItem[]>> {
   try {
+    try {
+      const supabase = await createClient();
+      const { data, error } = await (supabase as any)
+        .from("cms_content")
+        .select("published_data")
+        .eq("page_key", "central_benefits")
+        .maybeSingle();
+
+      if (!error && data?.published_data?.items && Array.isArray(data.published_data.items)) {
+        return { success: true, data: data.published_data.items };
+      }
+    } catch (e) {
+      console.warn("DB benefits fetch notice:", e);
+    }
+
     const items = readBenefitsStore();
     return { success: true, data: items };
   } catch (err: any) {
@@ -95,7 +102,7 @@ export async function saveCentralBenefitAction(
   }
 
   try {
-    const items = readBenefitsStore();
+    const items = (await getCentralBenefitsAction()).data || readBenefitsStore();
     const now = new Date().toISOString();
     const id = benefit.id || `ben-${Date.now()}`;
 
@@ -119,6 +126,7 @@ export async function saveCentralBenefitAction(
     writeBenefitsStore(items);
 
     // Sync to Supabase
+    let dbPersisted = false;
     try {
       let supabase: any;
       try {
@@ -126,14 +134,29 @@ export async function saveCentralBenefitAction(
       } catch {
         supabase = await createClient();
       }
-      await supabase.from("cms_content").upsert({
+      const { error: dbErr } = await supabase.from("cms_content").upsert({
         page_key: "central_benefits",
         published_data: { items },
         draft_data: { items },
         updated_at: now,
         updated_by: authCheck.adminId,
-      });
-    } catch {}
+      }, { onConflict: "page_key" });
+
+      if (!dbErr) {
+        dbPersisted = true;
+      } else {
+        console.error("Database benefit upsert error:", dbErr.message);
+      }
+    } catch (dbErr) {
+      console.warn("Database benefit upsert exception:", dbErr);
+    }
+
+    if (!dbPersisted && (process.env.VERCEL || process.env.NODE_ENV === "production")) {
+      return {
+        success: false,
+        error: "Failed to persist benefit to database. Please try again.",
+      };
+    }
 
     revalidatePath("/lms-journey");
     revalidatePath("/benefits");
@@ -158,7 +181,7 @@ export async function reorderCentralBenefitsAction(
   }
 
   try {
-    const items = readBenefitsStore();
+    const items = (await getCentralBenefitsAction()).data || readBenefitsStore();
     const itemMap = new Map(items.map((i) => [i.id, i]));
     const reordered: CentralBenefitItem[] = [];
 
@@ -179,6 +202,24 @@ export async function reorderCentralBenefitsAction(
     });
 
     writeBenefitsStore(reordered);
+
+    try {
+      let supabase: any;
+      try {
+        supabase = createAdminClient();
+      } catch {
+        supabase = await createClient();
+      }
+      await supabase.from("cms_content").upsert({
+        page_key: "central_benefits",
+        published_data: { items: reordered },
+        draft_data: { items: reordered },
+        updated_at: new Date().toISOString(),
+        updated_by: authCheck.adminId,
+      }, { onConflict: "page_key" });
+    } catch (e) {
+      console.warn("Database benefit reorder notice:", e);
+    }
 
     revalidatePath("/lms-journey");
     revalidatePath("/benefits");
@@ -203,11 +244,12 @@ export async function deleteCentralBenefitAction(
   }
 
   try {
-    const items = readBenefitsStore();
+    const items = (await getCentralBenefitsAction()).data || readBenefitsStore();
     const filtered = items.filter((b) => b.id !== benefitId);
     writeBenefitsStore(filtered);
 
     // Sync to Supabase
+    let dbPersisted = false;
     try {
       let supabase: any;
       try {
@@ -215,14 +257,27 @@ export async function deleteCentralBenefitAction(
       } catch {
         supabase = await createClient();
       }
-      await supabase.from("cms_content").upsert({
+      const { error: dbErr } = await supabase.from("cms_content").upsert({
         page_key: "central_benefits",
         published_data: { items: filtered },
         draft_data: { items: filtered },
         updated_at: new Date().toISOString(),
         updated_by: authCheck.adminId,
-      });
-    } catch {}
+      }, { onConflict: "page_key" });
+
+      if (!dbErr) {
+        dbPersisted = true;
+      }
+    } catch (err) {
+      console.warn("Database benefit delete exception:", err);
+    }
+
+    if (!dbPersisted && (process.env.VERCEL || process.env.NODE_ENV === "production")) {
+      return {
+        success: false,
+        error: "Failed to delete benefit from database. Please try again.",
+      };
+    }
 
     revalidatePath("/lms-journey");
     revalidatePath("/benefits");

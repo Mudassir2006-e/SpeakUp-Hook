@@ -1,6 +1,5 @@
 "use server";
 
-import { Resend } from "resend";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { getCurrentUserRole } from "@/lib/auth/roles";
 import { revalidatePath } from "next/cache";
@@ -8,6 +7,7 @@ import fs from "fs";
 import path from "path";
 import { getAuthoritativeSenderIdentity } from "@/lib/email";
 import { renderEmailLayout } from "@/lib/email/templates";
+import { verifyAdminCaller as verifyAdminMfaCaller } from "@/lib/auth/adminVerification";
 
 interface ActionResponse<T = undefined> {
   success: boolean;
@@ -52,6 +52,12 @@ export interface SenderIdentity {
   replyTo?: string | null;
   provider: string;
   isCustomDomainConfigured: boolean;
+  resendConfigured?: boolean;
+  resendFromEmail?: string;
+  gmailConnected?: boolean;
+  gmailEmail?: string | null;
+  activeProvider?: "resend" | "gmail";
+  providerNotice?: string;
 }
 
 export interface EmailAttachmentPayload {
@@ -70,22 +76,10 @@ export interface EmailMetrics {
 }
 
 /**
- * Validates that the current user has verified administrator privileges.
+ * Validates that the current user has verified administrator privileges and MFA session.
  */
 async function verifyAdminCaller(): Promise<{ adminId: string; adminEmail?: string } | { error: string }> {
-  try {
-    const { userId, role } = await getCurrentUserRole();
-    if (!userId || role !== "admin") {
-      return { error: "Forbidden: Administrative privileges required." };
-    }
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    return { adminId: userId, adminEmail: user?.email || undefined };
-  } catch {
-    return {
-      error: "Authentication verification failed.",
-    };
-  }
+  return verifyAdminMfaCaller();
 }
 
 /**
@@ -100,8 +94,22 @@ async function getSupabase(): Promise<any> {
 }
 
 /**
+ * Escapes characters for HTML output to prevent injection attacks from user-supplied values.
+ */
+function escapeHtml(str: string): string {
+  return str.replace(/[&<>'"]/g, (tag) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "'": "&#39;",
+    '"': "&quot;",
+  }[tag] || tag));
+}
+
+/**
  * Resolves standard placeholders in template text using real recipient data.
  * Supported: {{first_name}}, {{last_name}}, {{email}}, {{course_name}}
+ * Safely escapes all recipient-provided values to prevent HTML injection.
  */
 export async function resolveTemplatePlaceholders(
   text: string,
@@ -117,13 +125,19 @@ export async function resolveTemplatePlaceholders(
   const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
   const courseName = recipient.course_name || "SpeakUp Course";
 
+  const safeFullName = escapeHtml(fullName || (recipient.email ? recipient.email.split("@")[0] : "Student"));
+  const safeFirstName = escapeHtml(firstName);
+  const safeLastName = escapeHtml(lastName);
+  const safeEmail = escapeHtml(recipient.email);
+  const safeCourseName = escapeHtml(courseName);
+
   const substitutions: Record<string, string> = {
-    "{{full_name}}": fullName || (recipient.email ? recipient.email.split("@")[0] : "Student"),
-    "{{name}}": fullName || (recipient.email ? recipient.email.split("@")[0] : "Student"),
-    "{{first_name}}": firstName,
-    "{{last_name}}": lastName,
-    "{{email}}": recipient.email,
-    "{{course_name}}": courseName,
+    "{{full_name}}": safeFullName,
+    "{{name}}": safeFullName,
+    "{{first_name}}": safeFirstName,
+    "{{last_name}}": safeLastName,
+    "{{email}}": safeEmail,
+    "{{course_name}}": safeCourseName,
   };
 
   let resolved = text;
@@ -171,8 +185,14 @@ export async function getEmailCenterDataAction(): Promise<
     fromName: identity.fromName,
     fromEmail: identity.fromEmail,
     replyTo: identity.replyTo,
-    provider: "Resend",
+    provider: identity.provider,
     isCustomDomainConfigured: identity.isVerified,
+    resendConfigured: Boolean(process.env.RESEND_API_KEY),
+    resendFromEmail: identity.fromEmail || "onboarding@resend.dev",
+    gmailConnected: Boolean(identity.connectedGmail?.connected),
+    gmailEmail: identity.connectedGmail?.email || null,
+    activeProvider: (identity.selectedProvider as "resend" | "gmail") || "resend",
+    providerNotice: identity.providerNotice,
   };
 
   // 1. Fetch Templates
@@ -190,6 +210,19 @@ export async function getEmailCenterDataAction(): Promise<
     }
   } else if (tData) {
     templates = tData as EmailTemplateItem[];
+  }
+
+  // Ensure an official dedicated Student Welcome template is always available in the Email Center
+  const hasWelcomeTemplate = templates.some((t) => t.name.toLowerCase().includes("welcome"));
+  if (!hasWelcomeTemplate) {
+    templates.unshift({
+      id: "builtin-welcome-student",
+      name: "Student Welcome (Official Welcome & Orientation)",
+      subject: "Welcome to SpeakUp, {{first_name}}!",
+      body: `<p>Dear {{first_name}},</p><p>Welcome to <strong>SpeakUp</strong>! My name is <strong>Sir Mudassir Ali</strong>, your instructor, and I am delighted to welcome you to our academic community.</p><p>At SpeakUp, our goal is to help you build confident communication skills in <strong>{{course_name}}</strong> through structured lessons, immersive drills, and dedicated mentorship.</p><p>Consistency, interactive practice, and curiosity are the keys to mastering any language. Every step you take brings you closer to fluency.</p><p>You can log in to your student dashboard at any time to review your learning schedule, access study materials, and connect with your learning tracks.</p><p>If you have any questions, feel free to reply directly to this email.</p><p>Warm regards,<br/><strong>Sir Mudassir Ali</strong><br/>Founder & Master Instructor<br/>SpeakUp Academy</p>`,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
   }
 
   // 2. Fetch Logs & Metrics
@@ -225,7 +258,7 @@ export async function getEmailCenterDataAction(): Promise<
   // 3. Fetch Registered Students with Approved Courses
   const { data: pData } = await supabase
     .from("profiles")
-    .select("id, email, full_name, avatar_url, phone, role, status")
+    .select("id, email, full_name, avatar_url, phone, role, account_status")
     .eq("role", "student");
 
   const { data: cData } = await supabase
@@ -258,7 +291,7 @@ export async function getEmailCenterDataAction(): Promise<
     full_name: p.full_name || null,
     avatar_url: p.avatar_url || null,
     phone: p.phone || null,
-    status: p.status || "active",
+    status: p.account_status || "pending",
     courses: enrollmentsByUser.get(p.id) || [],
   }));
 
@@ -422,6 +455,7 @@ export async function sendAdminEmailBatchAction(params: {
   batchSize?: 5 | 10;
   schedule?: "now" | "morning" | "evening";
   campaignName?: string;
+  provider?: "resend" | "gmail";
 }): Promise<
   ActionResponse<{
     totalRequested: number;
@@ -438,7 +472,7 @@ export async function sendAdminEmailBatchAction(params: {
     return { success: false, error: authCheck.error };
   }
 
-  const { recipients, subject, body, templateId, attachments, batchSize = 10, schedule = "now", campaignName } = params;
+  const { recipients, subject, body, templateId, attachments, batchSize = 10, schedule = "now", campaignName, provider } = params;
 
   if (!recipients || recipients.length === 0) {
     return { success: false, error: "At least one recipient must be selected." };
@@ -463,18 +497,23 @@ export async function sendAdminEmailBatchAction(params: {
   const supabase = await getSupabase();
   const identity = await getAuthoritativeSenderIdentity();
 
-  // Validate provider requirements
-  if (identity.selectedProvider === "gmail" && !identity.connectedGmail?.connected) {
+  // Validate provider selection
+  const chosenProvider: "resend" | "gmail" =
+    provider || (identity.selectedProvider as "resend" | "gmail") || "resend";
+
+  if (chosenProvider === "gmail" && !identity.connectedGmail?.connected) {
     return {
       success: false,
-      error: "Active delivery provider is set to Gmail, but no authorized Gmail account is connected. Please connect Gmail via Google OAuth in Portal Email settings.",
+      error:
+        "Portal Email (Gmail) is selected, but no authorized Google account is connected. Please connect Gmail via OAuth in Portal Email settings or select Resend.",
     };
   }
 
-  if (identity.selectedProvider === "resend" && !process.env.RESEND_API_KEY) {
+  if (chosenProvider === "resend" && !process.env.RESEND_API_KEY) {
     return {
       success: false,
-      error: "Active delivery provider is set to Resend, but RESEND_API_KEY is not configured on the server.",
+      error:
+        "Resend delivery is selected, but RESEND_API_KEY is not configured on the server. Please check server environment settings.",
     };
   }
 
@@ -650,6 +689,8 @@ export async function sendAdminEmailBatchAction(params: {
           to: email,
           subject: resolvedSubject,
           html: finalHtml,
+          provider: chosenProvider,
+          templateId: templateId || undefined,
           attachments: attachments?.map((att) => ({
             filename: att.filename,
             content: att.content,

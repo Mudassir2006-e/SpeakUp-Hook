@@ -1,6 +1,7 @@
 import type { Assignment, SubmissionPage, AiEvaluation } from "@/types/assignment";
 import fs from "fs";
 import path from "path";
+import { createAdminClient } from "@/lib/supabase/server";
 
 export interface EvaluationInput {
   assignment: Assignment;
@@ -23,7 +24,7 @@ export interface EvaluationInput {
 export async function gradeAssignmentSubmission(
   input: EvaluationInput
 ): Promise<AiEvaluation | null> {
-  const { assignment, pages, studentName, courseTitle, lessonTitle } = input;
+  const { assignment, pages } = input;
 
   // 1. Initial Image Legibility / Quality Guard
   const hasUnreliablePages = pages.some(
@@ -127,6 +128,97 @@ export function isAiEvaluationConfigured(): boolean {
   return Boolean((geminiKey && geminiKey.trim() !== "") || (openaiKey && openaiKey.trim() !== ""));
 }
 
+const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB limit
+
+import { isValidAssignmentStoragePath, isSafeRemoteImageUrl } from "@/lib/validation";
+export { isValidAssignmentStoragePath, isSafeRemoteImageUrl };
+
+/**
+ * Safely resolves an assignment page image buffer without SSRF vulnerabilities.
+ * Prefers authorized Supabase Storage download, followed by safe local public file, followed by validated Supabase URL.
+ */
+export async function getPageImageBuffer(
+  target: SubmissionPage | string
+): Promise<Buffer | null> {
+  if (!target) return null;
+
+  const storagePath = typeof target === "object" ? target.storagePath : undefined;
+  const rawUrl =
+    typeof target === "string"
+      ? target
+      : target.optimizedUrl || target.originalUrl || "";
+
+  // 1. Primary & safest path: download directly from private Supabase Storage
+  if (storagePath && isValidAssignmentStoragePath(storagePath)) {
+    try {
+      const adminClient = createAdminClient();
+      const { data: blob, error } = await adminClient.storage
+        .from("assignments")
+        .download(storagePath);
+
+      if (!error && blob) {
+        if (blob.size > MAX_IMAGE_SIZE_BYTES) {
+          console.warn("Storage object exceeds maximum allowed size (10MB):", storagePath);
+          return null;
+        }
+        return Buffer.from(await blob.arrayBuffer());
+      }
+    } catch (err) {
+      console.warn("Notice: Failed to download from Supabase Storage:", err);
+    }
+  }
+
+  if (!rawUrl) return null;
+
+  // 2. Safe local file resolution (within public/ directory only)
+  if (!rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) {
+    try {
+      const safeRelative = rawUrl.replace(/^\/+/, "");
+      const resolved = path.resolve(process.cwd(), "public", safeRelative);
+      const publicBase = path.resolve(process.cwd(), "public");
+
+      if (resolved.startsWith(publicBase) && fs.existsSync(resolved)) {
+        const stats = fs.statSync(resolved);
+        if (stats.size <= MAX_IMAGE_SIZE_BYTES) {
+          return fs.readFileSync(resolved);
+        }
+      }
+    } catch {}
+    return null;
+  }
+
+  // 3. Remote URL resolution: strictly validated against SSRF
+  if (!isSafeRemoteImageUrl(rawUrl)) {
+    console.warn("Blocked untrusted or invalid image URL from AI vision processing:", rawUrl);
+    return null;
+  }
+
+  try {
+    // redirect: "error" strictly prohibits SSRF via open redirect to internal services
+    const res = await fetch(rawUrl, {
+      redirect: "error",
+      signal: AbortSignal.timeout(8000),
+    });
+
+    if (!res.ok) return null;
+
+    const contentLength = Number(res.headers.get("content-length") || 0);
+    if (contentLength > MAX_IMAGE_SIZE_BYTES) {
+      return null;
+    }
+
+    const arrayBuf = await res.arrayBuffer();
+    if (arrayBuf.byteLength > MAX_IMAGE_SIZE_BYTES) {
+      return null;
+    }
+
+    return Buffer.from(arrayBuf);
+  } catch (e) {
+    console.warn("Notice: Failed to fetch verified remote image for AI evaluation:", e);
+    return null;
+  }
+}
+
 /**
  * Gemini Multimodal Vision Evaluation
  */
@@ -134,12 +226,11 @@ async function evaluateWithGemini(input: EvaluationInput, apiKey: string): Promi
   const { assignment, pages } = input;
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
-  // Read local optimized image files to base64 parts
+  // Read image buffers to base64 parts (supports signed cloud URLs and local files)
   const imageParts: Array<{ inlineData: { mimeType: string; data: string } }> = [];
   for (const page of pages) {
-    const localPath = path.join(process.cwd(), "public", page.optimizedUrl.replace(/^\//, ""));
-    if (fs.existsSync(localPath)) {
-      const buffer = fs.readFileSync(localPath);
+    const buffer = await getPageImageBuffer(page);
+    if (buffer) {
       imageParts.push({
         inlineData: {
           mimeType: "image/jpeg",
@@ -231,12 +322,12 @@ IMPORTANT INSTRUCTIONS:
  */
 async function evaluateWithOpenAI(input: EvaluationInput, apiKey: string): Promise<AiEvaluation> {
   const { assignment, pages } = input;
+  // Read image buffers to base64 parts (supports signed cloud URLs and local files)
   const imageContents: Array<{ type: string; image_url?: { url: string } }> = [];
 
   for (const page of pages) {
-    const localPath = path.join(process.cwd(), "public", page.optimizedUrl.replace(/^\//, ""));
-    if (fs.existsSync(localPath)) {
-      const buffer = fs.readFileSync(localPath);
+    const buffer = await getPageImageBuffer(page);
+    if (buffer) {
       const b64 = buffer.toString("base64");
       imageContents.push({
         type: "image_url",
@@ -320,7 +411,7 @@ Return JSON only with:
  * Built-in Pedagogical Multimodal Language Grader
  * Calibrated specifically for German (A1-C1) and English language tasks.
  */
-function evaluateWithPedagogicalEngine(input: EvaluationInput): AiEvaluation {
+export function evaluateWithPedagogicalEngine(input: EvaluationInput): AiEvaluation {
   const { assignment, pages } = input;
   const isGerman = (assignment.language || "").toLowerCase().includes("german") || assignment.courseId === "A1G";
   const pageCount = pages.length;

@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import {
   getAuthoritativeSenderIdentity,
   sendTestVerificationEmail,
+  EmailProvider,
 } from "@/lib/email";
 import { SUPABASE_AUTH_TEMPLATES } from "@/lib/email/templates";
 import {
@@ -14,6 +15,7 @@ import {
   disconnectGmailAccount,
   ConnectedGmailAccount,
 } from "@/lib/email/gmail";
+import { verifyAdminCaller as verifyAdminMfaCaller } from "@/lib/auth/adminVerification";
 
 interface ActionResponse<T = undefined> {
   success: boolean;
@@ -28,16 +30,10 @@ export interface PortalEmailSettings {
   actualProviderSendingAddress?: string;
   replyToEmail?: string;
   avatarUrl: string | null;
-  selectedProvider: "resend" | "gmail" | "smtp";
+  selectedProvider: EmailProvider;
   connectedGmail: ConnectedGmailAccount & { isOAuthConfigured: boolean };
   isVerified?: boolean;
   providerNotice?: string;
-  smtpConfig?: {
-    host: string;
-    port: number;
-    username: string;
-    isApiKeyConfigured: boolean;
-  };
   deliveryStatus?: {
     appProvider: string;
     isApiKeyConfigured: boolean;
@@ -58,28 +54,10 @@ export interface PortalEmailSettings {
 }
 
 /**
- * Validates that the current user has verified administrator privileges.
+ * Validates that the current user has verified administrator privileges and MFA session.
  */
 async function verifyAdminCaller(): Promise<{ adminId: string; adminEmail: string } | { error: string }> {
-  try {
-    const { userId, role } = await getCurrentUserRole();
-    if (!userId || role !== "admin") {
-      return { error: "Forbidden: Administrative privileges required." };
-    }
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    return {
-      adminId: userId,
-      adminEmail: user?.email || "admin@speakup.edu",
-    };
-  } catch {
-    return {
-      error: "Authentication verification failed.",
-    };
-  }
+  return verifyAdminMfaCaller();
 }
 
 async function getSupabase(): Promise<any> {
@@ -103,46 +81,21 @@ export async function getPortalEmailSettingsAction(): Promise<ActionResponse<Por
   try {
     const identity = await getAuthoritativeSenderIdentity();
     const targetDomain = identity.fromEmail.includes("@") ? identity.fromEmail.split("@")[1].toLowerCase() : "";
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://speakup.edu";
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://speakup.edu.pk";
     const hasApiKey = Boolean(process.env.RESEND_API_KEY);
 
     const deliveryStatus = {
-      appProvider: "Resend (HTTP API)",
-      isApiKeyConfigured: hasApiKey,
-      siteUrl,
-      authRedirects: {
-        passwordReset: `${siteUrl}/auth/reset-password`,
-        emailConfirmation: `${siteUrl}/auth/callback`,
-        invite: `${siteUrl}/auth/reset-password`,
-      },
-      domain: targetDomain,
-      dnsRecords: [
-        {
-          type: "TXT (SPF)",
-          host: "@",
-          value: "v=spf1 include:amazonses.com ~all",
-          description: "Authorizes outbound mail dispatch from Resend on your apex domain.",
+        appProvider: "Gmail (REST API)",
+        isApiKeyConfigured: false,
+        siteUrl,
+        authRedirects: {
+          passwordReset: `${siteUrl}/auth/reset-password`,
+          emailConfirmation: `${siteUrl}/auth/callback`,
+          invite: `${siteUrl}/auth/reset-password`,
         },
-        {
-          type: "CNAME (DKIM)",
-          host: `resend._domainkey.${targetDomain || "domain"}`,
-          value: "feedback-smtp.us-east-1.amazonses.com",
-          description: "Cryptographically signs outbound emails to verify sender authenticity.",
-        },
-        {
-          type: "TXT (DMARC)",
-          host: `_dmarc.${targetDomain || "domain"}`,
-          value: "v=DMARC1; p=none;",
-          description: "Aligns SPF and DKIM reporting for Google, Yahoo, and Outlook deliverability.",
-        },
-        {
-          type: "MX (Inbound)",
-          host: `feedback.${targetDomain || "domain"}`,
-          value: "feedback-smtp.us-east-1.amazonses.com",
-          description: "Handles return-path and bounce handling notifications.",
-        },
-      ],
-    };
+        domain: targetDomain,
+        dnsRecords: [],
+      };
 
     const oauthConfig = getGoogleOAuthConfig();
 
@@ -165,7 +118,6 @@ export async function getPortalEmailSettingsAction(): Promise<ActionResponse<Por
         },
         isVerified: identity.isVerified,
         providerNotice: identity.providerNotice,
-        smtpConfig: identity.smtpConfig,
         deliveryStatus,
       },
     };
@@ -185,7 +137,7 @@ export async function savePortalEmailSettingsAction(payload: {
   senderEmail?: string;
   replyToEmail?: string;
   avatarUrl?: string | null;
-  selectedProvider?: "resend" | "gmail" | "smtp";
+  selectedProvider?: EmailProvider;
 }): Promise<ActionResponse<PortalEmailSettings>> {
   const authCheck = await verifyAdminCaller();
   if ("error" in authCheck) {
@@ -222,10 +174,8 @@ export async function savePortalEmailSettingsAction(payload: {
   const isVerified = targetDomain === "resend.dev" || (configuredFrom !== "" && targetDomain === (configuredFrom.split("@")[1]?.toLowerCase() || ""));
 
   const providerNotice = isVerified
-    ? targetDomain === "resend.dev"
-      ? "Using Resend default sender (onboarding@resend.dev). Outbound headers are formatted as SpeakUp Team <onboarding@resend.dev>. Replies will be routed to your Reply-To address."
-      : `Verified custom domain (${targetDomain}) via Resend.`
-    : `Sender domain "${targetDomain}" is not verified in Resend. System safely sends via onboarding@resend.dev with replies to your contact email.`;
+    ? `Verified sender domain "${targetDomain}".`
+    : `Sender domain "${targetDomain}" is not verified.`;
 
   try {
     const supabase = await getSupabase();
@@ -247,7 +197,7 @@ export async function savePortalEmailSettingsAction(payload: {
       sender_email: senderEmail,
       reply_to_email: replyToEmail || null,
       avatar_url: cleanAvatar,
-      selected_provider: payload.selectedProvider || prevConfig.selected_provider || "resend",
+      selected_provider: payload.selectedProvider || prevConfig.selected_provider || "gmail",
       updated_at: now,
       updated_by: authCheck.adminId,
     };
@@ -281,46 +231,21 @@ export async function savePortalEmailSettingsAction(payload: {
 
     const identity = await getAuthoritativeSenderIdentity();
     const oauthConfig = getGoogleOAuthConfig();
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://speakup.edu";
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://speakup.edu.pk";
     const hasApiKey = Boolean(process.env.RESEND_API_KEY);
 
     const deliveryStatus = {
-      appProvider: "Resend (HTTP API)",
-      isApiKeyConfigured: hasApiKey,
-      siteUrl,
-      authRedirects: {
-        passwordReset: `${siteUrl}/auth/reset-password`,
-        emailConfirmation: `${siteUrl}/auth/callback`,
-        invite: `${siteUrl}/auth/reset-password`,
-      },
-      domain: targetDomain,
-      dnsRecords: [
-        {
-          type: "TXT (SPF)",
-          host: "@",
-          value: "v=spf1 include:amazonses.com ~all",
-          description: "Authorizes outbound mail dispatch from Resend on your apex domain.",
+        appProvider: "Gmail (REST API)",
+        isApiKeyConfigured: false,
+        siteUrl,
+        authRedirects: {
+          passwordReset: `${siteUrl}/auth/reset-password`,
+          emailConfirmation: `${siteUrl}/auth/callback`,
+          invite: `${siteUrl}/auth/reset-password`,
         },
-        {
-          type: "CNAME (DKIM)",
-          host: `resend._domainkey.${targetDomain || "domain"}`,
-          value: "feedback-smtp.us-east-1.amazonses.com",
-          description: "Cryptographically signs outbound emails to verify sender authenticity.",
-        },
-        {
-          type: "TXT (DMARC)",
-          host: `_dmarc.${targetDomain || "domain"}`,
-          value: "v=DMARC1; p=none;",
-          description: "Aligns SPF and DKIM reporting for Google, Yahoo, and Outlook deliverability.",
-        },
-        {
-          type: "MX (Inbound)",
-          host: `feedback.${targetDomain || "domain"}`,
-          value: "feedback-smtp.us-east-1.amazonses.com",
-          description: "Handles return-path and bounce handling notifications.",
-        },
-      ],
-    };
+        domain: targetDomain,
+        dnsRecords: [],
+      };
 
     return {
       success: true,
@@ -341,7 +266,6 @@ export async function savePortalEmailSettingsAction(payload: {
         },
         isVerified,
         providerNotice,
-        smtpConfig: identity.smtpConfig,
         deliveryStatus,
       },
     };
@@ -498,10 +422,10 @@ export async function disconnectGmailAction(): Promise<ActionResponse<boolean>> 
 }
 
 /**
- * Selects the active outgoing email delivery provider ("resend" | "gmail" | "smtp").
+ * Selects the active outgoing email delivery provider ("gmail" | "resend").
  */
 export async function selectEmailProviderAction(
-  provider: "resend" | "gmail" | "smtp"
+  provider: EmailProvider
 ): Promise<ActionResponse<boolean>> {
   const authCheck = await verifyAdminCaller();
   if ("error" in authCheck) {

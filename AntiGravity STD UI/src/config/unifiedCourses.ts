@@ -504,9 +504,8 @@ export function getStudentEnrolledCourses(
   status: "In Progress" | "Completed";
   lastAccessed: string;
 }> {
-  // If no enrolled IDs provided, only default to "grammar-a1" if "grammar-a1" actually exists in published courses
-  const fallbackExists = getUnifiedCourseById("grammar-a1") !== undefined;
-  const effectiveIds = enrolledCourseIds.length > 0 ? enrolledCourseIds : (fallbackExists ? ["grammar-a1"] : []);
+  // Strictly display genuine enrolled courses. When student has no enrollments, return empty list.
+  const effectiveIds = enrolledCourseIds;
 
   return effectiveIds
     .map((id) => {

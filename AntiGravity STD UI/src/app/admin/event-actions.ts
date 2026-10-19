@@ -3,7 +3,7 @@
 import fs from "fs";
 import path from "path";
 import { revalidatePath } from "next/cache";
-import { getCurrentUserRole } from "@/lib/auth/roles";
+import { verifyAdminCaller as verifyAdminMfaCaller } from "@/lib/auth/adminVerification";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 
 export interface LmsEvent {
@@ -46,15 +46,7 @@ function writeEventsStore(events: LmsEvent[]) {
 }
 
 async function verifyAdminCaller(): Promise<{ adminId: string } | { error: string }> {
-  try {
-    const { userId, role } = await getCurrentUserRole();
-    if (!userId || role !== "admin") {
-      return { error: "Forbidden: Administrative privileges required." };
-    }
-    return { adminId: userId };
-  } catch {
-    return { error: "Authentication verification failed." };
-  }
+  return verifyAdminMfaCaller();
 }
 
 /**
@@ -63,6 +55,21 @@ async function verifyAdminCaller(): Promise<{ adminId: string } | { error: strin
  */
 export async function getCentralEventsAction(): Promise<ActionResponse<LmsEvent[]>> {
   try {
+    try {
+      const supabase = await createClient();
+      const { data, error } = await (supabase as any)
+        .from("cms_content")
+        .select("published_data")
+        .eq("page_key", "central_events")
+        .maybeSingle();
+
+      if (!error && data?.published_data?.events && Array.isArray(data.published_data.events)) {
+        return { success: true, data: data.published_data.events };
+      }
+    } catch (e) {
+      console.warn("DB events fetch notice:", e);
+    }
+
     const events = readEventsStore();
     return { success: true, data: events };
   } catch (err: any) {
@@ -89,7 +96,7 @@ export async function saveCentralEventAction(
     return { success: false, error: "Event Date is required." };
   }
 
-  const events = readEventsStore();
+  const events = (await getCentralEventsAction()).data || readEventsStore();
   const id = eventData.id || `event_${Date.now()}`;
   const now = new Date().toISOString();
 
@@ -113,7 +120,8 @@ export async function saveCentralEventAction(
 
   writeEventsStore(events);
 
-  // Sync with Supabase cms_content if present
+  // Sync with Supabase cms_content
+  let dbPersisted = false;
   try {
     let supabase: any;
     try {
@@ -121,14 +129,28 @@ export async function saveCentralEventAction(
     } catch {
       supabase = await createClient();
     }
-    await supabase.from("cms_content").upsert({
+    const { error: dbErr } = await supabase.from("cms_content").upsert({
       page_key: "central_events",
       published_data: { events },
       draft_data: { events },
       updated_at: now,
-    });
-  } catch {
-    // Non-blocking
+      updated_by: authCheck.adminId,
+    }, { onConflict: "page_key" });
+
+    if (!dbErr) {
+      dbPersisted = true;
+    } else {
+      console.error("Database event upsert error:", dbErr.message);
+    }
+  } catch (err) {
+    console.warn("Database event upsert exception:", err);
+  }
+
+  if (!dbPersisted && (process.env.VERCEL || process.env.NODE_ENV === "production")) {
+    return {
+      success: false,
+      error: "Failed to persist event to database. Please try again.",
+    };
   }
 
   revalidatePath("/");
@@ -147,10 +169,11 @@ export async function deleteCentralEventAction(eventId: string): Promise<ActionR
     return { success: false, error: authCheck.error };
   }
 
-  const events = readEventsStore();
+  const events = (await getCentralEventsAction()).data || readEventsStore();
   const filtered = events.filter((e) => e.id !== eventId);
   writeEventsStore(filtered);
 
+  let dbPersisted = false;
   try {
     let supabase: any;
     try {
@@ -158,14 +181,26 @@ export async function deleteCentralEventAction(eventId: string): Promise<ActionR
     } catch {
       supabase = await createClient();
     }
-    await supabase.from("cms_content").upsert({
+    const { error: dbErr } = await supabase.from("cms_content").upsert({
       page_key: "central_events",
       published_data: { events: filtered },
       draft_data: { events: filtered },
       updated_at: new Date().toISOString(),
-    });
-  } catch {
-    // Non-blocking
+      updated_by: authCheck.adminId,
+    }, { onConflict: "page_key" });
+
+    if (!dbErr) {
+      dbPersisted = true;
+    }
+  } catch (err) {
+    console.warn("Database event delete exception:", err);
+  }
+
+  if (!dbPersisted && (process.env.VERCEL || process.env.NODE_ENV === "production")) {
+    return {
+      success: false,
+      error: "Failed to delete event from database. Please try again.",
+    };
   }
 
   revalidatePath("/");

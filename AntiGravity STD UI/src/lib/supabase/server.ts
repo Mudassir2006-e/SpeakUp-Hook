@@ -37,30 +37,4 @@ export async function createClient() {
   });
 }
 
-/**
- * Creates an elevated administrative Supabase client using the private SUPABASE_SERVICE_ROLE_KEY.
- * STRICTLY SERVER-SIDE ONLY. Never import or invoke this in client components or client-facing code.
- */
-export function createAdminClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    throw new Error(
-      "Missing Supabase administrative environment variables: NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be defined on the server."
-    );
-  }
-
-  return createServerClient<Database>(supabaseUrl, serviceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-    cookies: {
-      getAll() {
-        return [];
-      },
-      setAll() {},
-    },
-  });
-}
+export { createAdminClient } from "./admin";

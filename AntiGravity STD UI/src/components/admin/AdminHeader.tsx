@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { clearAdminMfaSessionAction } from "@/lib/auth/adminVerification";
 import { useTheme } from "@/components/ThemeContext";
 import InitialsAvatar from "@/components/InitialsAvatar";
 
@@ -92,6 +93,11 @@ export default function AdminHeader({
   }, [initialAdminEmail]);
 
   const handleSignOut = async () => {
+    try {
+      await clearAdminMfaSessionAction();
+    } catch {
+      // MFA session cleanup fallback
+    }
     try {
       const supabase = createClient();
       await supabase.auth.signOut();

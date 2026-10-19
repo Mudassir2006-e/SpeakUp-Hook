@@ -119,17 +119,6 @@ export async function recordPasswordChange(
     // Revoke all refresh tokens globally across all devices
     await admin.auth.admin.signOut(userId, "global");
 
-    // Update profiles table if possible
-    try {
-      await (admin as any)
-        .from("profiles")
-        .update({
-          password_changed_at: changedAt,
-          updated_at: changedAt,
-        })
-        .eq("id", userId);
-    } catch {}
-
     return { success: true, changedAt };
   } catch (err) {
     console.warn("Supabase admin session revocation fallback:", err);

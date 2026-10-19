@@ -7,6 +7,8 @@ import { getCurrentUserRole } from "@/lib/auth/roles";
 import { CMS_DEFAULT_PAGES, CmsPageData } from "@/config/cmsDefaultContent";
 import { revalidatePath } from "next/cache";
 
+import { verifyAdminCaller as verifyAdminMfaCaller } from "@/lib/auth/adminVerification";
+
 interface ActionResponse<T = undefined> {
   success: boolean;
   error?: string;
@@ -14,20 +16,10 @@ interface ActionResponse<T = undefined> {
 }
 
 /**
- * Validates that the current user has verified administrator privileges.
+ * Validates that the current user has verified administrator privileges and MFA session.
  */
 async function verifyAdminCaller(): Promise<{ adminId: string } | { error: string }> {
-  try {
-    const { userId, role } = await getCurrentUserRole();
-    if (!userId || role !== "admin") {
-      return { error: "Forbidden: Administrative privileges required." };
-    }
-    return { adminId: userId };
-  } catch {
-    return {
-      error: "Authentication verification failed.",
-    };
-  }
+  return verifyAdminMfaCaller();
 }
 
 /**
@@ -138,7 +130,7 @@ export async function saveCmsPageDraftAction(
       .eq("page_key", pageKey)
       .maybeSingle();
 
-    let newVersion = (existing?.version || 0) + 1;
+    const newVersion = (existing?.version || 0) + 1;
 
       try {
         if (existing?.id) {
@@ -679,7 +671,7 @@ export async function publishCmsPageAction(
       .eq("page_key", pageKey)
       .maybeSingle();
 
-    let version = (existing?.version || 1) + 1;
+    const version = (existing?.version || 1) + 1;
 
     // 1. Update Supabase cms_content
     try {

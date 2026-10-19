@@ -24,7 +24,7 @@ export default function PortalEmailPage() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [isVerified, setIsVerified] = useState<boolean>(true);
   const [providerNotice, setProviderNotice] = useState<string>("");
-  const [selectedProvider, setSelectedProvider] = useState<"resend" | "gmail" | "smtp">("resend");
+  const [selectedProvider, setSelectedProvider] = useState<"gmail" | "resend">("gmail");
   const [connectedGmail, setConnectedGmail] = useState<{
     connected: boolean;
     email: string | null;
@@ -40,12 +40,6 @@ export default function PortalEmailPage() {
   });
   const [disconnectingGmail, setDisconnectingGmail] = useState(false);
   const [switchingProvider, setSwitchingProvider] = useState(false);
-  const [smtpConfig, setSmtpConfig] = useState<{
-    host: string;
-    port: number;
-    username: string;
-    isApiKeyConfigured: boolean;
-  } | null>(null);
   const [deliveryStatus, setDeliveryStatus] = useState<PortalEmailSettings["deliveryStatus"] | null>(null);
 
   // Test Email Verification State
@@ -132,9 +126,6 @@ export default function PortalEmailPage() {
           if (res.data.connectedGmail) {
             setConnectedGmail(res.data.connectedGmail);
           }
-          if (res.data.smtpConfig) {
-            setSmtpConfig(res.data.smtpConfig);
-          }
           if (res.data.deliveryStatus) {
             setDeliveryStatus(res.data.deliveryStatus);
           }
@@ -162,7 +153,7 @@ export default function PortalEmailPage() {
     }
   }, []);
 
-  const handleSelectProvider = async (provider: "resend" | "gmail" | "smtp") => {
+  const handleSelectProvider = async (provider: "gmail" | "resend") => {
     if (provider === "gmail" && !connectedGmail.connected) {
       showToast("warning", "Gmail is not connected yet. Please connect an authorized Gmail account via Google OAuth below.");
     }
@@ -171,7 +162,7 @@ export default function PortalEmailPage() {
     try {
       const res = await selectEmailProviderAction(provider);
       if (res.success) {
-        showToast("success", `Active delivery provider updated to ${provider === "resend" ? "Resend" : provider === "gmail" ? "Gmail" : "SMTP"}.`);
+        showToast("success", `Active delivery provider updated to ${provider === "resend" ? "Resend" : "Gmail"}.`);
       } else {
         showToast("error", res.error || "Failed to switch provider.");
       }
@@ -384,8 +375,6 @@ export default function PortalEmailPage() {
   const actualEffectiveSender =
     selectedProvider === "gmail" && connectedGmail.connected && connectedGmail.email
       ? connectedGmail.email
-      : selectedProvider === "smtp" && smtpConfig?.username
-      ? smtpConfig.username
       : senderEmail || "onboarding@resend.dev";
   const targetDomain = senderEmail.includes("@") ? senderEmail.split("@")[1].toLowerCase() : "";
 
@@ -668,8 +657,6 @@ export default function PortalEmailPage() {
                     <p className="font-serif text-[11px] text-[var(--text-muted)] leading-relaxed">
                       {selectedProvider === "gmail"
                         ? "Application messages dispatch directly through your authorized Gmail account via Google's official REST API."
-                        : selectedProvider === "smtp"
-                        ? "Application messages dispatch via your enterprise SMTP server."
                         : "Application messages dispatch through Resend's authorized provider address to maintain DKIM/SPF compliance."}
                       {" "}Managed under <strong>Section 2: Backend Email Delivery</strong> below.
                     </p>
@@ -773,7 +760,7 @@ export default function PortalEmailPage() {
                     Recipient Client Display
                   </span>
                   <p>
-                    Recipients see <strong>{senderName || "SpeakUp Team"}</strong> as the public sender name. Outgoing delivery uses <strong>{selectedProvider === "gmail" ? "Authorized Gmail Account" : selectedProvider === "smtp" ? "Business SMTP" : "Resend HTTP API"}</strong>. Student replies route directly to your genuine Reply-To address.
+                    Recipients see <strong>{senderName || "SpeakUp Team"}</strong> as the public sender name. Outgoing delivery uses <strong>{selectedProvider === "gmail" ? "Authorized Gmail Account" : "Resend HTTP API"}</strong>. Student replies route directly to your genuine Reply-To address.
                   </p>
                 </div>
 
@@ -828,8 +815,6 @@ export default function PortalEmailPage() {
                     ? connectedGmail.connected
                       ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/25"
                       : "bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/25"
-                    : selectedProvider === "smtp"
-                    ? "bg-blue-500/15 text-blue-700 dark:text-blue-400 border border-blue-500/25"
                     : deliveryStatus?.isApiKeyConfigured
                     ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/25"
                     : "bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/25"
@@ -838,8 +823,6 @@ export default function PortalEmailPage() {
                     ? connectedGmail.connected
                       ? "Gmail API Active"
                       : "OAuth Connect Needed"
-                    : selectedProvider === "smtp"
-                    ? "SMTP Mode"
                     : deliveryStatus?.isApiKeyConfigured
                     ? "Resend API Active"
                     : "API Key Pending"}
@@ -857,20 +840,7 @@ export default function PortalEmailPage() {
                   )}
                 </div>
 
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleSelectProvider("resend")}
-                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                      selectedProvider === "resend"
-                        ? "border-[#d4af37] bg-[#d4af37]/15 ring-1 ring-[#d4af37]"
-                        : "border-[var(--surface-border)] hover:border-[#d4af37]/40 bg-[#f9f5ed]/60 dark:bg-[var(--surface-low)]"
-                    }`}
-                  >
-                    <span className="font-display text-xs font-bold text-[var(--text-main)] block">Resend</span>
-                    <span className="text-[10px] text-[var(--text-muted)] font-serif mt-0.5">HTTP API</span>
-                  </button>
-
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => handleSelectProvider("gmail")}
@@ -886,20 +856,20 @@ export default function PortalEmailPage() {
                         <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                       )}
                     </div>
-                    <span className="text-[10px] text-[var(--text-muted)] font-serif mt-0.5">Google OAuth</span>
+                    <span className="text-[10px] text-[var(--text-muted)] font-serif mt-0.5">Google OAuth (Recommended)</span>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => handleSelectProvider("smtp")}
+                    onClick={() => handleSelectProvider("resend")}
                     className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                      selectedProvider === "smtp"
+                      selectedProvider === "resend"
                         ? "border-[#d4af37] bg-[#d4af37]/15 ring-1 ring-[#d4af37]"
                         : "border-[var(--surface-border)] hover:border-[#d4af37]/40 bg-[#f9f5ed]/60 dark:bg-[var(--surface-low)]"
                     }`}
                   >
-                    <span className="font-display text-xs font-bold text-[var(--text-main)]">SMTP</span>
-                    <span className="text-[10px] text-[var(--text-muted)] font-serif mt-0.5">Business Mail</span>
+                    <span className="font-display text-xs font-bold text-[var(--text-main)] block">Resend</span>
+                    <span className="text-[10px] text-[var(--text-muted)] font-serif mt-0.5">HTTP API (Fallback)</span>
                   </button>
                 </div>
               </div>
@@ -982,25 +952,13 @@ export default function PortalEmailPage() {
                 </div>
               )}
 
-              {selectedProvider === "smtp" && (
-                <div className="p-4 rounded-xl border border-blue-500/30 bg-blue-500/5 space-y-2 text-xs font-serif leading-relaxed">
-                  <div className="flex items-center gap-2 font-display font-bold text-[var(--text-main)]">
-                    <span className="material-symbols-outlined text-blue-500">dns</span>
-                    <span>Custom Business Email / SMTP</span>
-                  </div>
-                  <p className="text-[var(--text-muted)]">
-                    For enterprise institutions using Microsoft 365, Amazon SES SMTP, or custom mail relays. Configured through environment variables or custom provider settings.
-                  </p>
-                </div>
-              )}
-
               {/* Authoritative Settings Summary Box */}
               <div className="space-y-2 text-xs font-serif text-[var(--text-muted)] leading-relaxed">
                 <div className="p-3.5 rounded-xl bg-[#f9f5ed] dark:bg-[var(--surface-low)] border border-[var(--surface-border)] space-y-2 font-mono text-[11px] text-[var(--text-main)]">
                   <div className="flex justify-between items-center">
                     <span className="text-[var(--text-muted)]">Active Delivery Engine:</span>
                     <span className="font-bold uppercase tracking-wider text-[#8a6d1b] dark:text-[#d4af37]">
-                      {selectedProvider === "gmail" ? "Gmail (Google REST API)" : selectedProvider === "smtp" ? "Custom SMTP" : "Resend (HTTP API)"}
+                      {selectedProvider === "gmail" ? "Gmail (Google REST API)" : "Resend (HTTP API)"}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
@@ -1010,8 +968,6 @@ export default function PortalEmailPage() {
                         ? connectedGmail.connected
                           ? "Authorized & Ready"
                           : "Awaiting OAuth Connection"
-                        : selectedProvider === "smtp"
-                        ? "SMTP Mode Configured"
                         : deliveryStatus?.isApiKeyConfigured
                         ? "Resend API Active"
                         : "API Key Pending"}

@@ -10,6 +10,7 @@ import { getUnifiedCourses, getUnifiedCourseById } from "@/config/unifiedCourses
 import type { LessonLinkButton } from "@/types/linkButton";
 import { recordPasswordChange } from "@/lib/auth/sessionSecurity";
 import { calculateEnrollmentExpiry, isEnrollmentActive } from "@/lib/enrollmentExpiry";
+import { validatePassword } from "@/lib/validation";
 
 export interface LearningMaterialItem {
   id: string;
@@ -89,7 +90,7 @@ const COURSE_CURRICULUM: Record<
         title: "Parts of Speech & Grammatical Agreement",
         description:
           "Understand subject-verb agreement, pronoun references, and foundational sentence structure to build grammatically rock-solid sentences.",
-        videoId: "iCvmsMzlF7o",
+        videoId: "",
         notes: `SpeakUp Masterclass — Lesson 01: Parts of Speech & Agreement
 
 Core Syntax Principle:
@@ -116,7 +117,7 @@ Rephrase this construction aloud three times using downward terminal pitch infle
         title: "Present Tense Nuances & Auxiliary Verbs",
         description:
           "Differentiate between simple present, present continuous, and present perfect aspects with academic precision.",
-        videoId: "iCvmsMzlF7o",
+        videoId: "",
         notes: `SpeakUp Masterclass — Lesson 02: Present Tense Nuances
 
 Temporal Scope Principle:
@@ -140,7 +141,7 @@ Formulate two contrasting declarations regarding institutional performance: one 
         title: "Direct & Indirect Objects in Formal Syntax",
         description:
           "Master transitivity, ditransitive verbs, and objective case assignment in formal executive statements.",
-        videoId: "iCvmsMzlF7o",
+        videoId: "",
         notes: `SpeakUp Masterclass — Lesson 03: Direct & Indirect Objects
 
 Object Architecture:
@@ -164,7 +165,7 @@ Restructure the sentence: "The executive committee forwarded a comprehensive bri
         title: "Subordinate Clauses & Complex Coordination",
         description:
           "Harness relative pronouns, adverbial clauses, and balanced subordinating conjunctions to govern academic clauses.",
-        videoId: "iCvmsMzlF7o",
+        videoId: "",
         notes: `SpeakUp Masterclass — Lesson 04: Subordinate Clauses & Coordination
 
 Subordination Mechanics:
@@ -188,7 +189,7 @@ Combine three distinct propositions regarding fiscal policy into one authoritati
         title: "Passive Voice Nuances in Academic Prose",
         description:
           "Deploy passive constructions judiciously to emphasize empirical outcomes while preserving syntactic vigor.",
-        videoId: "iCvmsMzlF7o",
+        videoId: "",
         notes: `SpeakUp Masterclass — Lesson 05: Strategic Passive Constructions
 
 Voice Calibration:
@@ -212,7 +213,7 @@ Transform "The junior auditing team failed to inspect the secondary ledger" into
         title: "Conditional Nuances & Counterfactual Mood",
         description:
           "Formulate hypothetical, speculative, and counterfactual arguments using precise subjunctive verb forms.",
-        videoId: "iCvmsMzlF7o",
+        videoId: "",
         notes: `SpeakUp Masterclass — Lesson 06: Conditionals & Subjunctive Mood
 
 Counterfactual Syntax:
@@ -432,7 +433,7 @@ export async function getProtectedLesson(
             if (Array.isArray(m.lessons)) {
               const matchedLesson = m.lessons.find((l: any) => l.id === lessonId);
               if (matchedLesson) {
-                let extractedVideoId = "iCvmsMzlF7o";
+                let extractedVideoId = "";
                 if (matchedLesson.video_url) {
                   const match = matchedLesson.video_url.match(
                     /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/
@@ -458,10 +459,16 @@ export async function getProtectedLesson(
                 }
 
                 let resolvedLinkButton: LessonLinkButton | null = null;
-                const linksStorePath = path.join(process.cwd(), "src", "config", "central-lesson-links.json");
-                if (fs.existsSync(linksStorePath)) {
-                  try {
-                    const linksStore = JSON.parse(fs.readFileSync(linksStorePath, "utf-8") || "{}");
+                // 1. Authoritative check: retrieve lesson link from Supabase cms_content
+                try {
+                  const { data: cmsData } = await (supabase as any)
+                    .from("cms_content")
+                    .select("published_data")
+                    .eq("page_key", "lesson_links")
+                    .maybeSingle();
+
+                  if (cmsData?.published_data && typeof cmsData.published_data === "object") {
+                    const linksStore = cmsData.published_data as Record<string, any>;
                     const foundLink = linksStore[`${courseId}_${m.id}_${matchedLesson.id}`] || linksStore[matchedLesson.id];
                     if (foundLink && foundLink.enabled && foundLink.url) {
                       resolvedLinkButton = {
@@ -471,7 +478,26 @@ export async function getProtectedLesson(
                         description: foundLink.description || "",
                       };
                     }
-                  } catch {}
+                  }
+                } catch {}
+
+                // 2. Secondary fallback: check local central-lesson-links.json
+                if (!resolvedLinkButton) {
+                  const linksStorePath = path.join(process.cwd(), "src", "config", "central-lesson-links.json");
+                  if (fs.existsSync(linksStorePath)) {
+                    try {
+                      const linksStore = JSON.parse(fs.readFileSync(linksStorePath, "utf-8") || "{}");
+                      const foundLink = linksStore[`${courseId}_${m.id}_${matchedLesson.id}`] || linksStore[matchedLesson.id];
+                      if (foundLink && foundLink.enabled && foundLink.url) {
+                        resolvedLinkButton = {
+                          enabled: foundLink.enabled,
+                          text: foundLink.text || "Open Learning Resource",
+                          url: foundLink.url,
+                          description: foundLink.description || "",
+                        };
+                      }
+                    } catch {}
+                  }
                 }
                 if (!resolvedLinkButton && matchedLesson.link_button?.enabled && matchedLesson.link_button?.url) {
                   resolvedLinkButton = matchedLesson.link_button;
@@ -548,7 +574,7 @@ export async function getProtectedLesson(
         const licenseText = `Licensed to: ${studentName} • ${studentEmail}`;
 
         // Extract YouTube ID from video_url
-        let extractedVideoId = "iCvmsMzlF7o";
+        let extractedVideoId = "";
         if (dbLesson.video_url) {
           const match = dbLesson.video_url.match(
             /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/
@@ -693,7 +719,7 @@ export async function getCourseLessonsForPlayerAction(courseId: string): Promise
           for (const m of foundCourse.modules) {
             if (Array.isArray(m.lessons)) {
               for (const l of m.lessons) {
-                let ytId = "iCvmsMzlF7o";
+                let ytId = "";
                 if (l.video_url) {
                   const match = l.video_url.match(
                     /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/
@@ -754,7 +780,7 @@ export async function getCourseLessonsForPlayerAction(courseId: string): Promise
 
       if (lessons && lessons.length > 0) {
         const result = lessons.map((l: any, idx: number) => {
-          let ytId = "iCvmsMzlF7o";
+          let ytId = "";
           if (l.video_url) {
             const match = l.video_url.match(
               /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/
@@ -840,10 +866,11 @@ export async function changePasswordAction(
       newPassword = param1;
     }
 
-    if (!newPassword || newPassword.length < 8) {
+    const passCheck = validatePassword(newPassword);
+    if (!passCheck.valid) {
       return {
         success: false,
-        error: "New password must be at least 8 characters in length.",
+        error: passCheck.error || "Password does not meet security requirements.",
       };
     }
 
@@ -1090,20 +1117,34 @@ export async function uploadStudentAvatarAction(
       const { data: pubData } = adminClient.storage.from("avatars").getPublicUrl(fileName);
       publicUrl = pubData.publicUrl;
     } else {
-      // Graceful local public storage fallback
-      const fs = (await import("fs")).default;
-      const path = (await import("path")).default;
-      const targetDir = path.join(process.cwd(), "public", "uploads", "avatars");
-      if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
-      const localFilePath = path.join(targetDir, fileName);
-      fs.writeFileSync(localFilePath, optimizedBuffer);
-      publicUrl = `/uploads/avatars/${fileName}`;
+      console.warn("Supabase avatar upload notice:", uploadError.message);
+      // Only attempt local filesystem write in local development and outside Vercel
+      if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
+        try {
+          const fs = (await import("fs")).default;
+          const path = (await import("path")).default;
+          const targetDir = path.join(process.cwd(), "public", "uploads", "avatars");
+          if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
+          const localFilePath = path.join(targetDir, fileName);
+          fs.writeFileSync(localFilePath, optimizedBuffer);
+          publicUrl = `/uploads/avatars/${fileName}`;
+        } catch (fsErr) {
+          console.warn("Local avatar write fallback skipped or failed:", fsErr);
+        }
+      }
+    }
+
+    if (!publicUrl) {
+      return {
+        success: false,
+        error: "Failed to upload avatar to storage. Please check storage bucket configuration.",
+      };
     }
 
     try {
       await (adminClient as any)
         .from("profiles")
-        .update({ avatar_url: publicUrl, updated_at: new Date().toISOString() })
+        .update({ avatar_url: publicUrl })
         .eq("id", user.id);
     } catch {
       // Non-blocking
@@ -1148,7 +1189,7 @@ export async function removeStudentAvatarAction(): Promise<{ success: boolean; e
     try {
       await (adminClient as any)
         .from("profiles")
-        .update({ avatar_url: null, updated_at: new Date().toISOString() })
+        .update({ avatar_url: null })
         .eq("id", user.id);
     } catch {
       // Non-blocking
@@ -2101,6 +2142,18 @@ export async function submitStudentCourseRequestAction(payload: {
     }
 
     fs.writeFileSync(requestsPath, JSON.stringify(allRequests, null, 2), "utf-8");
+
+    // 3. Dispatch non-blocking notification to authoritative administrator email
+    try {
+      const { sendAdminNotificationEmail } = await import("@/lib/email");
+      const courseTitles = createdRecords.map((r: any) => r.courseTitle).join(", ");
+      await sendAdminNotificationEmail({
+        subject: `New Course Enrollment Request: ${courseTitles}`,
+        html: `<p>A student has submitted a new course enrollment request:</p><ul><li><strong>Student:</strong> ${studentName} (${studentEmail})</li><li><strong>Courses:</strong> ${courseTitles}</li><li><strong>Request Time:</strong> ${now}</li></ul>`,
+      });
+    } catch (adminNotifyErr) {
+      console.warn("Notice: Non-blocking admin notification for course request:", adminNotifyErr);
+    }
 
     revalidatePath("/admin/course-requests");
     revalidatePath("/lms/dashboard");

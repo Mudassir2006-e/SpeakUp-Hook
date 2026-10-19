@@ -100,13 +100,13 @@ export async function getCurrentUserAccountStatus(): Promise<{
     try {
       const { data: profile } = await supabase
         .from("profiles")
-        .select("role, status")
+        .select("role, account_status")
         .eq("id", user.id)
         .maybeSingle();
 
       if (profile) {
         if ((profile as any).role) dbRole = (profile as any).role;
-        if ((profile as any).status) dbStatus = (profile as any).status;
+        if ((profile as any).account_status) dbStatus = (profile as any).account_status;
       }
     } catch {
       // Database fallback

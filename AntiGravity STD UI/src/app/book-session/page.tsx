@@ -6,6 +6,7 @@ import Logo from "@/components/Logo";
 import { useCmsContent } from "@/lib/cms/useCmsContent";
 
 import { submitBookingRequestAction } from "./booking-actions";
+import CountryPhoneInput from "@/components/CountryPhoneInput";
 
 function formatPersonName(name: string): string {
   return name
@@ -140,30 +141,13 @@ export default function BookSessionPage() {
                     <label className="font-display text-xs uppercase tracking-wider text-[var(--text-main)] font-bold" htmlFor="phone">
                       Phone Number *
                     </label>
-                    <div className="flex border border-[var(--surface-border)] bg-[var(--surface-lowest)] rounded-xl overflow-hidden focus-within:border-[#d4af37]">
-                      <select
-                        aria-label="Country Code"
-                        value={formData.countryCode}
-                        onChange={(e) => setFormData({ ...formData, countryCode: e.target.value })}
-                        className="bg-[var(--surface-low)] px-3 py-3 border-r border-[var(--surface-border)] text-[var(--text-main)] font-serif text-sm focus:outline-none cursor-pointer"
-                      >
-                        <option value="+92">PK (+92)</option>
-                        <option value="+1">US (+1)</option>
-                        <option value="+44">UK (+44)</option>
-                        <option value="+971">UAE (+971)</option>
-                        <option value="+966">SA (+966)</option>
-                        <option value="+91">IN (+91)</option>
-                      </select>
-                      <input
-                        id="phone"
-                        required
-                        type="tel"
-                        placeholder="300 1234567"
-                        value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                        className="w-full p-3.5 font-serif text-base bg-transparent text-[var(--text-main)] border-none focus:outline-none"
-                      />
-                    </div>
+                    <CountryPhoneInput
+                      id="phone"
+                      phone={formData.phone}
+                      countryCode={formData.countryCode}
+                      onChangePhone={(val) => setFormData((prev) => ({ ...prev, phone: val }))}
+                      onChangeCountryCode={(code) => setFormData((prev) => ({ ...prev, countryCode: code }))}
+                    />
                   </div>
 
                   {/* Mobile Network */}

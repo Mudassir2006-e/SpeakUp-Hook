@@ -3,7 +3,7 @@
 import fs from "fs";
 import path from "path";
 import { revalidatePath } from "next/cache";
-import { getCurrentUserRole } from "@/lib/auth/roles";
+import { verifyAdminCaller as verifyAdminMfaCaller } from "@/lib/auth/adminVerification";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 
 export interface CentralTeacherItem {
@@ -57,15 +57,7 @@ function writeTeachersStore(items: CentralTeacherItem[]) {
 }
 
 async function verifyAdminCaller(): Promise<{ adminId: string } | { error: string }> {
-  try {
-    const { userId, role } = await getCurrentUserRole();
-    if (!userId || role !== "admin") {
-      return { error: "Forbidden: Administrative privileges required." };
-    }
-    return { adminId: userId };
-  } catch {
-    return { error: "Authentication verification failed." };
-  }
+  return verifyAdminMfaCaller();
 }
 
 /**
@@ -73,6 +65,21 @@ async function verifyAdminCaller(): Promise<{ adminId: string } | { error: strin
  */
 export async function getCentralTeachersAction(): Promise<ActionResponse<CentralTeacherItem[]>> {
   try {
+    try {
+      const supabase = await createClient();
+      const { data, error } = await (supabase as any)
+        .from("cms_content")
+        .select("published_data")
+        .eq("page_key", "site_faculty")
+        .maybeSingle();
+
+      if (!error && (data as any)?.published_data && Array.isArray((data as any).published_data)) {
+        return { success: true, data: data.published_data };
+      }
+    } catch (e) {
+      console.warn("DB faculty fetch notice:", e);
+    }
+
     const items = readTeachersStore();
     return { success: true, data: items };
   } catch (err: any) {
@@ -106,7 +113,7 @@ export async function saveCentralTeacherAction(
   }
 
   try {
-    const items = readTeachersStore();
+    const items = (await getCentralTeachersAction()).data || readTeachersStore();
     const now = new Date().toISOString();
     const id = teacher.id || `tea-${Date.now()}`;
 
@@ -144,7 +151,8 @@ export async function saveCentralTeacherAction(
     items.sort((a, b) => (a.order || 0) - (b.order || 0));
     writeTeachersStore(items);
 
-    // Sync to Supabase cms_content if table is available
+    // Sync to Supabase cms_content
+    let dbPersisted = false;
     try {
       let supabaseClient: any;
       try {
@@ -153,17 +161,30 @@ export async function saveCentralTeacherAction(
         supabaseClient = await createClient();
       }
 
-      await supabaseClient.from("cms_content").upsert(
+      const { error: dbErr } = await supabaseClient.from("cms_content").upsert(
         {
           page_key: "site_faculty",
           published_data: items,
           draft_data: items,
           updated_at: now,
+          updated_by: authCheck.adminId,
         },
         { onConflict: "page_key" }
       );
-    } catch {
-      // Non-blocking fallback
+      if (!dbErr) {
+        dbPersisted = true;
+      } else {
+        console.error("Database faculty upsert error:", dbErr.message);
+      }
+    } catch (dbErr) {
+      console.warn("Database faculty upsert exception:", dbErr);
+    }
+
+    if (!dbPersisted && (process.env.VERCEL || process.env.NODE_ENV === "production")) {
+      return {
+        success: false,
+        error: "Failed to persist teacher to database. Please try again.",
+      };
     }
 
     revalidatePath("/admin/teachers");
@@ -186,7 +207,7 @@ export async function deleteCentralTeacherAction(id: string): Promise<ActionResp
   }
 
   try {
-    const items = readTeachersStore();
+    const items = (await getCentralTeachersAction()).data || readTeachersStore();
     const filtered = items.filter((i) => i.id !== id);
     filtered.forEach((item, idx) => {
       item.order = idx + 1;
@@ -195,6 +216,7 @@ export async function deleteCentralTeacherAction(id: string): Promise<ActionResp
     writeTeachersStore(filtered);
 
     // Sync to Supabase cms_content
+    let dbPersisted = false;
     try {
       let supabaseClient: any;
       try {
@@ -203,16 +225,29 @@ export async function deleteCentralTeacherAction(id: string): Promise<ActionResp
         supabaseClient = await createClient();
       }
 
-      await supabaseClient.from("cms_content").upsert(
+      const { error: dbErr } = await supabaseClient.from("cms_content").upsert(
         {
           page_key: "site_faculty",
           published_data: filtered,
           draft_data: filtered,
           updated_at: new Date().toISOString(),
+          updated_by: authCheck.adminId,
         },
         { onConflict: "page_key" }
       );
-    } catch {}
+      if (!dbErr) {
+        dbPersisted = true;
+      }
+    } catch (err) {
+      console.warn("Database faculty delete exception:", err);
+    }
+
+    if (!dbPersisted && (process.env.VERCEL || process.env.NODE_ENV === "production")) {
+      return {
+        success: false,
+        error: "Failed to delete teacher from database. Please try again.",
+      };
+    }
 
     revalidatePath("/admin/teachers");
     revalidatePath("/about");
@@ -305,14 +340,21 @@ export async function uploadTeacherAvatarAction(
 
     if (uploadError) {
       console.warn("Notice: Storage bucket fallback:", uploadError.message);
-      // Fallback: save to public/uploads/faculty
-      const publicDir = path.join(process.cwd(), "public", "uploads", "faculty");
-      if (!fs.existsSync(publicDir)) {
-        fs.mkdirSync(publicDir, { recursive: true });
+      // Fallback: save to public/uploads/faculty only in local development
+      if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
+        try {
+          const publicDir = path.join(process.cwd(), "public", "uploads", "faculty");
+          if (!fs.existsSync(publicDir)) {
+            fs.mkdirSync(publicDir, { recursive: true });
+          }
+          const localFileName = `${Date.now()}_${sanitizedName}`;
+          fs.writeFileSync(path.join(publicDir, localFileName), buffer);
+          return { success: true, url: `/uploads/faculty/${localFileName}` };
+        } catch (fsErr) {
+          console.warn("Local faculty picture write skipped:", fsErr);
+        }
       }
-      const localFileName = `${Date.now()}_${sanitizedName}`;
-      fs.writeFileSync(path.join(publicDir, localFileName), buffer);
-      return { success: true, url: `/uploads/faculty/${localFileName}` };
+      return { success: false, error: "Failed to upload teacher picture to storage." };
     }
 
     const { data: publicData } = adminClient.storage

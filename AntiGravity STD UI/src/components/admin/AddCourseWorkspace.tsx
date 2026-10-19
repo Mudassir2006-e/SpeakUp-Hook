@@ -8,7 +8,6 @@ import {
   deleteCentralCourseAction,
   getCourseCurriculumAction,
   addCourseModuleAction,
-  updateCourseModuleAction,
   deleteCourseModuleAction,
   saveCourseLessonAction,
   deleteCourseLessonAction,
@@ -23,7 +22,7 @@ import {
 } from "@/app/admin/free-demo-actions";
 import { CentralCourse, getAllCentralCourses } from "@/config/unifiedCourses";
 import ExpandableImageViewer from "@/components/ExpandableImageViewer";
-import A4MaterialPreview, { LearningMaterialItem } from "@/components/A4MaterialPreview";
+import type { LearningMaterialItem } from "@/components/A4MaterialPreview";
 import SpeakUpVideoPlayer from "@/components/SpeakUpVideoPlayer";
 
 const LANGUAGE_LEVEL_MAP: Record<string, string[]> = {

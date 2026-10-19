@@ -3,7 +3,7 @@
 import fs from "fs";
 import path from "path";
 import { revalidatePath } from "next/cache";
-import { getCurrentUserRole } from "@/lib/auth/roles";
+import { verifyAdminCaller as verifyAdminMfaCaller } from "@/lib/auth/adminVerification";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 
 export type MethodologyVideoSource = "youtube" | "vimeo" | "local" | "external";
@@ -69,15 +69,7 @@ function writeLocalSettings(settings: MethodologyVideoSettings): void {
 }
 
 async function verifyAdminCaller(): Promise<{ adminId: string } | { error: string }> {
-  try {
-    const { userId, role } = await getCurrentUserRole();
-    if (!userId || role !== "admin") {
-      return { error: "Forbidden: Administrative privileges required." };
-    }
-    return { adminId: userId };
-  } catch {
-    return { error: "Authentication verification failed." };
-  }
+  return verifyAdminMfaCaller();
 }
 
 export async function normalizeMethodologyVideoUrl(
@@ -124,6 +116,26 @@ export async function normalizeMethodologyVideoUrl(
 
 export async function getMethodologyVideoSettingsAction(): Promise<ActionResponse<MethodologyVideoSettings>> {
   try {
+    try {
+      const supabase = await createClient();
+      const { data, error } = await (supabase as any)
+        .from("cms_content")
+        .select("published_data")
+        .eq("page_key", "methodology_guided_video")
+        .maybeSingle();
+
+      if (!error && (data as any)?.published_data && typeof (data as any).published_data === "object") {
+        const merged: MethodologyVideoSettings = {
+          ...DEFAULT_SETTINGS,
+          ...(data.published_data as Partial<MethodologyVideoSettings>),
+        };
+        writeLocalSettings(merged);
+        return { success: true, data: merged };
+      }
+    } catch (dbErr) {
+      console.warn("DB methodology video fetch notice:", dbErr);
+    }
+
     const settings = readLocalSettings();
     return { success: true, data: settings };
   } catch (err: any) {
@@ -140,11 +152,12 @@ export async function saveMethodologyVideoSettingsAction(
   }
 
   try {
-    const current = readLocalSettings();
+    const current = (await getMethodologyVideoSettingsAction()).data || readLocalSettings();
+    const now = new Date().toISOString();
     const updated: MethodologyVideoSettings = {
       ...current,
       ...updates,
-      updatedAt: new Date().toISOString(),
+      updatedAt: now,
     };
 
     if (updates.videoUrl && updates.sourceType) {
@@ -157,6 +170,7 @@ export async function saveMethodologyVideoSettingsAction(
 
     writeLocalSettings(updated);
 
+    let dbPersisted = false;
     try {
       let supabase: any;
       try {
@@ -164,14 +178,28 @@ export async function saveMethodologyVideoSettingsAction(
       } catch {
         supabase = await createClient();
       }
-      await supabase.from("cms_content").upsert({
+      const { error: dbErr } = await supabase.from("cms_content").upsert({
         page_key: "methodology_guided_video",
         published_data: updated,
         draft_data: updated,
         updated_at: updated.updatedAt,
         updated_by: authCheck.adminId,
-      });
-    } catch {}
+      }, { onConflict: "page_key" });
+      if (!dbErr) {
+        dbPersisted = true;
+      } else {
+        console.error("Database methodology video upsert error:", dbErr.message);
+      }
+    } catch (err) {
+      console.warn("Database methodology video upsert exception:", err);
+    }
+
+    if (!dbPersisted && (process.env.VERCEL || process.env.NODE_ENV === "production")) {
+      return {
+        success: false,
+        error: "Failed to persist methodology video settings to database. Please try again.",
+      };
+    }
 
     revalidatePath("/methodology");
     revalidatePath("/admin/pages");
@@ -189,15 +217,46 @@ export async function removeMethodologyVideoAction(): Promise<ActionResponse<Met
   }
 
   try {
+    const now = new Date().toISOString();
     const cleared: MethodologyVideoSettings = {
       ...DEFAULT_SETTINGS,
       videoUrl: "",
       embedUrl: "",
       isActive: false,
-      updatedAt: new Date().toISOString(),
+      updatedAt: now,
     };
 
     writeLocalSettings(cleared);
+
+    let dbPersisted = false;
+    try {
+      let supabase: any;
+      try {
+        supabase = createAdminClient();
+      } catch {
+        supabase = await createClient();
+      }
+      const { error: dbErr } = await supabase.from("cms_content").upsert({
+        page_key: "methodology_guided_video",
+        published_data: cleared,
+        draft_data: cleared,
+        updated_at: now,
+        updated_by: authCheck.adminId,
+      }, { onConflict: "page_key" });
+      if (!dbErr) {
+        dbPersisted = true;
+      }
+    } catch (err) {
+      console.warn("Database reset notice for methodology video:", err);
+    }
+
+    if (!dbPersisted && (process.env.VERCEL || process.env.NODE_ENV === "production")) {
+      return {
+        success: false,
+        error: "Failed to reset methodology video in database. Please try again.",
+      };
+    }
+
     revalidatePath("/methodology");
 
     return { success: true, data: cleared };

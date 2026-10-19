@@ -202,12 +202,12 @@ CREATE OR REPLACE FUNCTION public.is_admin()
 RETURNS BOOLEAN
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = pg_catalog, public, pg_temp
+SET search_path = pg_catalog, public
 AS $$
 BEGIN
     RETURN EXISTS (
         SELECT 1 FROM public.profiles
-        WHERE id = auth.uid() AND role = 'admin'
+        WHERE id = (auth.uid()) AND role = 'admin'
     );
 END;
 $$;
@@ -238,9 +238,17 @@ CREATE POLICY "Admins can delete profiles"
 -- --- COURSES POLICIES ---
 -- Anyone (students & public) can view published courses; Admins can view all courses
 DROP POLICY IF EXISTS "Anyone can view published courses" ON public.courses;
-CREATE POLICY "Anyone can view published courses"
+DROP POLICY IF EXISTS "Public can view published courses" ON public.courses;
+DROP POLICY IF EXISTS "Admins can view all courses" ON public.courses;
+
+CREATE POLICY "Public can view published courses"
     ON public.courses FOR SELECT
-    USING (is_published = true OR public.is_admin());
+    USING (is_published = true);
+
+CREATE POLICY "Admins can view all courses"
+    ON public.courses FOR SELECT
+    TO authenticated
+    USING (public.is_admin());
 
 -- Only admins can insert, update, delete courses
 DROP POLICY IF EXISTS "Admins can insert courses" ON public.courses;
@@ -350,9 +358,17 @@ CREATE POLICY "Admins can delete lessons"
 -- --- CMS CONTENT POLICIES ---
 -- Anyone can view published CMS data
 DROP POLICY IF EXISTS "Anyone can view published CMS content" ON public.cms_content;
-CREATE POLICY "Anyone can view published CMS content"
+DROP POLICY IF EXISTS "Public can view published CMS content" ON public.cms_content;
+DROP POLICY IF EXISTS "Admins can view all CMS content" ON public.cms_content;
+
+CREATE POLICY "Public can view published CMS content"
     ON public.cms_content FOR SELECT
-    USING (published_data IS NOT NULL OR public.is_admin());
+    USING (published_data IS NOT NULL);
+
+CREATE POLICY "Admins can view all CMS content"
+    ON public.cms_content FOR SELECT
+    TO authenticated
+    USING (public.is_admin());
 
 -- Only admins can insert, update, or publish CMS content
 DROP POLICY IF EXISTS "Admins can insert CMS content" ON public.cms_content;
@@ -433,6 +449,68 @@ CREATE TABLE IF NOT EXISTS public.booking_requests (
 
 ALTER TABLE public.booking_requests ENABLE ROW LEVEL SECURITY;
 
+-- Ensure columns exist if public.booking_requests pre-existed in live database
+ALTER TABLE public.booking_requests ADD COLUMN IF NOT EXISTS full_name TEXT;
+ALTER TABLE public.booking_requests ADD COLUMN IF NOT EXISTS country_code TEXT NOT NULL DEFAULT '+92';
+ALTER TABLE public.booking_requests ADD COLUMN IF NOT EXISTS network TEXT;
+ALTER TABLE public.booking_requests ADD COLUMN IF NOT EXISTS professional_status TEXT DEFAULT 'professional';
+ALTER TABLE public.booking_requests ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+-- Safely drop legacy NOT NULL constraints on legacy columns to prevent 23502 errors when application inserts full_name
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'booking_requests' AND column_name = 'first_name'
+    ) THEN
+        ALTER TABLE public.booking_requests ALTER COLUMN first_name DROP NOT NULL;
+    END IF;
+
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'booking_requests' AND column_name = 'last_name'
+    ) THEN
+        ALTER TABLE public.booking_requests ALTER COLUMN last_name DROP NOT NULL;
+    END IF;
+END $$;
+
+-- Safely backfill full_name from legacy first_name / last_name if present (Dynamic SQL prevents 42703 errors)
+DO $$
+DECLARE
+    has_first BOOLEAN;
+    has_last BOOLEAN;
+BEGIN
+    SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'booking_requests' AND column_name = 'first_name'
+    ) INTO has_first;
+
+    SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'booking_requests' AND column_name = 'last_name'
+    ) INTO has_last;
+
+    IF has_first AND has_last THEN
+        EXECUTE 'UPDATE public.booking_requests
+                 SET full_name = TRIM(CONCAT(COALESCE(first_name, ''''), '' '', COALESCE(last_name, '''')))
+                 WHERE (full_name IS NULL OR full_name = '''') 
+                   AND (first_name IS NOT NULL OR last_name IS NOT NULL);';
+    ELSIF has_first THEN
+        EXECUTE 'UPDATE public.booking_requests
+                 SET full_name = TRIM(first_name)
+                 WHERE (full_name IS NULL OR full_name = '''') AND first_name IS NOT NULL;';
+    ELSIF has_last THEN
+        EXECUTE 'UPDATE public.booking_requests
+                 SET full_name = TRIM(last_name)
+                 WHERE (full_name IS NULL OR full_name = '''') AND last_name IS NOT NULL;';
+    END IF;
+END $$;
+
+DROP POLICY IF EXISTS "Anyone can submit booking requests" ON public.booking_requests;
+DROP POLICY IF EXISTS "Public can submit booking requests" ON public.booking_requests;
+DROP POLICY IF EXISTS "Allow public insert" ON public.booking_requests;
+DROP POLICY IF EXISTS "Enable insert for all users" ON public.booking_requests;
+DROP POLICY IF EXISTS "public_booking_insert" ON public.booking_requests;
 DROP POLICY IF EXISTS "Public can submit validated booking requests" ON public.booking_requests;
 CREATE POLICY "Public can submit validated booking requests"
     ON public.booking_requests FOR INSERT
@@ -449,18 +527,23 @@ CREATE POLICY "Public can submit validated booking requests"
 DROP POLICY IF EXISTS "Admins can view booking requests" ON public.booking_requests;
 CREATE POLICY "Admins can view booking requests"
     ON public.booking_requests FOR SELECT
+    TO authenticated
     USING (public.is_admin());
 
 DROP POLICY IF EXISTS "Admins can update booking requests" ON public.booking_requests;
 CREATE POLICY "Admins can update booking requests"
     ON public.booking_requests FOR UPDATE
+    TO authenticated
     USING (public.is_admin());
 
 DROP POLICY IF EXISTS "Admins can delete booking requests" ON public.booking_requests;
 CREATE POLICY "Admins can delete booking requests"
     ON public.booking_requests FOR DELETE
+    TO authenticated
     USING (public.is_admin());
 
+REVOKE ALL ON public.booking_requests FROM PUBLIC;
+REVOKE ALL ON public.booking_requests FROM anon;
 GRANT INSERT ON public.booking_requests TO anon, authenticated;
 GRANT SELECT, UPDATE, DELETE ON public.booking_requests TO authenticated, service_role;
 
@@ -478,8 +561,67 @@ CREATE TABLE IF NOT EXISTS public.reviews (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Ensure columns exist if public.reviews pre-existed in live database
+ALTER TABLE public.reviews ADD COLUMN IF NOT EXISTS student_name TEXT;
+ALTER TABLE public.reviews ADD COLUMN IF NOT EXISTS student_email TEXT;
+ALTER TABLE public.reviews ADD COLUMN IF NOT EXISTS program TEXT NOT NULL DEFAULT 'English Grammar Mastery — A1';
+ALTER TABLE public.reviews ADD COLUMN IF NOT EXISTS published_at TIMESTAMPTZ;
+ALTER TABLE public.reviews ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+-- Safely drop legacy NOT NULL constraints on legacy columns to prevent 23502 errors when application inserts student_name/student_email
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'reviews' AND column_name = 'name'
+    ) THEN
+        ALTER TABLE public.reviews ALTER COLUMN name DROP NOT NULL;
+    END IF;
+
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'reviews' AND column_name = 'email'
+    ) THEN
+        ALTER TABLE public.reviews ALTER COLUMN email DROP NOT NULL;
+    END IF;
+END $$;
+
+-- Safely backfill student_name and student_email from legacy columns if present (Dynamic SQL prevents 42703 errors)
+DO $$
+DECLARE
+    has_name BOOLEAN;
+    has_email BOOLEAN;
+BEGIN
+    SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'reviews' AND column_name = 'name'
+    ) INTO has_name;
+
+    SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'reviews' AND column_name = 'email'
+    ) INTO has_email;
+
+    IF has_name THEN
+        EXECUTE 'UPDATE public.reviews
+                 SET student_name = name
+                 WHERE (student_name IS NULL OR student_name = '''') AND name IS NOT NULL;';
+    END IF;
+
+    IF has_email THEN
+        EXECUTE 'UPDATE public.reviews
+                 SET student_email = email
+                 WHERE (student_email IS NULL OR student_email = '''') AND email IS NOT NULL;';
+    END IF;
+END $$;
+
 ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can submit reviews" ON public.reviews;
+DROP POLICY IF EXISTS "Public can submit reviews" ON public.reviews;
+DROP POLICY IF EXISTS "Allow public review insert" ON public.reviews;
+DROP POLICY IF EXISTS "Enable insert for reviews" ON public.reviews;
+DROP POLICY IF EXISTS "public_review_insert" ON public.reviews;
 DROP POLICY IF EXISTS "Public can submit validated student reviews" ON public.reviews;
 CREATE POLICY "Public can submit validated student reviews"
     ON public.reviews FOR INSERT
@@ -490,15 +632,24 @@ CREATE POLICY "Public can submit validated student reviews"
         AND student_email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'
         AND rating >= 1
         AND rating <= 5
-        AND char_length(trim(review_text)) >= 10
+        AND char_length(trim(review_text)) >= 3
         AND char_length(trim(review_text)) <= 3000
         AND (program IS NULL OR char_length(trim(program)) <= 120)
     );
 
+DROP POLICY IF EXISTS "Anyone can view published reviews" ON public.reviews;
+DROP POLICY IF EXISTS "Public can view published reviews" ON public.reviews;
 DROP POLICY IF EXISTS "Public can view published reviews or admins view all" ON public.reviews;
-CREATE POLICY "Public can view published reviews or admins view all"
+DROP POLICY IF EXISTS "Admins can view all reviews" ON public.reviews;
+
+CREATE POLICY "Public can view published reviews"
     ON public.reviews FOR SELECT
-    USING (status = 'published' OR public.is_admin());
+    USING (status = 'published');
+
+CREATE POLICY "Admins can view all reviews"
+    ON public.reviews FOR SELECT
+    TO authenticated
+    USING (public.is_admin());
 
 DROP POLICY IF EXISTS "Admins can update reviews" ON public.reviews;
 CREATE POLICY "Admins can update reviews"
@@ -510,8 +661,15 @@ CREATE POLICY "Admins can delete reviews"
     ON public.reviews FOR DELETE
     USING (public.is_admin());
 
-GRANT SELECT, INSERT ON public.reviews TO anon, authenticated;
+-- Explicit privilege grants (Least-Privilege Defense-in-Depth & Reviewer Privacy)
+-- Strips all inherited/table-level permissions from untrusted roles and restricts SELECT
+-- on anon and authenticated to public testimonial columns, preventing student_email scraping.
+REVOKE ALL ON public.reviews FROM PUBLIC;
+REVOKE ALL ON public.reviews FROM anon, authenticated;
+GRANT INSERT ON public.reviews TO anon, authenticated;
+GRANT SELECT (id, student_name, rating, review_text, program, status, created_at, published_at) ON public.reviews TO anon, authenticated;
 GRANT UPDATE, DELETE ON public.reviews TO authenticated, service_role;
+GRANT ALL ON public.reviews TO service_role;
 
 -- ==============================================================================
 -- 14. PERMISSIONS GRANTS (anon, authenticated, service_role)
@@ -529,5 +687,16 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authentic
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON ROUTINES TO authenticated, service_role;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM anon;
+
+-- Re-enforce sensitive table restrictions after blanket schema grants
+REVOKE ALL ON public.booking_requests FROM PUBLIC, anon;
+GRANT INSERT ON public.booking_requests TO anon, authenticated;
+GRANT SELECT, UPDATE, DELETE ON public.booking_requests TO authenticated, service_role;
+
+REVOKE ALL ON public.reviews FROM PUBLIC, anon, authenticated;
+GRANT INSERT ON public.reviews TO anon, authenticated;
+GRANT SELECT (id, student_name, rating, review_text, program, status, created_at, published_at) ON public.reviews TO anon, authenticated;
+GRANT UPDATE, DELETE ON public.reviews TO authenticated, service_role;
+GRANT ALL ON public.reviews TO service_role;
 
 

@@ -3,7 +3,7 @@
 import fs from "fs";
 import path from "path";
 import { revalidatePath } from "next/cache";
-import { getCurrentUserRole } from "@/lib/auth/roles";
+import { verifyAdminCaller as verifyAdminMfaCaller } from "@/lib/auth/adminVerification";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 
 export interface CentralReview {
@@ -47,15 +47,7 @@ function writeReviewsStore(reviews: CentralReview[]) {
 }
 
 async function verifyAdminCaller(): Promise<{ adminId: string } | { error: string }> {
-  try {
-    const { userId, role } = await getCurrentUserRole();
-    if (!userId || role !== "admin") {
-      return { error: "Forbidden: Administrative privileges required." };
-    }
-    return { adminId: userId };
-  } catch {
-    return { error: "Authentication verification failed." };
-  }
+  return verifyAdminMfaCaller();
 }
 
 /**
@@ -92,11 +84,20 @@ export async function submitStudentReviewAction(payload: {
     created_at: now,
   };
 
-  const reviews = readReviewsStore();
-  reviews.unshift(newReview);
-  writeReviewsStore(reviews);
+  // 2. Persist locally to fallback store (Note: In serverless runtimes,
+  // local filesystem writes are ephemeral; durable synchronization requires database write).
+  let localPersisted = false;
+  try {
+    const reviews = readReviewsStore();
+    reviews.unshift(newReview);
+    writeReviewsStore(reviews);
+    localPersisted = true;
+  } catch (err: any) {
+    console.error("[Review Store Notice] Local fallback write failed:", err?.message || err);
+  }
 
-  // Sync with Supabase if table exists
+  // 3. Attempt durable sync with Supabase
+  let dbPersisted = false;
   try {
     let supabase: any;
     try {
@@ -105,14 +106,21 @@ export async function submitStudentReviewAction(payload: {
       supabase = await createClient();
     }
     // Sync into cms_content
-    await supabase.from("cms_content").upsert({
+    const { error: cmsError } = await supabase.from("cms_content").upsert({
       page_key: "central_reviews",
-      published_data: { reviews },
-      draft_data: { reviews },
+      published_data: { reviews: readReviewsStore() },
+      draft_data: { reviews: readReviewsStore() },
       updated_at: now,
     });
+    if (cmsError) {
+      console.error("[Review DB Error] cms_content sync failed:", {
+        code: cmsError.code,
+        message: cmsError.message,
+      });
+    }
+
     // Attempt direct insert into public.reviews table conforming to RLS
-    await supabase.from("reviews").insert({
+    const { error: reviewError } = await supabase.from("reviews").insert({
       student_name: newReview.student_name,
       student_email: newReview.student_email,
       rating: newReview.rating,
@@ -120,7 +128,30 @@ export async function submitStudentReviewAction(payload: {
       program: newReview.program,
       status: "pending",
     });
-  } catch {}
+
+    if (reviewError) {
+      console.error("[Review DB Error] public.reviews insert failed:", {
+        code: reviewError.code,
+        message: reviewError.message,
+      });
+    } else {
+      dbPersisted = true;
+    }
+  } catch (err: any) {
+    console.error("[Review DB Exception] Unexpected sync error:", err?.message || err);
+  }
+
+  // 4. Fail-safe response handling
+  if (!dbPersisted && !localPersisted) {
+    return {
+      success: false,
+      error: "Unable to submit your review at this time. Please try again later.",
+    };
+  }
+
+  if (!dbPersisted) {
+    console.warn("[Review Sync Notice] Review recorded in local fallback, but database insert did not complete.");
+  }
 
   revalidatePath("/admin/reviews");
   return { success: true, data: { reviewId: id } };
@@ -128,24 +159,70 @@ export async function submitStudentReviewAction(payload: {
 
 /**
  * Returns all reviews for Admin Panel moderation.
+ * Includes student_email for authorized administrative verification.
  */
 export async function getAdminReviewsAction(): Promise<ActionResponse<CentralReview[]>> {
   const authCheck = await verifyAdminCaller();
   if ("error" in authCheck) {
     return { success: false, error: authCheck.error, data: [] };
   }
-  const reviews = readReviewsStore();
-  return { success: true, data: reviews };
+
+  try {
+    try {
+      const supabase = await createClient();
+      const { data, error } = await (supabase as any)
+        .from("cms_content")
+        .select("published_data")
+        .eq("page_key", "central_reviews")
+        .maybeSingle();
+
+      if (!error && data?.published_data?.reviews && Array.isArray(data.published_data.reviews)) {
+        return { success: true, data: data.published_data.reviews };
+      }
+    } catch (e) {
+      console.warn("DB reviews fetch notice:", e);
+    }
+
+    const reviews = readReviewsStore();
+    return { success: true, data: reviews };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Failed to load admin reviews.", data: [] };
+  }
 }
 
 /**
  * Returns ONLY reviews that have been accepted AND published.
  * Consumed by the public website (/reviews and homepage).
+ * Sanitizes student_email to protect reviewer privacy.
  */
 export async function getPublicPublishedReviewsAction(): Promise<ActionResponse<CentralReview[]>> {
   try {
-    const reviews = readReviewsStore();
-    const published = reviews.filter((r) => r.status === "published");
+    let reviews: CentralReview[] = [];
+    try {
+      const supabase = await createClient();
+      const { data, error } = await (supabase as any)
+        .from("cms_content")
+        .select("published_data")
+        .eq("page_key", "central_reviews")
+        .maybeSingle();
+
+      if (!error && data?.published_data?.reviews && Array.isArray(data.published_data.reviews)) {
+        reviews = data.published_data.reviews;
+      }
+    } catch (e) {
+      console.warn("DB public reviews fetch notice:", e);
+    }
+
+    if (!reviews.length) {
+      reviews = readReviewsStore();
+    }
+
+    const published = reviews
+      .filter((r) => r.status === "published")
+      .map((r) => ({
+        ...r,
+        student_email: "", // Omit student email from public response to protect reviewer privacy
+      }));
     return { success: true, data: published };
   } catch (err: any) {
     return { success: false, error: err?.message || "Failed to load reviews.", data: [] };
@@ -164,7 +241,7 @@ export async function moderateReviewAction(
     return { success: false, error: authCheck.error };
   }
 
-  let reviews = readReviewsStore();
+  let reviews = (await getAdminReviewsAction()).data || readReviewsStore();
   const existingIdx = reviews.findIndex((r) => r.id === reviewId);
 
   if (existingIdx === -1) {
@@ -189,6 +266,7 @@ export async function moderateReviewAction(
   writeReviewsStore(reviews);
 
   // Sync to Supabase
+  let dbPersisted = false;
   try {
     let supabase: any;
     try {
@@ -196,13 +274,32 @@ export async function moderateReviewAction(
     } catch {
       supabase = await createClient();
     }
-    await supabase.from("cms_content").upsert({
+    const { error: cmsError } = await supabase.from("cms_content").upsert({
       page_key: "central_reviews",
       published_data: { reviews },
       draft_data: { reviews },
       updated_at: now,
-    });
-  } catch {}
+      updated_by: authCheck.adminId,
+    }, { onConflict: "page_key" });
+
+    if (!cmsError) {
+      dbPersisted = true;
+    } else {
+      console.error("[Moderate Review DB Error] cms_content upsert failed:", {
+        code: cmsError.code,
+        message: cmsError.message,
+      });
+    }
+  } catch (err: any) {
+    console.error("[Moderate Review DB Exception] Unexpected sync error:", err?.message || err);
+  }
+
+  if (!dbPersisted && (process.env.VERCEL || process.env.NODE_ENV === "production")) {
+    return {
+      success: false,
+      error: "Failed to persist review moderation to database. Please try again.",
+    };
+  }
 
   revalidatePath("/reviews");
   revalidatePath("/");

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import SpeakUpVideoPlayer, { VideoSourceType } from "@/components/SpeakUpVideoPlayer";
 import LmsProfileDropdown from "@/components/LmsProfileDropdown";
-import ExpandableImageViewer from "@/components/ExpandableImageViewer";
 import {
   getProtectedLesson,
   getCourseLessonsForPlayerAction,
@@ -50,7 +49,7 @@ const LESSONS: Lesson[] = [
     title: "Parts of Speech & Grammatical Agreement",
     description:
       "Understand subject-verb agreement, pronoun references, and foundational sentence structure to build grammatically rock-solid sentences.",
-    videoId: "iCvmsMzlF7o",
+    videoId: "",
     defaultNotes: `SpeakUp Masterclass — Lesson 01: Parts of Speech & Agreement
 
 Core Syntax Principle:
@@ -79,7 +78,7 @@ Rephrase this construction aloud three times using downward terminal pitch infle
     title: "Present Tense Nuances & Auxiliary Verbs",
     description:
       "Differentiate between simple present, present continuous, and present perfect aspects with academic precision.",
-    videoId: "iCvmsMzlF7o",
+    videoId: "",
     defaultNotes: `SpeakUp Masterclass — Lesson 02: Present Tense Nuances
 
 Temporal Scope Principle:
@@ -105,7 +104,7 @@ Formulate two contrasting declarations regarding institutional performance: one 
     title: "Direct & Indirect Objects in Formal Syntax",
     description:
       "Master transitivity, ditransitive verbs, and objective case assignment in formal executive statements.",
-    videoId: "iCvmsMzlF7o",
+    videoId: "",
     defaultNotes: `SpeakUp Masterclass — Lesson 03: Direct & Indirect Objects
 
 Object Architecture:
@@ -133,7 +132,7 @@ Restructure the sentence: "The executive committee forwarded a comprehensive bri
     title: "Subordinate Clauses & Complex Coordination",
     description:
       "Harness relative pronouns, adverbial clauses, and balanced subordinating conjunctions to govern academic clauses.",
-    videoId: "iCvmsMzlF7o",
+    videoId: "",
     defaultNotes: `SpeakUp Masterclass — Lesson 04: Subordinate Clauses & Coordination
 
 Subordination Mechanics:
@@ -159,7 +158,7 @@ Combine three distinct propositions regarding fiscal policy into one authoritati
     title: "Passive Voice Nuances in Academic Prose",
     description:
       "Deploy passive constructions judiciously to emphasize empirical outcomes while preserving syntactic vigor.",
-    videoId: "iCvmsMzlF7o",
+    videoId: "",
     defaultNotes: `SpeakUp Masterclass — Lesson 05: Strategic Passive Constructions
 
 Voice Calibration:
@@ -185,7 +184,7 @@ Transform "The junior auditing team failed to inspect the secondary ledger" into
     title: "Conditional Nuances & Counterfactual Mood",
     description:
       "Formulate hypothetical, speculative, and counterfactual arguments using precise subjunctive verb forms.",
-    videoId: "iCvmsMzlF7o",
+    videoId: "",
     defaultNotes: `SpeakUp Masterclass — Lesson 06: Conditionals & Subjunctive Mood
 
 Counterfactual Syntax:
@@ -213,7 +212,7 @@ Formulate an inverted conditional statement evaluating a corporate acquisition s
     title: "Rhetorical Polarity & Emphatic Fronting",
     description:
       "Deploy negative inversions, cleft sentences, and thematic fronting to seize auditor attention.",
-    videoId: "iCvmsMzlF7o",
+    videoId: "",
     defaultNotes: `SpeakUp Masterclass — Lesson 07: Rhetorical Polarity & Inversion
 
 Emphatic Syntax:
@@ -231,7 +230,7 @@ Master negative fronting in formal keynote addresses.`,
     title: "Stylistic Inversion & Periodic Architecture",
     description:
       "Withhold the grammatical subject to build sustained narrative tension in high-stakes presentations.",
-    videoId: "iCvmsMzlF7o",
+    videoId: "",
     defaultNotes: `SpeakUp Masterclass — Lesson 08: Periodic Architecture
 
 Climactic Timing:
@@ -251,7 +250,7 @@ Deliver two consecutive periodic arguments before an executive board.`,
     title: "Executive Synthesis & Dialectical Defense",
     description:
       "Synthesize syntactic complexity, tonal cadence, and persuasive authority in oral capstone examination.",
-    videoId: "iCvmsMzlF7o",
+    videoId: "",
     defaultNotes: `SpeakUp Masterclass — Lesson 09: Capstone Oral Defense
 
 Oral Defense Protocol:
@@ -298,7 +297,7 @@ function CoursePlayerContent() {
   const [practiceContent, setPracticeContent] = useState<string>("");
 
   // Authorized lesson video & sources
-  const [authorizedVideoId, setAuthorizedVideoId] = useState<string>("iCvmsMzlF7o");
+  const [authorizedVideoId, setAuthorizedVideoId] = useState<string>("");
   const [authorizedVideoUrl, setAuthorizedVideoUrl] = useState<string>("");
   const [authorizedVideoSource, setAuthorizedVideoSource] = useState<VideoSourceType>("youtube");
 
@@ -425,7 +424,7 @@ function CoursePlayerContent() {
           setCourseTitle(response.data.courseTitle);
         }
         setWatermark(response.data.watermark);
-        setAuthorizedVideoId(response.data.videoId || "iCvmsMzlF7o");
+        setAuthorizedVideoId(response.data.videoId || "");
         setAuthorizedVideoUrl(response.data.videoUrl || "");
         setAuthorizedVideoSource((response.data.videoSource as VideoSourceType) || "youtube");
 

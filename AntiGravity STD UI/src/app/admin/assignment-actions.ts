@@ -13,12 +13,20 @@ function safeRevalidatePath(p: string) {
 import type {
   Assignment,
   AssignmentSubmission,
+  SubmissionPage,
   AssignmentFilter,
   PracticeType,
   AssignmentStatus,
 } from "@/types/assignment";
 import { gradeAssignmentSubmission } from "@/lib/ai/assignmentChecker";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
+import { getCurrentUserRole } from "@/lib/auth/roles";
+
+import { verifyAdminCaller as verifyAdminMfaCaller } from "@/lib/auth/adminVerification";
+
+async function verifyAdminCaller(): Promise<{ adminId: string } | { error: string }> {
+  return verifyAdminMfaCaller();
+}
 
 const ASSIGNMENTS_FILE = path.join(process.cwd(), "src", "config", "central-assignments.json");
 const SUBMISSIONS_FILE = path.join(process.cwd(), "src", "config", "central-submissions.json");
@@ -297,11 +305,103 @@ export interface EnrichedSubmissionItem extends AssignmentSubmission {
   maxMarks: number;
 }
 
+async function refreshSubmissionPageUrls(pages: SubmissionPage[]): Promise<SubmissionPage[]> {
+  if (!pages || pages.length === 0) return pages;
+  try {
+    const admin = createAdminClient();
+    return await Promise.all(
+      pages.map(async (page) => {
+        const path =
+          page.storagePath ||
+          (page.originalUrl &&
+          page.originalUrl.includes("submissions/") &&
+          !page.originalUrl.startsWith("http") &&
+          !page.originalUrl.startsWith("/")
+            ? page.originalUrl
+            : null);
+
+        if (path) {
+          try {
+            const { data } = await admin.storage.from("assignments").createSignedUrl(path, 3600 * 24);
+            if (data?.signedUrl) {
+              return {
+                ...page,
+                originalUrl: data.signedUrl,
+                optimizedUrl: data.signedUrl,
+              };
+            }
+          } catch {}
+        }
+        return page;
+      })
+    );
+  } catch {
+    return pages;
+  }
+}
+
 export async function getAdminSubmissionsListAction(
   filter?: AssignmentFilter
 ): Promise<ActionResponse<EnrichedSubmissionItem[]>> {
   try {
-    const submissions = readJsonFile<AssignmentSubmission[]>(SUBMISSIONS_FILE, []);
+    // 1. Fetch from Supabase assignment_submissions table
+    let dbSubmissions: AssignmentSubmission[] = [];
+    try {
+      const adminClient = createAdminClient();
+      const { data: dbData, error } = await (adminClient as any)
+        .from("assignment_submissions")
+        .select("*")
+        .order("submitted_at", { ascending: false });
+
+      if (!error && Array.isArray(dbData)) {
+        dbSubmissions = await Promise.all(
+          dbData.map(async (row: any) => {
+            const refreshedPages = await refreshSubmissionPageUrls(row.pages || []);
+            return {
+              id: row.id,
+              assignmentId: row.assignment_id,
+              courseId: row.course_id,
+              moduleId: row.module_id,
+              lessonId: row.lesson_id,
+              practiceType: row.practice_type,
+              studentId: row.student_id,
+              studentEmail: row.student_email,
+              studentName: row.student_name,
+              studentNumber: row.student_number || undefined,
+              studentTextAnswer: row.student_text_answer || undefined,
+              attemptNumber: row.attempt_number,
+              status: row.status,
+              pages: refreshedPages,
+              aiEvaluation: row.ai_evaluation || undefined,
+              aiScore: row.ai_score,
+              aiFeedback: row.ai_feedback,
+              finalScore: row.final_score,
+              finalFeedback: row.final_feedback,
+              adminReviewedAt: row.admin_reviewed_at,
+              adminReviewedBy: row.admin_reviewed_by,
+              history: row.history || [],
+              submittedAt: row.submitted_at,
+              updatedAt: row.updated_at,
+            };
+          })
+        );
+      }
+    } catch (dbErr) {
+      console.warn("DB submissions fetch notice in admin:", dbErr);
+    }
+
+    const localSubmissions = readJsonFile<AssignmentSubmission[]>(SUBMISSIONS_FILE, []);
+
+    // Combine db and local submissions, avoiding duplicates by id (DB takes precedence)
+    const submissionsMap = new Map<string, AssignmentSubmission>();
+    for (const sub of localSubmissions) {
+      submissionsMap.set(sub.id, sub);
+    }
+    for (const sub of dbSubmissions) {
+      submissionsMap.set(sub.id, sub);
+    }
+    const submissions = Array.from(submissionsMap.values());
+
     const assignments = readJsonFile<Assignment[]>(ASSIGNMENTS_FILE, []);
     const courses = readJsonFile<any[]>(COURSES_FILE, []);
     const curriculum = readJsonFile<Record<string, { modules: any[] }>>(CURRICULUM_FILE, {});
@@ -388,27 +488,79 @@ export async function getSubmissionByIdAction(
   id: string
 ): Promise<ActionResponse<{ submission: EnrichedSubmissionItem; assignment: Assignment }>> {
   try {
-    const submissions = readJsonFile<AssignmentSubmission[]>(SUBMISSIONS_FILE, []);
+    let sub: AssignmentSubmission | null = null;
+
+    // 1. Authoritative check: retrieve submission from Supabase database
+    try {
+      const adminClient = createAdminClient();
+      const { data: dbSub, error: dbErr } = await (adminClient as any)
+        .from("assignment_submissions")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (!dbErr && dbSub) {
+        const refreshedPages = await refreshSubmissionPageUrls(dbSub.pages || []);
+        sub = {
+          id: dbSub.id,
+          assignmentId: dbSub.assignment_id,
+          courseId: dbSub.course_id,
+          moduleId: dbSub.module_id,
+          lessonId: dbSub.lesson_id,
+          practiceType: dbSub.practice_type,
+          studentId: dbSub.student_id,
+          studentEmail: dbSub.student_email,
+          studentName: dbSub.student_name,
+          studentNumber: dbSub.student_number || undefined,
+          studentTextAnswer: dbSub.student_text_answer || undefined,
+          attemptNumber: dbSub.attempt_number || 1,
+          status: dbSub.status,
+          pages: refreshedPages,
+          aiEvaluation: dbSub.ai_evaluation || undefined,
+          aiScore: dbSub.ai_score,
+          aiFeedback: dbSub.ai_feedback,
+          finalScore: dbSub.final_score,
+          finalFeedback: dbSub.final_feedback,
+          adminReviewedAt: dbSub.admin_reviewed_at,
+          adminReviewedBy: dbSub.admin_reviewed_by,
+          history: Array.isArray(dbSub.history) ? dbSub.history : [],
+          submittedAt: dbSub.submitted_at,
+          updatedAt: dbSub.updated_at,
+        };
+      }
+    } catch (e) {
+      console.warn("DB submission lookup notice in getSubmissionByIdAction:", e);
+    }
+
+    // 2. Secondary fallback: check local submissions file
+    if (!sub) {
+      const submissions = readJsonFile<AssignmentSubmission[]>(SUBMISSIONS_FILE, []);
+      const localSub = submissions.find((s) => s.id === id);
+      if (localSub) {
+        const refreshedPages = await refreshSubmissionPageUrls(localSub.pages || []);
+        sub = { ...localSub, pages: refreshedPages };
+      }
+    }
+
+    if (!sub) return { success: false, error: "Submission not found." };
+
     const assignments = readJsonFile<Assignment[]>(ASSIGNMENTS_FILE, []);
     const courses = readJsonFile<any[]>(COURSES_FILE, []);
     const curriculum = readJsonFile<Record<string, { modules: any[] }>>(CURRICULUM_FILE, {});
 
-    const sub = submissions.find((s) => s.id === id);
-    if (!sub) return { success: false, error: "Submission not found." };
-
-    const assignment = assignments.find((a) => a.id === sub.assignmentId);
+    const assignment = assignments.find((a) => a.id === sub!.assignmentId);
     if (!assignment) return { success: false, error: "Associated assignment not found." };
 
-    const course = courses.find((c) => c.id === sub.courseId || c.slug === sub.courseId);
+    const course = courses.find((c) => c.id === sub!.courseId || c.slug === sub!.courseId);
     let moduleTitle = sub.moduleId;
     let lessonTitle = sub.lessonId;
 
     const courseCurr = curriculum[sub.courseId] || (course?.id ? curriculum[course.id] : null);
     if (courseCurr?.modules) {
-      const foundMod = courseCurr.modules.find((m: any) => m.id === sub.moduleId);
+      const foundMod = courseCurr.modules.find((m: any) => m.id === sub!.moduleId);
       if (foundMod) {
         moduleTitle = foundMod.title;
-        const foundLes = foundMod.lessons?.find((l: any) => l.id === sub.lessonId);
+        const foundLes = foundMod.lessons?.find((l: any) => l.id === sub!.lessonId);
         if (foundLes) lessonTitle = foundLes.title;
       }
     }
@@ -435,6 +587,7 @@ export async function getSubmissionByIdAction(
 /**
  * Updates the final teacher/admin grade and feedback.
  * Keeps AI score/feedback completely intact as a separate record.
+ * Authoritative: verifies admin credentials and updates Supabase database.
  */
 export async function gradeSubmissionAction(input: {
   submissionId: string;
@@ -443,16 +596,69 @@ export async function gradeSubmissionAction(input: {
   status: AssignmentStatus;
   adminName?: string;
 }): Promise<ActionResponse<AssignmentSubmission>> {
-  try {
-    const submissions = readJsonFile<AssignmentSubmission[]>(SUBMISSIONS_FILE, []);
-    const idx = submissions.findIndex((s) => s.id === input.submissionId);
+  const authCheck = await verifyAdminCaller();
+  if ("error" in authCheck) {
+    return { success: false, error: authCheck.error };
+  }
 
-    if (idx === -1) {
+  try {
+    let existing: AssignmentSubmission | null = null;
+    const adminClient = createAdminClient();
+
+    // 1. Authoritative check: retrieve submission from Supabase database
+    try {
+      const { data: dbSub, error: dbErr } = await (adminClient as any)
+        .from("assignment_submissions")
+        .select("*")
+        .eq("id", input.submissionId)
+        .maybeSingle();
+
+      if (!dbErr && dbSub) {
+        existing = {
+          id: dbSub.id,
+          assignmentId: dbSub.assignment_id,
+          courseId: dbSub.course_id,
+          moduleId: dbSub.module_id,
+          lessonId: dbSub.lesson_id,
+          practiceType: dbSub.practice_type,
+          studentId: dbSub.student_id,
+          studentEmail: dbSub.student_email,
+          studentName: dbSub.student_name,
+          studentNumber: dbSub.student_number || undefined,
+          studentTextAnswer: dbSub.student_text_answer || undefined,
+          attemptNumber: dbSub.attempt_number || 1,
+          status: dbSub.status,
+          pages: dbSub.pages || [],
+          aiEvaluation: dbSub.ai_evaluation || undefined,
+          aiScore: dbSub.ai_score,
+          aiFeedback: dbSub.ai_feedback,
+          finalScore: dbSub.final_score,
+          finalFeedback: dbSub.final_feedback,
+          adminReviewedAt: dbSub.admin_reviewed_at,
+          adminReviewedBy: dbSub.admin_reviewed_by,
+          history: Array.isArray(dbSub.history) ? dbSub.history : [],
+          submittedAt: dbSub.submitted_at,
+          updatedAt: dbSub.updated_at,
+        };
+      }
+    } catch (dbReadErr) {
+      console.warn("DB submission lookup notice in gradeSubmissionAction:", dbReadErr);
+    }
+
+    // 2. Secondary fallback: check local submissions file
+    const submissions = readJsonFile<AssignmentSubmission[]>(SUBMISSIONS_FILE, []);
+    const localIdx = submissions.findIndex((s) => s.id === input.submissionId);
+
+    if (!existing && localIdx >= 0) {
+      existing = submissions[localIdx];
+    }
+
+    if (!existing) {
       return { success: false, error: "Submission not found." };
     }
 
-    const existing = submissions[idx];
     const now = new Date().toISOString();
+    const reviewerName = input.adminName?.trim() || "Teacher Reviewer";
 
     const updated: AssignmentSubmission = {
       ...existing,
@@ -460,12 +666,51 @@ export async function gradeSubmissionAction(input: {
       finalFeedback: input.finalFeedback,
       status: input.status,
       adminReviewedAt: now,
-      adminReviewedBy: input.adminName || "Teacher Reviewer",
+      adminReviewedBy: reviewerName,
       updatedAt: now,
     };
 
-    submissions[idx] = updated;
-    writeJsonFile(SUBMISSIONS_FILE, submissions);
+    let dbUpdated = false;
+    try {
+      const { error: dbUpdateErr } = await (adminClient as any)
+        .from("assignment_submissions")
+        .update({
+          final_score: input.finalScore,
+          final_feedback: input.finalFeedback,
+          status: input.status,
+          admin_reviewed_at: now,
+          admin_reviewed_by: reviewerName,
+          updated_at: now,
+        })
+        .eq("id", input.submissionId);
+
+      if (dbUpdateErr) {
+        console.error("Database grade update error:", dbUpdateErr.message);
+      } else {
+        dbUpdated = true;
+      }
+    } catch (dbErr) {
+      console.warn("Database grade update exception:", dbErr);
+    }
+
+    // Synchronize to local submissions file
+    try {
+      if (localIdx >= 0) {
+        submissions[localIdx] = updated;
+      } else {
+        submissions.push(updated);
+      }
+      writeJsonFile(SUBMISSIONS_FILE, submissions);
+    } catch (fsErr) {
+      console.warn("Local submissions write skipped in serverless environment:", fsErr);
+    }
+
+    if (!dbUpdated && (process.env.VERCEL || process.env.NODE_ENV === "production")) {
+      return {
+        success: false,
+        error: "Failed to persist grade evaluation to the database. Please try again.",
+      };
+    }
 
     safeRevalidatePath("/admin/assignments");
     safeRevalidatePath("/lms/learn");

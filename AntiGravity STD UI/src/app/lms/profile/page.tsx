@@ -8,6 +8,7 @@ import InitialsAvatar from "@/components/InitialsAvatar";
 import { createClient } from "@/lib/supabase/client";
 import { changePasswordAction, removeStudentAvatarAction } from "@/app/lms/actions";
 import { validatePassword } from "@/lib/validation";
+import PasswordRequirementsList from "@/components/PasswordRequirementsList";
 
 interface EnrolledCourseItem {
   id: string;
@@ -71,7 +72,7 @@ export default function ProfilePage() {
           // Query profiles table for actual profile record
           const { data: profile } = await (supabase as any)
             .from("profiles")
-            .select("full_name, phone, avatar_url, status, email")
+            .select("full_name, phone, avatar_url, account_status, email")
             .eq("id", user.id)
             .maybeSingle();
 
@@ -95,7 +96,7 @@ export default function ProfilePage() {
           setStudentName(resolvedName);
           setStudentPhone(resolvedPhone);
           setProfilePic(rawAvatar);
-          if (profile?.status === "active") {
+          if (profile?.account_status === "active") {
             setIsVerified(true);
           }
 
@@ -521,6 +522,8 @@ export default function ProfilePage() {
                         </span>
                       </button>
                     </div>
+                    {/* Real-time Password Requirements Checklist */}
+                    <PasswordRequirementsList password={newPassword} />
                   </div>
 
                   <div>

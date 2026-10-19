@@ -12,14 +12,6 @@ interface NavLink {
   href: string;
 }
 
-const defaultNavLinks: NavLink[] = [
-  { label: "Home", href: "/" },
-  { label: "Courses", href: "/courses" },
-  { label: "Methodology", href: "/methodology" },
-  { label: "Pricing", href: "/pricing" },
-  { label: "Privacy", href: "/privacy" },
-];
-
 export const Navbar: React.FC = () => {
   const pathname = usePathname();
   const router = useRouter();

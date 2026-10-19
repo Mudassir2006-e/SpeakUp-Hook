@@ -2,7 +2,8 @@
 
 import fs from "fs";
 import path from "path";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { verifyAdminCaller as verifyAdminMfaCaller } from "@/lib/auth/adminVerification";
 
 export type HomeVideoSource = "youtube" | "instagram" | "facebook" | "vimeo" | "local" | "external";
 
@@ -127,8 +128,13 @@ export async function normalizeVideoUrl(
   };
 }
 
+async function verifyAdminCaller(): Promise<{ adminId: string } | { error: string }> {
+  return verifyAdminMfaCaller();
+}
+
 /**
  * Retrieves the current Home Video settings
+ * Authoritative: checks Supabase cms_content published_data first with local JSON fallback.
  */
 export async function getHomeVideoSettingsAction(): Promise<{
   success: boolean;
@@ -138,16 +144,16 @@ export async function getHomeVideoSettingsAction(): Promise<{
     const supabase = await createClient();
     const { data: record, error } = await (supabase as any)
       .from("cms_content")
-      .select("content")
+      .select("published_data")
       .eq("page_key", "home_promotional_video")
       .maybeSingle();
 
-    if (!error && (record as any)?.content && typeof (record as any).content === "object") {
+    if (!error && (record as any)?.published_data && typeof (record as any).published_data === "object") {
       const merged: HomeVideoSettings = {
         ...DEFAULT_SETTINGS,
-        ...(record.content as Partial<HomeVideoSettings>),
+        ...(record.published_data as Partial<HomeVideoSettings>),
       };
-      // Keep local sync in background
+      // Keep local sync in background for local development
       writeLocalSettings(merged);
       return { success: true, data: merged };
     }
@@ -162,16 +168,23 @@ export async function getHomeVideoSettingsAction(): Promise<{
 
 /**
  * Saves Home Video settings
+ * Authoritative: verifies admin credentials and persists to Supabase cms_content.
  */
 export async function saveHomeVideoSettingsAction(
   settings: Partial<HomeVideoSettings>
 ): Promise<{ success: boolean; data?: HomeVideoSettings; error?: string }> {
+  const authCheck = await verifyAdminCaller();
+  if ("error" in authCheck) {
+    return { success: false, error: authCheck.error };
+  }
+
   try {
     const current = (await getHomeVideoSettingsAction()).data;
+    const now = new Date().toISOString();
     const updated: HomeVideoSettings = {
       ...current,
       ...settings,
-      updatedAt: new Date().toISOString(),
+      updatedAt: now,
     };
 
     // If videoUrl or sourceType changed, re-normalize embedUrl
@@ -187,22 +200,37 @@ export async function saveHomeVideoSettingsAction(
       }
     }
 
-    // Persist to local config
+    // Persist to local config for development
     writeLocalSettings(updated);
 
     // Persist to Supabase cms_content
+    let dbPersisted = false;
     try {
-      const supabase = await createClient();
-      await (supabase as any).from("cms_content").upsert(
+      const adminClient = createAdminClient();
+      const { error: dbErr } = await (adminClient as any).from("cms_content").upsert(
         {
           page_key: "home_promotional_video",
-          content: updated,
-          updated_at: new Date().toISOString(),
+          published_data: updated,
+          draft_data: updated,
+          updated_at: now,
+          updated_by: authCheck.adminId,
         },
         { onConflict: "page_key" }
       );
+      if (!dbErr) {
+        dbPersisted = true;
+      } else {
+        console.error("Database home video upsert error:", dbErr.message);
+      }
     } catch (dbErr) {
-      console.warn("Supabase upsert failed for home video, local config saved:", dbErr);
+      console.warn("Supabase upsert failed for home video:", dbErr);
+    }
+
+    if (!dbPersisted && (process.env.VERCEL || process.env.NODE_ENV === "production")) {
+      return {
+        success: false,
+        error: "Failed to persist home video settings to database. Please try again.",
+      };
     }
 
     return { success: true, data: updated };
@@ -217,6 +245,11 @@ export async function saveHomeVideoSettingsAction(
 export async function uploadHomeVideoFileAction(
   formData: FormData
 ): Promise<{ success: boolean; url?: string; error?: string }> {
+  const authCheck = await verifyAdminCaller();
+  if ("error" in authCheck) {
+    return { success: false, error: authCheck.error };
+  }
+
   try {
     const file = formData.get("video") as File;
     if (!file) {
@@ -244,7 +277,14 @@ export async function uploadHomeVideoFileAction(
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // Save to public/uploads/videos
+    if (process.env.VERCEL || process.env.NODE_ENV === "production") {
+      return {
+        success: false,
+        error: "Direct server video uploads are not supported in serverless production. Please provide a video streaming URL (YouTube/Vimeo/Cloudflare) or use cloud storage.",
+      };
+    }
+
+    // Save to public/uploads/videos in local development
     const uploadDir = path.join(process.cwd(), "public", "uploads", "videos");
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
@@ -269,6 +309,11 @@ export async function uploadHomeVideoFileAction(
 export async function uploadHomeVideoThumbnailAction(
   formData: FormData
 ): Promise<{ success: boolean; url?: string; error?: string }> {
+  const authCheck = await verifyAdminCaller();
+  if ("error" in authCheck) {
+    return { success: false, error: authCheck.error };
+  }
+
   try {
     const file = formData.get("thumbnail") as File;
     if (!file) {
@@ -286,6 +331,13 @@ export async function uploadHomeVideoThumbnailAction(
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
+
+    if (process.env.VERCEL || process.env.NODE_ENV === "production") {
+      return {
+        success: false,
+        error: "Direct thumbnail image writes to disk are not supported on serverless production. Please use cloud storage.",
+      };
+    }
 
     const uploadDir = path.join(process.cwd(), "public", "uploads", "thumbnails");
     if (!fs.existsSync(uploadDir)) {
@@ -312,6 +364,11 @@ export async function saveFrameThumbnailAction(
   dataUrl: string,
   frameIndex: number
 ): Promise<{ success: boolean; url?: string; error?: string }> {
+  const authCheck = await verifyAdminCaller();
+  if ("error" in authCheck) {
+    return { success: false, error: authCheck.error };
+  }
+
   try {
     if (!dataUrl || !dataUrl.startsWith("data:image")) {
       return { success: false, error: "Invalid image data" };

@@ -3,9 +3,10 @@
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { clearAdminMfaSessionAction } from "@/lib/auth/adminVerification";
 
-// Inactivity timeout: 2 minutes (120,000 milliseconds)
-const INACTIVITY_TIMEOUT_MS = 2 * 60 * 1000;
+// Inactivity timeout: 12 hours (43,200,000 milliseconds)
+const INACTIVITY_TIMEOUT_MS = 12 * 60 * 60 * 1000;
 const STORAGE_ACTIVITY_KEY = "speakup_admin_last_activity";
 const STORAGE_SIGNOUT_EVENT_KEY = "speakup_admin_signout_trigger";
 
@@ -34,6 +35,12 @@ export default function AdminInactivityWatcher() {
         localStorage.setItem(STORAGE_SIGNOUT_EVENT_KEY, Date.now().toString());
       } catch {
         // Storage access safety
+      }
+
+      try {
+        await clearAdminMfaSessionAction();
+      } catch {
+        // MFA cookie clearance safety
       }
 
       try {

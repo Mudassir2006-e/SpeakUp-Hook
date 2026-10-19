@@ -40,7 +40,7 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="w-full max-w-[440px] bg-[var(--surface-lowest)] border border-[var(--surface-border)] rounded-2xl shadow-sm p-8 sm:p-10 relative overflow-hidden transition-all">
+    <div className="w-full max-w-[440px] bg-[var(--surface-lowest)] border border-[var(--surface-border)] rounded-2xl shadow-sm p-6 sm:p-10 relative overflow-hidden transition-all">
       {/* Logo & Headings */}
       <div className="flex flex-col items-center text-center mb-8">
         <Logo size="lg" showText={false} href="/" className="mb-4" />
@@ -87,7 +87,7 @@ export default function ForgotPasswordPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-4 bg-[#1a1a1a] dark:bg-[#d4af37] text-white dark:text-[#1a1a1a] hover:bg-[#d4af37] hover:text-white transition-all duration-300 font-display text-xs uppercase tracking-widest font-bold rounded-full shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            className="w-full py-4 bg-[#1a1a1a] dark:bg-[#d4af37] text-white dark:text-[#1a1a1a] hover:bg-[#2a2a2a] dark:hover:bg-[#e0bc42] dark:hover:text-[#1a1a1a] transition-all duration-300 font-display text-xs uppercase tracking-widest font-bold rounded-full shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
           >
             {loading ? (
               <>

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Hanken_Grotesk, Source_Serif_4 } from "next/font/google";
 import "./globals.css";
+import "@/styles/speakup-visual-polish.css";
 import { ThemeProvider } from "@/components/ThemeContext";
 import CmsPublishedHydrator from "@/components/CmsPublishedHydrator";
 import ChatbotWidget from "@/components/ChatbotWidget";
@@ -41,7 +42,7 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
         />
       </head>
-      <body className="antialiased selection:bg-[#d4af37]/20 selection:text-[#1a1a1a] dark:selection:text-[#f7f0e8]">
+      <body className="antialiased selection:bg-[#d4af37]/20 selection:text-[#1a1a1a] dark:selection:text-[#f7f0e8] speakup-visual-polish">
         <ThemeProvider>
           <CmsPublishedHydrator />
           {children}

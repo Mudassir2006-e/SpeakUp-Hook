@@ -77,16 +77,24 @@ CREATE INDEX IF NOT EXISTS idx_submissions_course ON public.assignment_submissio
 ALTER TABLE public.assignments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.assignment_submissions ENABLE ROW LEVEL SECURITY;
 
--- Helper function to check if current user is admin
+-- Helper function to check if current user is admin (hardened search_path & restricted ACL)
 CREATE OR REPLACE FUNCTION public.is_admin()
-RETURNS BOOLEAN AS $$
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $$
 BEGIN
     RETURN EXISTS (
         SELECT 1 FROM public.profiles
-        WHERE id = auth.uid() AND role = 'admin'
+        WHERE id = (auth.uid()) AND role = 'admin'
     );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
+
+REVOKE ALL ON FUNCTION public.is_admin() FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.is_admin() FROM anon;
+GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated, service_role, postgres;
 
 -- Assignments RLS:
 -- Anyone authenticated can view active assignments

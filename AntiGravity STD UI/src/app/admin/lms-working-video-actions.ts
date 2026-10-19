@@ -2,7 +2,8 @@
 
 import fs from "fs";
 import path from "path";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { verifyAdminCaller as verifyAdminMfaCaller } from "@/lib/auth/adminVerification";
 
 export type LmsWorkingVideoSource = "youtube" | "instagram" | "facebook" | "vimeo" | "local" | "external";
 
@@ -126,8 +127,13 @@ export async function normalizeLmsWorkingVideoUrl(
   };
 }
 
+async function verifyAdminCaller(): Promise<{ adminId: string } | { error: string }> {
+  return verifyAdminMfaCaller();
+}
+
 /**
  * Retrieves the current LMS Working Video settings
+ * Authoritative: checks Supabase cms_content published_data first with local JSON fallback.
  */
 export async function getLmsWorkingVideoSettingsAction(): Promise<{
   success: boolean;
@@ -137,14 +143,14 @@ export async function getLmsWorkingVideoSettingsAction(): Promise<{
     const supabase = await createClient();
     const { data: record, error } = await (supabase as any)
       .from("cms_content")
-      .select("content")
+      .select("published_data")
       .eq("page_key", "lms_working_video")
       .maybeSingle();
 
-    if (!error && (record as any)?.content && typeof (record as any).content === "object") {
+    if (!error && (record as any)?.published_data && typeof (record as any).published_data === "object") {
       const merged: LmsWorkingVideoSettings = {
         ...DEFAULT_SETTINGS,
-        ...(record.content as Partial<LmsWorkingVideoSettings>),
+        ...(record.published_data as Partial<LmsWorkingVideoSettings>),
       };
       writeLocalSettings(merged);
       return { success: true, data: merged };
@@ -159,16 +165,23 @@ export async function getLmsWorkingVideoSettingsAction(): Promise<{
 
 /**
  * Saves LMS Working Video settings
+ * Authoritative: verifies admin credentials and persists to Supabase cms_content.
  */
 export async function saveLmsWorkingVideoSettingsAction(
   settings: Partial<LmsWorkingVideoSettings>
 ): Promise<{ success: boolean; data?: LmsWorkingVideoSettings; error?: string }> {
+  const authCheck = await verifyAdminCaller();
+  if ("error" in authCheck) {
+    return { success: false, error: authCheck.error };
+  }
+
   try {
     const current = (await getLmsWorkingVideoSettingsAction()).data;
+    const now = new Date().toISOString();
     const updated: LmsWorkingVideoSettings = {
       ...current,
       ...settings,
-      updatedAt: new Date().toISOString(),
+      updatedAt: now,
     };
 
     if (settings.videoUrl || settings.sourceType) {
@@ -185,18 +198,33 @@ export async function saveLmsWorkingVideoSettingsAction(
 
     writeLocalSettings(updated);
 
+    let dbPersisted = false;
     try {
-      const supabase = await createClient();
-      await (supabase as any).from("cms_content").upsert(
+      const adminClient = createAdminClient();
+      const { error: dbErr } = await (adminClient as any).from("cms_content").upsert(
         {
           page_key: "lms_working_video",
-          content: updated,
-          updated_at: new Date().toISOString(),
+          published_data: updated,
+          draft_data: updated,
+          updated_at: now,
+          updated_by: authCheck.adminId,
         },
         { onConflict: "page_key" }
       );
+      if (!dbErr) {
+        dbPersisted = true;
+      } else {
+        console.error("Database lms working video upsert error:", dbErr.message);
+      }
     } catch (dbErr) {
       console.warn("Supabase upsert failed for lms working video, local config saved:", dbErr);
+    }
+
+    if (!dbPersisted && (process.env.VERCEL || process.env.NODE_ENV === "production")) {
+      return {
+        success: false,
+        error: "Failed to persist LMS working video settings to database. Please try again.",
+      };
     }
 
     return { success: true, data: updated };
@@ -213,29 +241,50 @@ export async function deleteLmsWorkingVideoAction(): Promise<{
   data?: LmsWorkingVideoSettings;
   error?: string;
 }> {
+  const authCheck = await verifyAdminCaller();
+  if ("error" in authCheck) {
+    return { success: false, error: authCheck.error };
+  }
+
   try {
+    const now = new Date().toISOString();
     const reset: LmsWorkingVideoSettings = {
       ...DEFAULT_SETTINGS,
       videoUrl: "",
       embedUrl: "",
       isActive: false,
-      updatedAt: new Date().toISOString(),
+      updatedAt: now,
     };
 
     writeLocalSettings(reset);
 
+    let dbPersisted = false;
     try {
-      const supabase = await createClient();
-      await (supabase as any).from("cms_content").upsert(
+      const adminClient = createAdminClient();
+      const { error: dbErr } = await (adminClient as any).from("cms_content").upsert(
         {
           page_key: "lms_working_video",
-          content: reset,
-          updated_at: new Date().toISOString(),
+          published_data: reset,
+          draft_data: reset,
+          updated_at: now,
+          updated_by: authCheck.adminId,
         },
         { onConflict: "page_key" }
       );
+      if (!dbErr) {
+        dbPersisted = true;
+      } else {
+        console.error("Database reset error for lms working video:", dbErr.message);
+      }
     } catch (dbErr) {
       console.warn("Supabase upsert failed for deleting lms working video:", dbErr);
+    }
+
+    if (!dbPersisted && (process.env.VERCEL || process.env.NODE_ENV === "production")) {
+      return {
+        success: false,
+        error: "Failed to reset LMS working video in database. Please try again.",
+      };
     }
 
     return { success: true, data: reset };
@@ -250,6 +299,11 @@ export async function deleteLmsWorkingVideoAction(): Promise<{
 export async function uploadLmsWorkingVideoFileAction(
   formData: FormData
 ): Promise<{ success: boolean; url?: string; error?: string }> {
+  const authCheck = await verifyAdminCaller();
+  if ("error" in authCheck) {
+    return { success: false, error: authCheck.error };
+  }
+
   try {
     const file = formData.get("video") as File;
     if (!file) {
@@ -275,6 +329,13 @@ export async function uploadLmsWorkingVideoFileAction(
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
+    if (process.env.VERCEL || process.env.NODE_ENV === "production") {
+      return {
+        success: false,
+        error: "Direct server video uploads are not supported in serverless production. Please provide a video streaming URL (YouTube/Vimeo/Cloudflare) or use cloud storage.",
+      };
+    }
+
     const uploadDir = path.join(process.cwd(), "public", "uploads", "videos");
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
@@ -299,6 +360,11 @@ export async function uploadLmsWorkingVideoFileAction(
 export async function uploadLmsWorkingVideoThumbnailAction(
   formData: FormData
 ): Promise<{ success: boolean; url?: string; error?: string }> {
+  const authCheck = await verifyAdminCaller();
+  if ("error" in authCheck) {
+    return { success: false, error: authCheck.error };
+  }
+
   try {
     const file = formData.get("thumbnail") as File;
     if (!file) {
@@ -316,6 +382,13 @@ export async function uploadLmsWorkingVideoThumbnailAction(
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
+
+    if (process.env.VERCEL || process.env.NODE_ENV === "production") {
+      return {
+        success: false,
+        error: "Direct thumbnail image writes to disk are not supported on serverless production. Please use cloud storage.",
+      };
+    }
 
     const uploadDir = path.join(process.cwd(), "public", "uploads", "thumbnails");
     if (!fs.existsSync(uploadDir)) {
@@ -342,9 +415,21 @@ export async function saveLmsWorkingFrameThumbnailAction(
   dataUrl: string,
   frameIndex: number
 ): Promise<{ success: boolean; url?: string; error?: string }> {
+  const authCheck = await verifyAdminCaller();
+  if ("error" in authCheck) {
+    return { success: false, error: authCheck.error };
+  }
+
   try {
     if (!dataUrl || !dataUrl.startsWith("data:image")) {
       return { success: false, error: "Invalid image data" };
+    }
+
+    if (process.env.VERCEL || process.env.NODE_ENV === "production") {
+      return {
+        success: false,
+        error: "Direct thumbnail writes to disk are not supported on serverless production. Please use cloud storage.",
+      };
     }
 
     const base64Data = dataUrl.replace(/^data:image\/\w+;base64,/, "");

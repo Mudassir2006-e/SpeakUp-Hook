@@ -25,6 +25,7 @@ export default function AdminEmailCenterPage() {
   const [activeTab, setActiveTab] = useState<TabType>("overview");
   const [loading, setLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
+  const [selectedSendingProvider, setSelectedSendingProvider] = useState<"resend" | "gmail">("resend");
 
   // Core Data
   const [metrics, setMetrics] = useState<EmailMetrics>({
@@ -39,7 +40,7 @@ export default function AdminEmailCenterPage() {
   const [students, setStudents] = useState<StudentRecipientItem[]>([]);
   const [courses, setCourses] = useState<Array<{ id: string; title: string; slug: string }>>([]);
   const [senderIdentity, setSenderIdentity] = useState<SenderIdentity>({
-    adminLoginEmail: "admin@speakup.edu",
+    adminLoginEmail: "",
     fromName: "SpeakUp",
     fromEmail: "onboarding@resend.dev",
     provider: "Resend",
@@ -70,6 +71,13 @@ export default function AdminEmailCenterPage() {
         setCourses(res.data.courses);
         if (res.data.senderIdentity) {
           setSenderIdentity(res.data.senderIdentity);
+          if (res.data.senderIdentity.activeProvider) {
+            setSelectedSendingProvider(res.data.senderIdentity.activeProvider);
+          } else if (res.data.senderIdentity.gmailConnected) {
+            setSelectedSendingProvider("gmail");
+          } else {
+            setSelectedSendingProvider("resend");
+          }
         }
         setDbPermissionsGranted(res.data.dbPermissionsGranted);
       } else {
@@ -89,8 +97,10 @@ export default function AdminEmailCenterPage() {
   // ---------------------------------------------------------
   // COMPOSE TAB STATE
   // ---------------------------------------------------------
-  type RecipientMode = "specific" | "course" | "all";
-  const [recipientMode, setRecipientMode] = useState<RecipientMode>("specific");
+  type RecipientMode = "direct" | "specific" | "course" | "all";
+  const [recipientMode, setRecipientMode] = useState<RecipientMode>("direct");
+  const [directRecipientEmail, setDirectRecipientEmail] = useState<string>("");
+  const [directRecipientName, setDirectRecipientName] = useState<string>("");
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState<string>("");
   const [studentSearch, setStudentSearch] = useState<string>("");
@@ -175,7 +185,17 @@ export default function AdminEmailCenterPage() {
 
   // Compute resolved target recipients based on mode
   const targetRecipients = useMemo(() => {
-    if (recipientMode === "all") {
+    if (recipientMode === "direct") {
+      const email = directRecipientEmail.trim();
+      if (!email) return [];
+      return [
+        {
+          email,
+          full_name: directRecipientName.trim() || undefined,
+          course_name: undefined,
+        },
+      ];
+    } else if (recipientMode === "all") {
       return students.map((s) => ({
         email: s.email,
         full_name: s.full_name,
@@ -201,7 +221,7 @@ export default function AdminEmailCenterPage() {
           course_name: s.courses.length > 0 ? s.courses[0].title : undefined,
         }));
     }
-  }, [recipientMode, students, selectedStudentIds, selectedCourseId, courses]);
+  }, [recipientMode, directRecipientEmail, directRecipientName, students, selectedStudentIds, selectedCourseId, courses]);
 
   // Handle template selection in composer
   const handleSelectTemplate = (templateId: string) => {
@@ -242,7 +262,7 @@ export default function AdminEmailCenterPage() {
     const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "Ahmed Khan";
     const courseName = sample.course_name || "SpeakUp Course";
 
-    let resolvedSub = composerSubject
+    const resolvedSub = composerSubject
       .split("{{full_name}}").join(fullName)
       .split("{{name}}").join(fullName)
       .split("{{first_name}}").join(firstName)
@@ -250,7 +270,7 @@ export default function AdminEmailCenterPage() {
       .split("{{email}}").join(sample.email)
       .split("{{course_name}}").join(courseName);
 
-    let resolvedHtml = composerBody
+    const resolvedHtml = composerBody
       .split("{{full_name}}").join(fullName)
       .split("{{name}}").join(fullName)
       .split("{{first_name}}").join(firstName)
@@ -298,6 +318,7 @@ export default function AdminEmailCenterPage() {
           batchSize,
           schedule,
           campaignName: campaignName.trim() || undefined,
+          provider: selectedSendingProvider,
           attachments: attachments.map((a) => ({
             filename: a.name,
             content: a.base64 || "",
@@ -861,18 +882,131 @@ export default function AdminEmailCenterPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left 2 Cols: Form Configuration */}
             <div className="lg:col-span-2 space-y-6">
-              {/* Audience Selection Card */}
+              {/* Step 1: Provider Selection Card (Option A: Resend vs Option B: Portal Email) */}
+              <div className="p-6 rounded-2xl bg-white dark:bg-[#141416] border border-[var(--surface-border)] shadow-xs space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="font-display text-sm font-bold uppercase tracking-wider text-[var(--text-main)] flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[18px] text-[#d4af37]">dns</span>
+                    <span>1. Choose Sending Method</span>
+                  </h2>
+                  <span className="text-[11px] font-display uppercase tracking-wider font-semibold text-[var(--text-muted)]">
+                    Dual Provider System
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Option A: Resend */}
+                  <div
+                    onClick={() => setSelectedSendingProvider("resend")}
+                    className={`p-4 rounded-xl border text-left flex flex-col justify-between space-y-3 cursor-pointer transition-all ${
+                      selectedSendingProvider === "resend"
+                        ? "bg-[#d4af37]/10 border-[#d4af37] ring-1 ring-[#d4af37]/40 shadow-xs"
+                        : "border-[var(--surface-border)] bg-[#f9f5ed]/30 dark:bg-[var(--surface-low)]/30 hover:border-[#d4af37]/50"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-xl text-[#d4af37]">
+                          forward_to_inbox
+                        </span>
+                        <span className="font-display text-xs font-bold uppercase tracking-wider text-[var(--text-main)]">
+                          Option A — Resend
+                        </span>
+                      </div>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-display uppercase tracking-wider font-bold ${
+                          senderIdentity.resendConfigured
+                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                            : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20"
+                        }`}
+                      >
+                        {senderIdentity.resendConfigured ? "Configured" : "No Key"}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1 text-xs">
+                      <p className="font-serif text-[var(--text-muted)] text-[11px] leading-relaxed">
+                        High-volume transactional engine with automatic batch pacing (5/10), rate limiting, and per-recipient delivery logs.
+                      </p>
+                      <div className="pt-1 font-mono text-[10px] text-[var(--text-muted)] truncate">
+                        From: {senderIdentity.fromName} &lt;{senderIdentity.resendFromEmail || "onboarding@resend.dev"}&gt;
+                      </div>
+                    </div>
+
+                    {!senderIdentity.isCustomDomainConfigured && (
+                      <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-800 dark:text-amber-300 font-serif leading-tight">
+                        <strong>Sandbox Notice:</strong> With unverified sender domain, Resend only permits dispatch to the verified account owner. Verify custom domain in Resend for arbitrary recipients.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Option B: Portal Email (Gmail) */}
+                  <div
+                    onClick={() => setSelectedSendingProvider("gmail")}
+                    className={`p-4 rounded-xl border text-left flex flex-col justify-between space-y-3 cursor-pointer transition-all ${
+                      selectedSendingProvider === "gmail"
+                        ? "bg-[#d4af37]/10 border-[#d4af37] ring-1 ring-[#d4af37]/40 shadow-xs"
+                        : "border-[var(--surface-border)] bg-[#f9f5ed]/30 dark:bg-[var(--surface-low)]/30 hover:border-[#d4af37]/50"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-xl text-[#d4af37]">
+                          mail_lock
+                        </span>
+                        <span className="font-display text-xs font-bold uppercase tracking-wider text-[var(--text-main)]">
+                          Option B — Portal Email
+                        </span>
+                      </div>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-display uppercase tracking-wider font-bold ${
+                          senderIdentity.gmailConnected
+                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                            : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                        }`}
+                      >
+                        {senderIdentity.gmailConnected ? "Connected" : "Disconnected"}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1 text-xs">
+                      <p className="font-serif text-[var(--text-muted)] text-[11px] leading-relaxed">
+                        Sends via official connected Google Workspace / Gmail account authorized in Portal Email settings.
+                      </p>
+                      <div className="pt-1 font-mono text-[10px] text-[var(--text-muted)] truncate">
+                        From: {senderIdentity.fromName} &lt;{senderIdentity.gmailEmail || "Not Connected"}&gt;
+                      </div>
+                    </div>
+
+                    {!senderIdentity.gmailConnected && (
+                      <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-800 dark:text-amber-300 font-serif flex items-center justify-between gap-2">
+                        <span>Account disconnected or token expired.</span>
+                        <a
+                          href="/admin/portal-email"
+                          onClick={(e) => e.stopPropagation()}
+                          className="font-bold underline text-[#8a6d1b] dark:text-[#d4af37] hover:opacity-80 shrink-0"
+                        >
+                          Connect in Portal Email &rarr;
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Step 2: Audience Selection Card */}
               <div className="p-6 rounded-2xl bg-white dark:bg-[#141416] border border-[var(--surface-border)] shadow-xs space-y-4">
                 <h2 className="font-display text-sm font-bold uppercase tracking-wider text-[var(--text-main)] flex items-center justify-between">
-                  <span>1. Select Recipients</span>
+                  <span>2. Select Recipients</span>
                   <span className="text-xs text-[#d4af37] font-semibold">
                     {targetRecipients.length} Recipient{targetRecipients.length === 1 ? "" : "s"} Selected
                   </span>
                 </h2>
 
                 {/* Mode Selector Buttons */}
-                <div className="grid grid-cols-3 gap-2 p-1 bg-[#f9f5ed] dark:bg-[var(--surface-low)] rounded-xl border border-[var(--surface-border)]">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-1 bg-[#f9f5ed] dark:bg-[var(--surface-low)] rounded-xl border border-[var(--surface-border)]">
                   {[
+                    { id: "direct", label: "Direct Email", icon: "alternate_email" },
                     { id: "specific", label: "Select Students", icon: "person_search" },
                     { id: "course", label: "By Course", icon: "menu_book" },
                     { id: "all", label: "All Active", icon: "groups" },
@@ -892,6 +1026,38 @@ export default function AdminEmailCenterPage() {
                     </button>
                   ))}
                 </div>
+
+                {/* Mode 0: Direct Email Address */}
+                {recipientMode === "direct" && (
+                  <div className="space-y-3 p-4 rounded-xl bg-[#f9f5ed]/60 dark:bg-[var(--surface-low)]/60 border border-[var(--surface-border)]">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-display uppercase tracking-wider text-[var(--text-muted)] font-semibold flex items-center justify-between">
+                        <span>Recipient Email Address *</span>
+                        <span className="text-[10px] text-[var(--text-muted)]">Authorized destination inbox</span>
+                      </label>
+                      <input
+                        type="email"
+                        value={directRecipientEmail}
+                        onChange={(e) => setDirectRecipientEmail(e.target.value)}
+                        placeholder="e.g. scholar@example.com"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--surface-border)] bg-white dark:bg-[#141416] text-sm text-[var(--text-main)] focus:border-[#d4af37] focus:outline-none"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-display uppercase tracking-wider text-[var(--text-muted)] font-semibold flex items-center justify-between">
+                        <span>Recipient Full Name (Optional)</span>
+                        <span className="text-[10px] text-[var(--text-muted)]">Used for {`{{full_name}}`} / {`{{first_name}}`}</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={directRecipientName}
+                        onChange={(e) => setDirectRecipientName(e.target.value)}
+                        placeholder="e.g. John Doe"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--surface-border)] bg-white dark:bg-[#141416] text-sm text-[var(--text-main)] focus:border-[#d4af37] focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {/* Mode 1: By Course */}
                 {recipientMode === "course" && (
@@ -922,7 +1088,7 @@ export default function AdminEmailCenterPage() {
                 {/* Mode 2: Specific Individual Students */}
                 {recipientMode === "specific" && (
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                       <div className="relative flex-1">
                         <span className="material-symbols-outlined absolute left-3 top-2.5 text-[18px] text-[var(--text-muted)]">
                           search
@@ -935,19 +1101,72 @@ export default function AdminEmailCenterPage() {
                           className="w-full pl-9 pr-3 py-2 rounded-xl border border-[var(--surface-border)] bg-white dark:bg-[var(--surface-low)] text-xs text-[var(--text-main)] focus:border-[#d4af37] focus:outline-none"
                         />
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (selectedStudentIds.length === students.length) {
-                            setSelectedStudentIds([]);
-                          } else {
-                            setSelectedStudentIds(students.map((s) => s.id));
-                          }
-                        }}
-                        className="px-3 py-2 rounded-xl border border-[var(--surface-border)] hover:border-[#d4af37] text-xs font-display uppercase tracking-wider font-semibold cursor-pointer shrink-0"
-                      >
-                        {selectedStudentIds.length === students.length ? "Deselect All" : "Select All"}
-                      </button>
+                      <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const filtered = students.filter((s) => {
+                              if (!studentSearch.trim()) return true;
+                              const q = studentSearch.toLowerCase().trim();
+                              return (
+                                (s.full_name && s.full_name.toLowerCase().includes(q)) ||
+                                s.email.toLowerCase().includes(q)
+                              );
+                            });
+                            setSelectedStudentIds(filtered.slice(0, 5).map((s) => s.id));
+                          }}
+                          className="px-2.5 py-2 rounded-xl border border-[var(--surface-border)] hover:border-[#d4af37] text-xs font-display uppercase tracking-wider font-semibold cursor-pointer"
+                        >
+                          Select 5
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const filtered = students.filter((s) => {
+                              if (!studentSearch.trim()) return true;
+                              const q = studentSearch.toLowerCase().trim();
+                              return (
+                                (s.full_name && s.full_name.toLowerCase().includes(q)) ||
+                                s.email.toLowerCase().includes(q)
+                              );
+                            });
+                            setSelectedStudentIds(filtered.slice(0, 10).map((s) => s.id));
+                          }}
+                          className="px-2.5 py-2 rounded-xl border border-[var(--surface-border)] hover:border-[#d4af37] text-xs font-display uppercase tracking-wider font-semibold cursor-pointer"
+                        >
+                          Select 10
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const filtered = students.filter((s) => {
+                              if (!studentSearch.trim()) return true;
+                              const q = studentSearch.toLowerCase().trim();
+                              return (
+                                (s.full_name && s.full_name.toLowerCase().includes(q)) ||
+                                s.email.toLowerCase().includes(q)
+                              );
+                            });
+                            if (selectedStudentIds.length === filtered.length && filtered.length > 0) {
+                              setSelectedStudentIds([]);
+                            } else {
+                              setSelectedStudentIds(filtered.map((s) => s.id));
+                            }
+                          }}
+                          className="px-3 py-2 rounded-xl border border-[var(--surface-border)] hover:border-[#d4af37] text-xs font-display uppercase tracking-wider font-semibold cursor-pointer"
+                        >
+                          {selectedStudentIds.length === students.length ? "Deselect All" : "Select All"}
+                        </button>
+                        {selectedStudentIds.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedStudentIds([])}
+                            className="px-2.5 py-2 rounded-xl border border-rose-500/30 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 text-xs font-display uppercase tracking-wider font-semibold cursor-pointer"
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {/* Student List Box */}
@@ -1011,6 +1230,47 @@ export default function AdminEmailCenterPage() {
                           })
                       )}
                     </div>
+
+                    {/* Selected Recipients Review Chips */}
+                    {selectedStudentIds.length > 0 && (
+                      <div className="p-3.5 rounded-xl bg-[#f9f5ed] dark:bg-[var(--surface-low)] border border-[var(--surface-border)] space-y-2">
+                        <div className="flex items-center justify-between text-xs font-display uppercase tracking-wider font-semibold text-[var(--text-muted)]">
+                          <span className="flex items-center gap-1.5">
+                            <span className="material-symbols-outlined text-[16px] text-[#d4af37]">check_circle</span>
+                            <span>Review Selected Recipients ({selectedStudentIds.length})</span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedStudentIds([])}
+                            className="text-[10px] text-rose-600 dark:text-rose-400 hover:underline cursor-pointer"
+                          >
+                            Remove All
+                          </button>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto custom-scroll p-0.5">
+                          {students
+                            .filter((s) => selectedStudentIds.includes(s.id))
+                            .map((s) => (
+                              <span
+                                key={s.id}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-[#141416] border border-[var(--surface-border)] text-xs text-[var(--text-main)] shadow-2xs"
+                              >
+                                <span className="font-semibold truncate max-w-[130px]">
+                                  {s.full_name || s.email}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedStudentIds((prev) => prev.filter((id) => id !== s.id))}
+                                  className="text-[var(--text-muted)] hover:text-rose-500 cursor-pointer"
+                                  title="Remove recipient"
+                                >
+                                  <span className="material-symbols-outlined text-[14px]">close</span>
+                                </button>
+                              </span>
+                            ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1032,7 +1292,7 @@ export default function AdminEmailCenterPage() {
                 <div className="flex items-center justify-between">
                   <h2 className="font-display text-sm font-bold uppercase tracking-wider text-[var(--text-main)] flex items-center gap-2">
                     <span className="material-symbols-outlined text-[18px] text-[#d4af37]">tune</span>
-                    <span>2. Campaign & Batching Schedule</span>
+                    <span>3. Campaign & Batching Schedule</span>
                   </h2>
                   <span className="text-[11px] font-display uppercase tracking-wider font-semibold text-[var(--text-muted)]">
                     Configurable Dispatch Parameters
@@ -1147,7 +1407,7 @@ export default function AdminEmailCenterPage() {
               <div className="p-6 rounded-2xl bg-white dark:bg-[#141416] border border-[var(--surface-border)] shadow-xs space-y-4">
                 <div className="flex items-center justify-between">
                   <h2 className="font-display text-sm font-bold uppercase tracking-wider text-[var(--text-main)]">
-                    3. Draft Email Message
+                    4. Draft Email Message
                   </h2>
                   {/* Template Picker */}
                   <div className="flex items-center gap-2">
@@ -1894,7 +2154,7 @@ export default function AdminEmailCenterPage() {
                   <span>Confirm Outbound Delivery</span>
                 </h3>
                 <p className="text-xs font-serif text-[var(--text-muted)]">
-                  Verify recipient count and message parameters before dispatching through Resend.
+                  Verify recipient count and message parameters before dispatching through {selectedSendingProvider === "resend" ? "Option A (Resend)" : "Option B (Portal Email: Gmail)"}.
                 </p>
               </div>
               <button
@@ -1907,6 +2167,29 @@ export default function AdminEmailCenterPage() {
             </div>
 
             <div className="p-4 rounded-xl bg-[#f9f5ed] dark:bg-[var(--surface-low)] border border-[var(--surface-border)] space-y-2 text-xs">
+              <div className="flex justify-between py-1 border-b border-[var(--surface-border)]">
+                <span className="text-[var(--text-muted)] font-display uppercase tracking-wider font-semibold">
+                  Sending Provider:
+                </span>
+                <span className="font-bold text-[#8a6d1b] dark:text-[#d4af37]">
+                  {selectedSendingProvider === "resend" ? "Option A — Resend (Bulk Engine)" : "Option B — Portal Email (Gmail)"}
+                </span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-[var(--surface-border)]">
+                <span className="text-[var(--text-muted)] font-display uppercase tracking-wider font-semibold">
+                  Outbound Sender:
+                </span>
+                <span className="font-mono text-[var(--text-main)] truncate max-w-[240px]">
+                  {selectedSendingProvider === "resend"
+                    ? `${senderIdentity.fromName} <${senderIdentity.resendFromEmail || senderIdentity.fromEmail}>`
+                    : `${senderIdentity.fromName} <${senderIdentity.gmailEmail || "Not Connected"}>`}
+                </span>
+              </div>
+              {!senderIdentity.isCustomDomainConfigured && selectedSendingProvider === "resend" && (
+                <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-800 dark:text-amber-300 font-serif leading-tight">
+                  <strong>Notice:</strong> Resend domain is in sandbox mode. Non-owner test emails will be rejected by Resend unless your custom domain is verified in Resend.
+                </div>
+              )}
               {campaignName.trim() && (
                 <div className="flex justify-between py-1 border-b border-[var(--surface-border)]">
                   <span className="text-[var(--text-muted)] font-display uppercase tracking-wider font-semibold">

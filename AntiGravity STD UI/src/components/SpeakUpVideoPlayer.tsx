@@ -50,10 +50,10 @@ interface SpeakUpVideoPlayerProps {
 const SPEED_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 
 export default function SpeakUpVideoPlayer({
-  videoId = "iCvmsMzlF7o",
+  videoId = "",
   videoUrl,
   videoSource = "youtube",
-  title = "SpeakUp Executive Masterclass Demo",
+  title = "SpeakUp Executive Masterclass",
   poster = "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&w=1200&q=80",
   autoPlay = false,
   onEnded,
@@ -503,6 +503,28 @@ export default function SpeakUpVideoPlayer({
             {watermarkText}
           </div>
         )}
+      </div>
+    );
+  }
+
+  // Render Clean Institutional State when no lecture video is attached
+  if (!resolvedYtId && !isDirectVideo && !isDriveVideo) {
+    return (
+      <div
+        ref={containerRef}
+        className={`relative w-full aspect-video bg-[#0e1014] rounded-2xl overflow-hidden flex flex-col items-center justify-center border border-[var(--surface-border)] shadow-xl p-6 text-center space-y-3 ${className}`}
+      >
+        <div className="w-14 h-14 rounded-2xl bg-[#d4af37]/10 border border-[#d4af37]/30 flex items-center justify-center text-[#d4af37]">
+          <span className="material-symbols-outlined text-3xl">smart_display</span>
+        </div>
+        <div className="space-y-1">
+          <h3 className="font-display text-base font-bold text-[var(--text-main)]">
+            {title || "Lecture Video Pending"}
+          </h3>
+          <p className="font-serif text-xs text-[var(--text-muted)] max-w-sm">
+            No video recording is linked to this lecture yet. Please refer to the study notes and practice directives below.
+          </p>
+        </div>
       </div>
     );
   }

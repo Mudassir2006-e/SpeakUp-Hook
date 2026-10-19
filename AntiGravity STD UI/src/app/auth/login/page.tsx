@@ -5,7 +5,10 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import Logo from "@/components/Logo";
 import { createClient } from "@/lib/supabase/client";
+import { clearAdminMfaSessionAction } from "@/lib/auth/adminVerification";
 import { validateEmail } from "@/lib/validation";
+import { getLoginErrorMessage } from "@/lib/auth/loginError";
+import { preLoginCheckAction, reportLoginResultAction } from "@/app/auth/login-actions";
 
 function getSafeRedirect(target: string | null, allowedPrefix: "/admin" | "/lms"): string {
   const defaultTarget = allowedPrefix === "/admin" ? "/admin/dashboard" : "/lms/dashboard";
@@ -33,6 +36,7 @@ function LoginForm() {
   const redirectParam = searchParams.get("redirect");
   const errorParam = searchParams.get("error");
   const messageParam = searchParams.get("message");
+  const reasonParam = searchParams.get("reason");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -46,7 +50,9 @@ function LoginForm() {
     if (messageParam === "password_updated") {
       setSuccessMessage("Your password has been set successfully. Please sign in with your new credentials.");
     }
-    if (errorParam === "account_suspended") {
+    if (reasonParam === "inactivity") {
+      setErrorMessage("Your administrative session has timed out due to 2 minutes of inactivity. Please sign in again.");
+    } else if (errorParam === "account_suspended") {
       setErrorMessage("Your account is currently suspended. Access to learning resources has been restricted by administration.");
     } else if (errorParam === "account_pending") {
       setErrorMessage("Your account registration is currently pending review by SpeakUp administration. You will receive an email once approved.");
@@ -57,7 +63,7 @@ function LoginForm() {
     } else if (errorParam === "session_expired") {
       setErrorMessage("Your session has expired. Please sign in again to continue.");
     }
-  }, [errorParam, messageParam]);
+  }, [errorParam, messageParam, reasonParam]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,6 +87,17 @@ function LoginForm() {
     setLoading(true);
 
     try {
+      // 1. Pre-authentication attempt limit & lockout check
+      const preCheck = await preLoginCheckAction(email.trim());
+      if (!preCheck.allowed) {
+        setErrorMessage(
+          preCheck.error ||
+            `Too many failed login attempts. Please wait ${preCheck.retryAfterSeconds} seconds before trying again.`
+        );
+        setLoading(false);
+        return;
+      }
+
       const supabase = createClient();
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
@@ -88,10 +105,26 @@ function LoginForm() {
       });
 
       if (error || !data.user) {
-        setErrorMessage("Invalid email or password. Please verify your credentials.");
+        // Record failed attempt and obtain progressive cooldown/lockout status
+        const report = await reportLoginResultAction({
+          email: email.trim(),
+          success: false,
+        });
+
+        if (!report.allowed && report.error) {
+          setErrorMessage(report.error);
+        } else {
+          setErrorMessage(getLoginErrorMessage(error));
+        }
         setLoading(false);
         return;
       }
+
+      // Record successful authentication and reset failure counters
+      await reportLoginResultAction({
+        email: email.trim(),
+        success: true,
+      });
 
       // Check account suspension status immediately
       const isBanned = Boolean(
@@ -116,13 +149,13 @@ function LoginForm() {
       try {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("role, status, full_name")
+          .select("role, account_status, full_name")
           .eq("id", data.user.id)
           .maybeSingle();
 
         if (profile) {
           dbRole = (profile as any).role || null;
-          dbStatus = (profile as any).status || null;
+          dbStatus = (profile as any).account_status || null;
           studentName = (profile as any).full_name || null;
         }
       } catch {
@@ -148,7 +181,25 @@ function LoginForm() {
       }
 
       if (finalRole === "admin") {
-        router.push(getSafeRedirect(redirectParam, "/admin"));
+        // Clear any prior admin MFA verification cookie before proceeding
+        try {
+          const clearRes = await clearAdminMfaSessionAction();
+          if (!clearRes.success) {
+            throw new Error("Failed to clear prior MFA state");
+          }
+        } catch (e) {
+          console.error("[MFA] Unable to reset admin MFA state:", e);
+          setErrorMessage(
+            "Unable to initialize a secure admin session. Please try signing in again."
+          );
+          setLoading(false);
+          return;
+        }
+        const adminDest =
+          redirectParam && redirectParam.startsWith("/admin")
+            ? redirectParam
+            : "/admin";
+        router.push(`/admin/verify?redirect=${encodeURIComponent(adminDest)}`);
       } else {
         // Non-authoritative fallback cache for LMS presentation
         if (studentName || data.user.user_metadata?.full_name) {
@@ -170,7 +221,7 @@ function LoginForm() {
   };
 
   return (
-    <div className="w-full max-w-[480px] bg-[var(--surface-lowest)] border border-[var(--surface-border)] rounded-2xl shadow-sm p-8 sm:p-10 relative overflow-hidden transition-all">
+    <div className="w-full max-w-[480px] bg-[var(--surface-lowest)] border border-[var(--surface-border)] rounded-2xl shadow-sm p-6 sm:p-10 relative overflow-hidden transition-all">
       {/* Top Logo & Headings */}
       <div className="flex flex-col items-center text-center mb-8">
         <Logo size="lg" showText={false} href="/" className="mb-4" />
@@ -184,7 +235,7 @@ function LoginForm() {
 
       {/* Tab Switcher */}
       <div className="relative flex mb-8 bg-[var(--surface-low)] rounded-xl p-1 border border-[var(--surface-border)]">
-        <div className="w-1/2 py-2.5 font-display text-xs font-bold uppercase tracking-wider text-center rounded-lg bg-[var(--surface-lowest)] text-[#d4af37] shadow-xs">
+        <div className="w-1/2 py-2.5 font-display text-xs font-bold uppercase tracking-wider text-center rounded-lg bg-[var(--surface-lowest)] text-[#997a15] dark:text-[#d4af37] shadow-xs">
           Sign In
         </div>
         <Link
@@ -205,7 +256,7 @@ function LoginForm() {
 
       {/* Error Notice */}
       {errorMessage && (
-        <div className="mb-5 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 font-serif text-xs leading-relaxed flex items-start gap-2.5 animate-in fade-in duration-200">
+        <div className="mb-5 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 dark:border-rose-500/30 text-rose-700 dark:text-rose-400 font-serif text-xs leading-relaxed flex items-start gap-2.5 animate-in fade-in duration-200">
           <span className="material-symbols-outlined text-[18px] shrink-0 mt-0.5">error</span>
           <span>{errorMessage}</span>
         </div>
@@ -236,7 +287,7 @@ function LoginForm() {
             }`}
           />
           {fieldErrors.email && (
-            <p className="mt-1.5 text-xs text-rose-500 font-serif flex items-center gap-1">
+            <p className="mt-1.5 text-xs text-rose-600 dark:text-rose-400 font-serif flex items-center gap-1">
               <span className="material-symbols-outlined text-[14px]">error</span>
               {fieldErrors.email}
             </p>
@@ -250,7 +301,7 @@ function LoginForm() {
             </label>
             <Link
               href="/auth/forgot-password"
-              className="font-display text-[11px] uppercase tracking-wider text-[#d4af37] hover:underline font-semibold"
+              className="font-display text-[11px] uppercase tracking-wider text-[#997a15] dark:text-[#d4af37] hover:underline font-bold"
             >
               Forgot Password?
             </Link>
@@ -284,7 +335,7 @@ function LoginForm() {
             </button>
           </div>
           {fieldErrors.password && (
-            <p className="mt-1.5 text-xs text-rose-500 font-serif flex items-center gap-1">
+            <p className="mt-1.5 text-xs text-rose-600 dark:text-rose-400 font-serif flex items-center gap-1">
               <span className="material-symbols-outlined text-[14px]">error</span>
               {fieldErrors.password}
             </p>
@@ -295,7 +346,7 @@ function LoginForm() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-4 bg-[#1a1a1a] dark:bg-[#d4af37] text-white dark:text-[#1a1a1a] hover:bg-[#d4af37] hover:text-white transition-all duration-300 font-display text-xs uppercase tracking-widest font-bold rounded-full shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            className="w-full py-4 bg-[#1a1a1a] dark:bg-[#d4af37] text-white dark:text-[#1a1a1a] hover:bg-[#2a2a2a] dark:hover:bg-[#e0bc42] dark:hover:text-[#1a1a1a] transition-all duration-300 font-display text-xs uppercase tracking-widest font-bold rounded-full shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
           >
             {loading ? (
               <>

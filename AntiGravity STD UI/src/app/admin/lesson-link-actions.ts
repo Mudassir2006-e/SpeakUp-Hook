@@ -51,24 +51,46 @@ export interface ActionResponse<T = any> {
   message?: string;
 }
 
+import { verifyAdminCaller as verifyAdminMfaCaller } from "@/lib/auth/adminVerification";
+
 /**
- * Validates admin caller permissions.
+ * Validates admin caller permissions with mandatory two-factor email verification.
  */
 async function verifyAdminCaller(): Promise<{ adminId: string } | { error: string }> {
+  return verifyAdminMfaCaller();
+}
+
+/**
+ * Loads the current lesson links store, reading from Supabase cms_content first
+ * and falling back to local JSON if uninitialized.
+ */
+async function getStoredLessonLinks(): Promise<Record<string, LessonLinkItemRecord>> {
   try {
-    const { userId, role } = await getCurrentUserRole();
-    if (!userId || role !== "admin") {
-      // In local dev/presentation mode without auth, allow graceful fallback
-      return { adminId: userId || "admin_session" };
+    let supabase: any;
+    try {
+      supabase = createAdminClient();
+    } catch {
+      supabase = await createClient();
     }
-    return { adminId: userId };
-  } catch {
-    return { adminId: "admin_session" };
+    const { data: dbData, error: dbErr } = await supabase
+      .from("cms_content")
+      .select("published_data")
+      .eq("page_key", "lesson_links")
+      .maybeSingle();
+
+    if (!dbErr && dbData?.published_data && typeof dbData.published_data === "object") {
+      return dbData.published_data as Record<string, LessonLinkItemRecord>;
+    }
+  } catch (e) {
+    console.warn("DB lesson links store lookup notice:", e);
   }
+
+  return readJsonFile<Record<string, LessonLinkItemRecord>>(LINKS_STORE_PATH, {});
 }
 
 /**
  * Retrieves the Link Button configuration for a given lesson.
+ * Checks Supabase cms_content first, then local JSON storage and curriculum definitions.
  */
 export async function getLessonLinkAction(
   courseId: string,
@@ -76,7 +98,55 @@ export async function getLessonLinkAction(
   lessonId: string
 ): Promise<ActionResponse<LessonLinkButton | null>> {
   try {
-    // 1. Check central-lesson-links.json first
+    // 1. Authoritative check: retrieve from Supabase cms_content table
+    try {
+      let supabase: any;
+      try {
+        supabase = createAdminClient();
+      } catch {
+        supabase = await createClient();
+      }
+      const { data: dbData, error: dbErr } = await supabase
+        .from("cms_content")
+        .select("published_data")
+        .eq("page_key", "lesson_links")
+        .maybeSingle();
+
+      if (!dbErr && dbData?.published_data && typeof dbData.published_data === "object") {
+        const linksStore = dbData.published_data as Record<string, LessonLinkItemRecord>;
+        const storeKey = `${courseId}_${moduleId}_${lessonId}`;
+
+        if (linksStore[storeKey]) {
+          const item = linksStore[storeKey];
+          return {
+            success: true,
+            data: {
+              enabled: item.enabled,
+              text: item.text,
+              url: item.url,
+              description: item.description,
+            },
+          };
+        }
+
+        if (linksStore[lessonId]) {
+          const item = linksStore[lessonId];
+          return {
+            success: true,
+            data: {
+              enabled: item.enabled,
+              text: item.text,
+              url: item.url,
+              description: item.description,
+            },
+          };
+        }
+      }
+    } catch (dbReadErr) {
+      console.warn("DB lesson links lookup notice:", dbReadErr);
+    }
+
+    // 2. Fallback: check central-lesson-links.json
     const linksStore = readJsonFile<Record<string, LessonLinkItemRecord>>(LINKS_STORE_PATH, {});
     const storeKey = `${courseId}_${moduleId}_${lessonId}`;
 
@@ -106,7 +176,7 @@ export async function getLessonLinkAction(
       };
     }
 
-    // 2. Check central-curriculum.json
+    // 3. Fallback: check central-curriculum.json
     const curriculum = readJsonFile<Record<string, { modules: any[] }>>(CURRICULUM_PATH, {});
     const normCourseId = courseId.toLowerCase().trim();
 
@@ -150,7 +220,8 @@ export async function getLessonLinkAction(
 
 /**
  * Saves or updates a Link Button configuration for a specific lesson.
- * Strict URL formatting and validation enforced.
+ * Persists to Supabase cms_content (page_key: 'lesson_links'), updates curriculum,
+ * and synchronizes local JSON fallback storage.
  */
 export async function saveLessonLinkAction(
   courseId: string,
@@ -194,8 +265,8 @@ export async function saveLessonLinkAction(
       description: cleanDescription,
     };
 
-    // 1. Update central-lesson-links.json
-    const linksStore = readJsonFile<Record<string, LessonLinkItemRecord>>(LINKS_STORE_PATH, {});
+    // 1. Retrieve current links store (DB first, merged with local JSON fallback)
+    const linksStore = await getStoredLessonLinks();
     const storeKey = `${courseId}_${moduleId}_${lessonId}`;
 
     const linkRecord: LessonLinkItemRecord = {
@@ -208,9 +279,39 @@ export async function saveLessonLinkAction(
 
     linksStore[storeKey] = linkRecord;
     linksStore[lessonId] = linkRecord;
+
+    // 2. Persist to Supabase cms_content table
+    let dbPersisted = false;
+    try {
+      let supabase: any;
+      try {
+        supabase = createAdminClient();
+      } catch {
+        supabase = await createClient();
+      }
+      const { error: dbErr } = await supabase.from("cms_content").upsert(
+        {
+          page_key: "lesson_links",
+          published_data: linksStore,
+          draft_data: linksStore,
+          updated_at: now,
+          updated_by: authCheck.adminId,
+        },
+        { onConflict: "page_key" }
+      );
+
+      if (!dbErr) {
+        dbPersisted = true;
+      } else {
+        console.error("Database lesson links upsert error:", dbErr.message);
+      }
+    } catch (dbErr) {
+      console.warn("Database lesson links upsert notice:", dbErr);
+    }
+
+    // 3. Update local fallback stores for offline/development environments
     writeJsonFile(LINKS_STORE_PATH, linksStore);
 
-    // 2. Update central-curriculum.json
     const curriculum = readJsonFile<Record<string, { modules: any[] }>>(CURRICULUM_PATH, {});
     const normCourseId = courseId.toLowerCase().trim();
 
@@ -232,7 +333,15 @@ export async function saveLessonLinkAction(
     }
     writeJsonFile(CURRICULUM_PATH, curriculum);
 
-    // 3. Sync to Supabase lessons table if possible
+    // 4. Fail cleanly if persistent cloud write failed in production
+    if (!dbPersisted && (process.env.VERCEL || process.env.NODE_ENV === "production")) {
+      return {
+        success: false,
+        error: "Failed to persist lesson link configuration to the database. Please try again.",
+      };
+    }
+
+    // 5. Touch updated_at on Supabase lessons table if row exists
     try {
       const adminClient = createAdminClient();
       await (adminClient as any).from("lessons").update({
@@ -260,6 +369,8 @@ export async function saveLessonLinkAction(
 
 /**
  * Deletes / removes the Link Button for a given lesson.
+ * Removes from Supabase cms_content (page_key: 'lesson_links'), curriculum,
+ * and local JSON fallback stores.
  */
 export async function deleteLessonLinkAction(
   courseId: string,
@@ -272,14 +383,44 @@ export async function deleteLessonLinkAction(
   }
 
   try {
-    // 1. Remove from central-lesson-links.json
-    const linksStore = readJsonFile<Record<string, LessonLinkItemRecord>>(LINKS_STORE_PATH, {});
+    const now = new Date().toISOString();
+    const linksStore = await getStoredLessonLinks();
     const storeKey = `${courseId}_${moduleId}_${lessonId}`;
     delete linksStore[storeKey];
     delete linksStore[lessonId];
+
+    // 1. Persist deletion to Supabase cms_content table
+    let dbPersisted = false;
+    try {
+      let supabase: any;
+      try {
+        supabase = createAdminClient();
+      } catch {
+        supabase = await createClient();
+      }
+      const { error: dbErr } = await supabase.from("cms_content").upsert(
+        {
+          page_key: "lesson_links",
+          published_data: linksStore,
+          draft_data: linksStore,
+          updated_at: now,
+          updated_by: authCheck.adminId,
+        },
+        { onConflict: "page_key" }
+      );
+
+      if (!dbErr) {
+        dbPersisted = true;
+      } else {
+        console.error("Database lesson links delete error:", dbErr.message);
+      }
+    } catch (dbErr) {
+      console.warn("Database lesson links delete notice:", dbErr);
+    }
+
+    // 2. Remove from local fallback stores
     writeJsonFile(LINKS_STORE_PATH, linksStore);
 
-    // 2. Remove from central-curriculum.json
     const curriculum = readJsonFile<Record<string, { modules: any[] }>>(CURRICULUM_PATH, {});
     const normCourseId = courseId.toLowerCase().trim();
 
@@ -300,6 +441,14 @@ export async function deleteLessonLinkAction(
       }
     }
     writeJsonFile(CURRICULUM_PATH, curriculum);
+
+    // 3. Fail cleanly if persistent cloud write failed in production
+    if (!dbPersisted && (process.env.VERCEL || process.env.NODE_ENV === "production")) {
+      return {
+        success: false,
+        error: "Failed to remove lesson link from the database. Please try again.",
+      };
+    }
 
     safeRevalidatePath(`/admin/courses/${courseId}/lessons/${lessonId}`);
     safeRevalidatePath(`/admin/courses/${courseId}/modules/${moduleId}`);

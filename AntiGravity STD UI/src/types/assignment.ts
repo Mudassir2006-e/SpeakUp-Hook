@@ -40,6 +40,7 @@ export interface SubmissionPage {
   pageNumber: number;
   originalUrl: string;
   optimizedUrl: string;
+  storagePath?: string;
   fileSize: number; // in bytes
   width?: number;
   height?: number;
@@ -77,6 +78,8 @@ export interface SubmissionAttempt {
   aiFeedback?: string | null;
   finalScore?: number | null;
   finalFeedback?: string | null;
+  adminReviewedAt?: string | null;
+  adminReviewedBy?: string | null;
   status: AssignmentStatus;
 }
 

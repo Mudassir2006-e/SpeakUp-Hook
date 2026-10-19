@@ -2,6 +2,8 @@
 
 import fs from "fs";
 import path from "path";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { verifyAdminCaller as verifyAdminMfaCaller } from "@/lib/auth/adminVerification";
 
 function safeRevalidatePath(p: string) {
   try {
@@ -44,10 +46,13 @@ const DEFAULT_PRIVACY: CentralPrivacyItem[] = [
   },
 ];
 
+async function verifyAdminCaller(): Promise<{ adminId: string } | { error: string }> {
+  return verifyAdminMfaCaller();
+}
+
 function readPrivacyFile(): CentralPrivacyItem[] {
   try {
     if (!fs.existsSync(PRIVACY_FILE)) {
-      fs.writeFileSync(PRIVACY_FILE, JSON.stringify(DEFAULT_PRIVACY, null, 2), "utf-8");
       return DEFAULT_PRIVACY;
     }
     const raw = fs.readFileSync(PRIVACY_FILE, "utf-8");
@@ -67,15 +72,31 @@ function writePrivacyFile(items: CentralPrivacyItem[]): void {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(PRIVACY_FILE, JSON.stringify(items, null, 2), "utf-8");
   } catch (err) {
-    console.error("Failed to write central-privacy.json:", err);
+    console.warn("Local central-privacy.json write skipped in serverless environment:", err);
   }
 }
 
 /**
  * Retrieves all dynamic privacy policy sections.
+ * Authoritative: checks Supabase cms_content first with local JSON file fallback.
  */
 export async function getCentralPrivacyAction(): Promise<ActionResponse<CentralPrivacyItem[]>> {
   try {
+    try {
+      const supabase = await createClient();
+      const { data, error } = await (supabase as any)
+        .from("cms_content")
+        .select("published_data")
+        .eq("page_key", "privacy")
+        .maybeSingle();
+
+      if (!error && data?.published_data?.items && Array.isArray(data.published_data.items)) {
+        return { success: true, data: data.published_data.items };
+      }
+    } catch (e) {
+      console.warn("DB privacy fetch notice, using fallback:", e);
+    }
+
     const sections = readPrivacyFile();
     return { success: true, data: sections };
   } catch (err) {
@@ -89,10 +110,16 @@ export async function getCentralPrivacyAction(): Promise<ActionResponse<CentralP
 
 /**
  * Saves and publishes the dynamic privacy policy sections.
+ * Authoritative: verifies admin identity and persists to Supabase cms_content.
  */
 export async function saveCentralPrivacyAction(
   items: CentralPrivacyItem[]
 ): Promise<ActionResponse<CentralPrivacyItem[]>> {
+  const authCheck = await verifyAdminCaller();
+  if ("error" in authCheck) {
+    return { success: false, error: authCheck.error };
+  }
+
   try {
     if (!Array.isArray(items)) {
       return { success: false, error: "Invalid privacy sections format." };
@@ -106,7 +133,39 @@ export async function saveCentralPrivacyAction(
       content: item.content.trim(),
     }));
 
+    let dbPersisted = false;
+    try {
+      const adminClient = createAdminClient();
+      const now = new Date().toISOString();
+      const { error: dbErr } = await (adminClient as any).from("cms_content").upsert(
+        {
+          page_key: "privacy",
+          published_data: { items: normalized },
+          draft_data: { items: normalized },
+          updated_at: now,
+          updated_by: authCheck.adminId,
+        },
+        { onConflict: "page_key" }
+      );
+      if (!dbErr) {
+        dbPersisted = true;
+      } else {
+        console.error("Database privacy upsert error:", dbErr.message);
+      }
+    } catch (dbEx) {
+      console.warn("Database privacy upsert exception:", dbEx);
+    }
+
+    // Synchronize to local file for development environments
     writePrivacyFile(normalized);
+
+    if (!dbPersisted && (process.env.VERCEL || process.env.NODE_ENV === "production")) {
+      return {
+        success: false,
+        error: "Failed to persist Privacy Policy to database. Please try again.",
+      };
+    }
+
     safeRevalidatePath("/privacy");
     safeRevalidatePath("/admin/edit-page");
 

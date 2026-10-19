@@ -3,8 +3,8 @@
 import fs from "fs";
 import path from "path";
 import { revalidatePath } from "next/cache";
-import { getCurrentUserRole } from "@/lib/auth/roles";
-import { createAdminClient, createClient } from "@/lib/supabase/server";
+import { verifyAdminCaller as verifyAdminMfaCaller } from "@/lib/auth/adminVerification";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 
 export interface FreeDemoEntry {
   id: string;
@@ -104,16 +104,8 @@ function writeFreeDemoConfig(store: FreeDemoStore) {
   }
 }
 
-async function verifyAdminCaller() {
-  try {
-    const { userId, role } = await getCurrentUserRole();
-    if (!userId || role !== "admin") {
-      return { error: "Unauthorized: Admin privileges required." };
-    }
-    return { adminId: userId };
-  } catch {
-    return { error: "Authentication verification failed." };
-  }
+async function verifyAdminCaller(): Promise<{ adminId: string } | { error: string }> {
+  return verifyAdminMfaCaller();
 }
 
 /**
@@ -127,6 +119,38 @@ export async function getFreeDemoConfigAction(): Promise<{
   error?: string;
 }> {
   try {
+    try {
+      const supabase = await createClient();
+      const { data, error } = await (supabase as any)
+        .from("cms_content")
+        .select("published_data")
+        .eq("page_key", "free_demo_config")
+        .maybeSingle();
+
+      if (!error && (data as any)?.published_data && typeof (data as any).published_data === "object") {
+        const parsed = data.published_data;
+        if (parsed.courseDemos || parsed.generalDemos) {
+          const store: FreeDemoStore = {
+            courseDemos: parsed.courseDemos || {},
+            generalDemos: parsed.generalDemos || [],
+          };
+          writeFreeDemoConfig(store);
+          const allDemos = [
+            ...Object.values(store.courseDemos),
+            ...store.generalDemos,
+          ];
+          return {
+            success: true,
+            data: store.courseDemos,
+            generalDemos: store.generalDemos,
+            allDemos,
+          };
+        }
+      }
+    } catch (e) {
+      console.warn("DB free demo fetch notice:", e);
+    }
+
     const store = readFreeDemoConfig();
     const allDemos = [
       ...Object.values(store.courseDemos),
@@ -152,9 +176,10 @@ export async function getCourseFreeDemoAction(courseId: string): Promise<{
   error?: string;
 }> {
   try {
-    const store = readFreeDemoConfig();
+    const config = await getFreeDemoConfigAction();
+    const courseDemos = config.data || readFreeDemoConfig().courseDemos;
     const normalized = courseId.trim().toLowerCase();
-    const match = Object.entries(store.courseDemos).find(
+    const match = Object.entries(courseDemos).find(
       ([key]) => key.toLowerCase() === normalized
     );
     return { success: true, data: match ? match[1] : null };
@@ -191,7 +216,12 @@ export async function saveFreeDemoAction(params: {
   }
 
   try {
-    const store = readFreeDemoConfig();
+    const configRes = await getFreeDemoConfigAction();
+    const store: FreeDemoStore = {
+      courseDemos: configRes.data || readFreeDemoConfig().courseDemos,
+      generalDemos: configRes.generalDemos || readFreeDemoConfig().generalDemos,
+    };
+
     const entry: FreeDemoEntry = {
       id: params.courseId,
       type: "course",
@@ -212,6 +242,36 @@ export async function saveFreeDemoAction(params: {
 
     store.courseDemos[params.courseId] = entry;
     writeFreeDemoConfig(store);
+
+    let dbPersisted = false;
+    try {
+      let supabase: any;
+      try {
+        supabase = createAdminClient();
+      } catch {
+        supabase = await createClient();
+      }
+      const { error: dbErr } = await supabase.from("cms_content").upsert({
+        page_key: "free_demo_config",
+        published_data: store,
+        draft_data: store,
+        updated_at: new Date().toISOString(),
+        updated_by: authCheck.adminId,
+      }, { onConflict: "page_key" });
+
+      if (!dbErr) {
+        dbPersisted = true;
+      }
+    } catch (dbErr) {
+      console.warn("Database free demo upsert notice:", dbErr);
+    }
+
+    if (!dbPersisted && (process.env.VERCEL || process.env.NODE_ENV === "production")) {
+      return {
+        success: false,
+        error: "Failed to persist free demo configuration to database. Please try again.",
+      };
+    }
 
     revalidatePath("/");
     revalidatePath("/demo");
@@ -253,7 +313,12 @@ export async function saveGeneralDemoAction(params: {
   }
 
   try {
-    const store = readFreeDemoConfig();
+    const configRes = await getFreeDemoConfigAction();
+    const store: FreeDemoStore = {
+      courseDemos: configRes.data || readFreeDemoConfig().courseDemos,
+      generalDemos: configRes.generalDemos || readFreeDemoConfig().generalDemos,
+    };
+
     const id = params.id || `gen-demo-${Date.now()}`;
     const now = new Date().toISOString();
 
@@ -280,6 +345,36 @@ export async function saveGeneralDemoAction(params: {
 
     writeFreeDemoConfig(store);
 
+    let dbPersisted = false;
+    try {
+      let supabase: any;
+      try {
+        supabase = createAdminClient();
+      } catch {
+        supabase = await createClient();
+      }
+      const { error: dbErr } = await supabase.from("cms_content").upsert({
+        page_key: "free_demo_config",
+        published_data: store,
+        draft_data: store,
+        updated_at: now,
+        updated_by: authCheck.adminId,
+      }, { onConflict: "page_key" });
+
+      if (!dbErr) {
+        dbPersisted = true;
+      }
+    } catch (dbErr) {
+      console.warn("Database general demo upsert notice:", dbErr);
+    }
+
+    if (!dbPersisted && (process.env.VERCEL || process.env.NODE_ENV === "production")) {
+      return {
+        success: false,
+        error: "Failed to persist general demo to database. Please try again.",
+      };
+    }
+
     revalidatePath("/demo");
     revalidatePath("/admin/demos");
 
@@ -302,9 +397,42 @@ export async function deleteGeneralDemoAction(demoId: string): Promise<{
   }
 
   try {
-    const store = readFreeDemoConfig();
-    store.generalDemos = store.generalDemos.filter((d) => d.id !== demoId);
+    const configRes = await getFreeDemoConfigAction();
+    const store: FreeDemoStore = {
+      courseDemos: configRes.data || readFreeDemoConfig().courseDemos,
+      generalDemos: (configRes.generalDemos || readFreeDemoConfig().generalDemos).filter((d) => d.id !== demoId),
+    };
     writeFreeDemoConfig(store);
+
+    let dbPersisted = false;
+    try {
+      let supabase: any;
+      try {
+        supabase = createAdminClient();
+      } catch {
+        supabase = await createClient();
+      }
+      const { error: dbErr } = await supabase.from("cms_content").upsert({
+        page_key: "free_demo_config",
+        published_data: store,
+        draft_data: store,
+        updated_at: new Date().toISOString(),
+        updated_by: authCheck.adminId,
+      }, { onConflict: "page_key" });
+
+      if (!dbErr) {
+        dbPersisted = true;
+      }
+    } catch (dbErr) {
+      console.warn("Database delete general demo notice:", dbErr);
+    }
+
+    if (!dbPersisted && (process.env.VERCEL || process.env.NODE_ENV === "production")) {
+      return {
+        success: false,
+        error: "Failed to delete general demo from database. Please try again.",
+      };
+    }
 
     revalidatePath("/demo");
     revalidatePath("/admin/demos");
@@ -328,10 +456,42 @@ export async function deleteFreeDemoAction(courseId: string): Promise<{
   }
 
   try {
-    const store = readFreeDemoConfig();
-    if (store.courseDemos[courseId]) {
-      delete store.courseDemos[courseId];
-      writeFreeDemoConfig(store);
+    const configRes = await getFreeDemoConfigAction();
+    const store: FreeDemoStore = {
+      courseDemos: { ...(configRes.data || readFreeDemoConfig().courseDemos) },
+      generalDemos: configRes.generalDemos || readFreeDemoConfig().generalDemos,
+    };
+    delete store.courseDemos[courseId];
+    writeFreeDemoConfig(store);
+
+    let dbPersisted = false;
+    try {
+      let supabase: any;
+      try {
+        supabase = createAdminClient();
+      } catch {
+        supabase = await createClient();
+      }
+      const { error: dbErr } = await supabase.from("cms_content").upsert({
+        page_key: "free_demo_config",
+        published_data: store,
+        draft_data: store,
+        updated_at: new Date().toISOString(),
+        updated_by: authCheck.adminId,
+      }, { onConflict: "page_key" });
+
+      if (!dbErr) {
+        dbPersisted = true;
+      }
+    } catch (dbErr) {
+      console.warn("Database delete course demo notice:", dbErr);
+    }
+
+    if (!dbPersisted && (process.env.VERCEL || process.env.NODE_ENV === "production")) {
+      return {
+        success: false,
+        error: "Failed to delete course demo from database. Please try again.",
+      };
     }
 
     revalidatePath("/");

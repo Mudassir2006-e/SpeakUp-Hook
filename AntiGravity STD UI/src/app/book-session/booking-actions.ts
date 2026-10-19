@@ -2,7 +2,7 @@
 
 import fs from "fs";
 import path from "path";
-import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { validateName, validateEmail, validatePhone } from "@/lib/validation";
 
 export interface BookingSubmissionPayload {
@@ -82,15 +82,23 @@ export async function submitBookingRequestAction(
     created_at: now,
   };
 
-  // 2. Persist locally to durable store
-  const bookings = readBookingsStore();
-  bookings.unshift(bookingRecord);
-  writeBookingsStore(bookings);
+  // 2. Persist locally to fallback store (Note: In serverless runtimes like Vercel,
+  // local filesystem writes are ephemeral; durable synchronization requires database write).
+  let localPersisted = false;
+  try {
+    const bookings = readBookingsStore();
+    bookings.unshift(bookingRecord);
+    writeBookingsStore(bookings);
+    localPersisted = true;
+  } catch (err: any) {
+    console.error("[Booking Store Notice] Local fallback write failed:", err?.message || err);
+  }
 
-  // 3. Attempt write to Supabase public.booking_requests
+  // 3. Attempt durable write to Supabase public.booking_requests
+  let dbPersisted = false;
   try {
     const supabase: any = await createClient();
-    await supabase.from("booking_requests").insert({
+    const { error: dbError } = await supabase.from("booking_requests").insert({
       full_name: bookingRecord.full_name,
       email: bookingRecord.email,
       country_code: bookingRecord.country_code,
@@ -100,9 +108,40 @@ export async function submitBookingRequestAction(
       message: bookingRecord.message,
       status: "pending",
     });
-  } catch (err) {
-    // Graceful fallback to durable JSON store if table is still migrating
-    console.warn("Supabase booking_requests insert notice:", err);
+
+    if (dbError) {
+      console.error("[Booking DB Error] Supabase insert failed:", {
+        code: dbError.code,
+        message: dbError.message,
+      });
+    } else {
+      dbPersisted = true;
+    }
+  } catch (err: any) {
+    console.error("[Booking DB Exception] Unexpected error during insert:", err?.message || err);
+  }
+
+  // 4. Fail-safe response handling
+  if (!dbPersisted && !localPersisted) {
+    return {
+      success: false,
+      error: "Unable to submit your booking request at this time. Please try again later.",
+    };
+  }
+
+  if (!dbPersisted) {
+    console.warn("[Booking Sync Notice] Booking recorded in local fallback, but database insert did not complete.");
+  }
+
+  // 5. Notify administrator of new booking submission at authoritative login email
+  try {
+    const { sendAdminNotificationEmail } = await import("@/lib/email");
+    await sendAdminNotificationEmail({
+      subject: `New Advisory Session Booking: ${bookingRecord.full_name}`,
+      html: `<p>A new advisory session booking request was submitted:</p><ul><li><strong>Name:</strong> ${bookingRecord.full_name}</li><li><strong>Email:</strong> ${bookingRecord.email}</li><li><strong>Phone:</strong> ${bookingRecord.country_code} ${bookingRecord.phone}</li><li><strong>Status:</strong> ${bookingRecord.professional_status}</li><li><strong>Submission Time:</strong> ${now}</li></ul>`,
+    });
+  } catch (adminNotifyErr) {
+    console.warn("Notice: Non-blocking admin notification for booking request:", adminNotifyErr);
   }
 
   return { success: true, data: { bookingId: id } };

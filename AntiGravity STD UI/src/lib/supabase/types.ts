@@ -24,8 +24,9 @@ export interface Database {
           avatar_url: string | null;
           phone: string | null;
           status?: string;
+          account_status?: string;
           created_at: string;
-          updated_at: string;
+          updated_at?: string;
         };
         Insert: {
           id: string;
@@ -35,6 +36,7 @@ export interface Database {
           avatar_url?: string | null;
           phone?: string | null;
           status?: string;
+          account_status?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -46,6 +48,7 @@ export interface Database {
           avatar_url?: string | null;
           phone?: string | null;
           status?: string;
+          account_status?: string;
           created_at?: string;
           updated_at?: string;
         };

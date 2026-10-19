@@ -80,22 +80,13 @@ export async function updateSession(request: NextRequest) {
     try {
       const { data: profile } = await supabase
         .from("profiles")
-        .select("role, status, password_changed_at")
+        .select("role, account_status")
         .eq("id", user.id)
         .maybeSingle();
 
       if (profile) {
         if ((profile as any).role) dbRole = (profile as any).role;
-        if ((profile as any).status) dbStatus = (profile as any).status;
-
-        const dbPasswordChangedAt = (profile as any).password_changed_at;
-        if (dbPasswordChangedAt && user.last_sign_in_at) {
-          const signInTime = new Date(user.last_sign_in_at).getTime();
-          const changeTime = new Date(dbPasswordChangedAt).getTime();
-          if (signInTime < changeTime - 2000) {
-            isSessionRevoked = true;
-          }
-        }
+        if ((profile as any).account_status) dbStatus = (profile as any).account_status;
       }
     } catch {
       // Ignore database errors in middleware

@@ -3,11 +3,13 @@ import { sendBrandedEmail } from "@/lib/email";
 import { getCurrentUserRole } from "@/lib/auth/roles";
 import { validateEmail } from "@/lib/validation";
 
+import { isCurrentAdminSessionVerified } from "@/lib/auth/adminVerification";
+
 export const dynamic = "force-dynamic";
 
 /**
  * Protected internal route for sending branded emails.
- * STRICTLY PROTECTED: Requires verified administrator session or valid CRON_SECRET / INTERNAL_API_SECRET bearer token.
+ * STRICTLY PROTECTED: Requires verified administrator MFA session or valid CRON_SECRET / INTERNAL_API_SECRET bearer token.
  * Prevents unauthorized third parties from using SpeakUp as an open mail relay.
  */
 export async function POST(request: Request) {
@@ -28,6 +30,14 @@ export async function POST(request: Request) {
         return NextResponse.json(
           { error: "Forbidden: Administrative authentication or valid authorization token required." },
           { status: 401 }
+        );
+      }
+
+      const isMfaVerified = await isCurrentAdminSessionVerified();
+      if (!isMfaVerified) {
+        return NextResponse.json(
+          { error: "Forbidden: Administrative two-factor verification required." },
+          { status: 403 }
         );
       }
     }

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Logo from "@/components/Logo";
 import { createClient } from "@/lib/supabase/client";
 import { validatePassword } from "@/lib/validation";
+import PasswordRequirementsList from "@/components/PasswordRequirementsList";
 import { invalidateSessionOnResetAction } from "@/app/lms/actions";
 
 export default function ResetPasswordPage() {
@@ -123,7 +124,7 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <div className="w-full max-w-[460px] bg-[var(--surface-lowest)] border border-[var(--surface-border)] rounded-2xl shadow-sm p-8 sm:p-10 relative overflow-hidden transition-all">
+    <div className="w-full max-w-[460px] bg-[var(--surface-lowest)] border border-[var(--surface-border)] rounded-2xl shadow-sm p-6 sm:p-10 relative overflow-hidden transition-all">
       {/* Logo & Headings */}
       <div className="flex flex-col items-center text-center mb-8">
         <Logo size="lg" showText={false} href="/" className="mb-4" />
@@ -211,17 +212,14 @@ export default function ResetPasswordPage() {
                 </span>
               </button>
             </div>
-            {fieldErrors.newPassword ? (
+            {fieldErrors.newPassword && (
               <p className="mt-1.5 text-xs text-rose-500 font-serif flex items-center gap-1">
                 <span className="material-symbols-outlined text-[14px]">error</span>
                 {fieldErrors.newPassword}
               </p>
-            ) : (
-              <div className="flex items-center gap-2 mt-2 text-xs font-serif text-[var(--text-muted)]">
-                <span className="material-symbols-outlined text-[#d4af37] text-[16px]">info</span>
-                <span>Must be at least 8 characters, including both letters and numbers.</span>
-              </div>
             )}
+            {/* Real-time Password Requirements Checklist */}
+            <PasswordRequirementsList password={newPassword} />
           </div>
 
           {/* Field 2: Confirm New Password */}
@@ -272,7 +270,7 @@ export default function ResetPasswordPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-4 bg-[#1a1a1a] dark:bg-[#d4af37] text-white dark:text-[#1a1a1a] hover:bg-[#d4af37] hover:text-white transition-all duration-300 font-display text-xs uppercase tracking-widest font-bold rounded-full shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              className="w-full py-4 bg-[#1a1a1a] dark:bg-[#d4af37] text-white dark:text-[#1a1a1a] hover:bg-[#2a2a2a] dark:hover:bg-[#e0bc42] dark:hover:text-[#1a1a1a] transition-all duration-300 font-display text-xs uppercase tracking-widest font-bold rounded-full shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
               {loading ? (
                 <>

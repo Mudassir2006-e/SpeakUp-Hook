@@ -146,7 +146,7 @@ function VerifyContent() {
   };
 
   return (
-    <div className="w-full max-w-[460px] bg-[var(--surface-lowest)] border border-[var(--surface-border)] rounded-2xl shadow-sm p-8 sm:p-10 relative overflow-hidden transition-all">
+    <div className="w-full max-w-[460px] bg-[var(--surface-lowest)] border border-[var(--surface-border)] rounded-2xl shadow-sm p-6 sm:p-10 relative overflow-hidden transition-all">
       {/* Top Logo & Headings */}
       <div className="flex flex-col items-center text-center mb-8">
         <Logo size="lg" showText={false} href="/" className="mb-4" />
@@ -171,7 +171,7 @@ function VerifyContent() {
           )}
 
           {/* OTP 6-Digit Container */}
-          <div className="flex justify-center gap-2 sm:gap-3" onPaste={handlePaste}>
+          <div className="flex justify-center gap-1.5 sm:gap-3" onPaste={handlePaste}>
             {otp.map((digit, idx) => (
               <input
                 key={idx}
@@ -184,9 +184,10 @@ function VerifyContent() {
                 maxLength={1}
                 value={digit}
                 autoFocus={idx === 0}
+                aria-label={`Verification code digit ${idx + 1}`}
                 onChange={(e) => handleOtpChange(e.target.value, idx)}
                 onKeyDown={(e) => handleKeyDown(e, idx)}
-                className="w-11 h-13 sm:w-13 sm:h-14 text-center font-display text-xl sm:text-2xl font-bold rounded-xl border border-[var(--surface-border)] bg-[var(--surface-lowest)] text-[var(--text-main)] focus:outline-none focus:border-[#d4af37] focus:ring-2 focus:ring-[#d4af37]/30 transition-all"
+                className="w-10 h-12 sm:w-13 sm:h-14 text-center font-display text-lg sm:text-2xl font-bold rounded-xl border border-[var(--surface-border)] bg-[var(--surface-lowest)] text-[var(--text-main)] focus:outline-none focus:border-[#d4af37] focus:ring-2 focus:ring-[#d4af37]/30 transition-all"
               />
             ))}
           </div>
@@ -216,7 +217,7 @@ function VerifyContent() {
             <button
               type="submit"
               disabled={loading || otp.join("").length < 6}
-              className="w-full py-4 bg-[#1a1a1a] dark:bg-[#d4af37] text-white dark:text-[#1a1a1a] hover:bg-[#d4af37] hover:text-white transition-all duration-300 font-display text-xs uppercase tracking-widest font-bold rounded-full shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              className="w-full py-4 bg-[#1a1a1a] dark:bg-[#d4af37] text-white dark:text-[#1a1a1a] hover:bg-[#2a2a2a] dark:hover:bg-[#e0bc42] dark:hover:text-[#1a1a1a] transition-all duration-300 font-display text-xs uppercase tracking-widest font-bold rounded-full shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
               {loading ? (
                 <>

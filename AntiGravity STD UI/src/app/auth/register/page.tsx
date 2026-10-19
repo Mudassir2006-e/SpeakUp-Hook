@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import Logo from "@/components/Logo";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -11,11 +10,12 @@ import {
   validatePassword,
   validatePhone,
 } from "@/lib/validation";
+import PasswordRequirementsList from "@/components/PasswordRequirementsList";
+import CountryPhoneInput from "@/components/CountryPhoneInput";
 import { getUnifiedCourses } from "@/config/unifiedCourses";
 import { setPublicRegistrationActiveAction } from "@/app/auth/register-actions";
 
 export default function RegisterPage() {
-  const router = useRouter();
   const [profileType, setProfileType] = useState<"student" | "professional">("student");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -110,26 +110,33 @@ export default function RegisterPage() {
         },
       });
 
-      if (error && !error.message.toLowerCase().includes("already registered")) {
+      if (error) {
         setErrorMessage(error.message);
         setLoading(false);
         return;
       }
 
-      // Initialize the student profile with 'active' account status on the server
-      if (data?.user?.id) {
-        try {
-          await setPublicRegistrationActiveAction({
-            userId: data.user.id,
-            email: email.trim(),
-            fullName: `${firstName} ${lastName}`.trim() || "Registered Scholar",
-            phone: `${countryCode} ${phone}`.trim(),
-            courseInterest: courseName,
-            receiptTid: receiptTid.trim(),
-          });
-        } catch (serverErr) {
-          console.warn("Public registration active status sync notice:", serverErr);
+      if (!data?.user?.id) {
+        setErrorMessage("Registration could not be completed. Please check your details and try again.");
+        setLoading(false);
+        return;
+      }
+
+      // Initialize the student profile with 'active' account status and dispatch welcome email on the server
+      try {
+        const syncRes = await setPublicRegistrationActiveAction({
+          userId: data.user.id,
+          email: email.trim(),
+          fullName: `${firstName} ${lastName}`.trim() || "Registered Scholar",
+          phone: `${countryCode} ${phone}`.trim(),
+          courseInterest: courseName,
+          receiptTid: receiptTid.trim(),
+        });
+        if (!syncRes.success) {
+          console.warn("Public registration status notice:", syncRes.error);
         }
+      } catch (serverErr) {
+        console.warn("Public registration status sync notice:", serverErr);
       }
 
       setLoading(false);
@@ -140,22 +147,18 @@ export default function RegisterPage() {
         course: courseName,
         receiptTid: receiptTid,
       });
-    } catch {
+    } catch (err: any) {
       setLoading(false);
-      setSubmittedData({
-        fullName: `${firstName} ${lastName}`.trim() || "Registered Scholar",
-        email: email,
-        phone: `${countryCode} ${phone}`,
-        course: courseName,
-        receiptTid: receiptTid,
-      });
+      setErrorMessage(
+        err?.message || "An unexpected error occurred during registration. Please check your network and try again."
+      );
     }
   };
 
   if (submittedData) {
     return (
       <div className="fixed inset-0 z-50 bg-[var(--bg-main)] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
-        <div className="w-full max-w-[500px] bg-[var(--surface-lowest)] border border-[var(--surface-border)] rounded-2xl shadow-xl p-8 sm:p-10 text-center relative animate-in fade-in zoom-in-95 duration-200 my-auto">
+        <div className="w-full max-w-[500px] bg-[var(--surface-lowest)] border border-[var(--surface-border)] rounded-2xl shadow-xl p-6 sm:p-10 text-center relative animate-in fade-in zoom-in-95 duration-200 my-auto">
           <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 flex items-center justify-center mx-auto mb-6">
             <span className="material-symbols-outlined text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>
               check_circle
@@ -163,10 +166,10 @@ export default function RegisterPage() {
           </div>
 
           <h2 className="font-display text-2xl sm:text-3xl font-bold text-[var(--text-main)] mb-2 tracking-tight">
-            Account Created Successfully
+            Registration Submitted Successfully
           </h2>
           <p className="font-serif text-sm text-[var(--text-muted)] mb-6 leading-relaxed">
-            Your student account has been created. Course access requires separate course-by-course administrative approval.
+            Your student account registration has been received and is pending administrative review.
           </p>
 
           {/* Dynamic Submitted Information */}
@@ -193,9 +196,9 @@ export default function RegisterPage() {
             </div>
             <div className="flex justify-between items-center pt-1">
               <span className="text-[var(--text-muted)] font-display uppercase tracking-wider text-[11px] font-semibold">Account Status</span>
-              <span className="inline-flex items-center gap-1.5 font-display text-[11px] uppercase tracking-wider font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/30 shadow-2xs">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                <span>Account Active</span>
+              <span className="inline-flex items-center gap-1.5 font-display text-[11px] uppercase tracking-wider font-bold text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/30 shadow-2xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                <span>Pending Administrative Review</span>
               </span>
             </div>
           </div>
@@ -207,7 +210,7 @@ export default function RegisterPage() {
               <span>Next Step:</span>
             </h4>
             <p className="font-serif text-xs text-[var(--text-muted)] leading-relaxed">
-              Sign in to your SpeakUp LMS account below. From your dashboard, you can view your courses and submit an enrollment request for your registered course. An administrator will review your course request before materials are unlocked.
+              Your registration and payment receipt have been forwarded to SpeakUp administration for verification. Once approved, you will receive an email confirmation and can sign in to access your course materials.
             </p>
           </div>
 
@@ -215,7 +218,7 @@ export default function RegisterPage() {
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
               href="/auth/login"
-              className="flex-1 bg-[#1a1a1a] dark:bg-[#d4af37] text-white dark:text-[#1a1a1a] hover:bg-[#d4af37] hover:text-white transition-all duration-300 font-display text-xs uppercase tracking-widest font-bold py-3.5 px-6 rounded-full shadow-xs text-center"
+              className="flex-1 bg-[#1a1a1a] dark:bg-[#d4af37] text-white dark:text-[#1a1a1a] hover:bg-[#2a2a2a] dark:hover:bg-[#e0bc42] dark:hover:text-[#1a1a1a] transition-all duration-300 font-display text-xs uppercase tracking-widest font-bold py-3.5 px-6 rounded-full shadow-xs text-center"
             >
               Sign In
             </Link>
@@ -232,7 +235,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="w-full max-w-[540px] bg-[var(--surface-lowest)] border border-[var(--surface-border)] rounded-2xl shadow-sm p-8 sm:p-10 relative overflow-hidden transition-all mt-2 mb-8">
+    <div className="w-full max-w-[540px] bg-[var(--surface-lowest)] border border-[var(--surface-border)] rounded-2xl shadow-sm p-6 sm:p-10 relative overflow-hidden transition-all mt-2 mb-8">
       {/* Top Logo & Headings */}
       <div className="flex flex-col items-center text-center mb-8">
         <Logo size="lg" showText={false} href="/" className="mb-4" />
@@ -423,42 +426,21 @@ export default function RegisterPage() {
               Phone Number *
             </label>
           </div>
-          <div className={`flex border bg-[var(--surface-lowest)] rounded-xl overflow-hidden ${
-            fieldErrors.phone ? "border-rose-500" : "border-[var(--surface-border)] focus-within:border-[#d4af37]"
-          }`}>
-            <select
-              aria-label="Country Code"
-              value={countryCode}
-              onChange={(e) => setCountryCode(e.target.value)}
-              className="bg-[var(--surface-low)] px-3 py-3 border-r border-[var(--surface-border)] text-[var(--text-main)] font-serif text-sm focus:outline-none cursor-pointer"
-            >
-              <option value="+92">PK (+92)</option>
-              <option value="+1">US (+1)</option>
-              <option value="+44">UK (+44)</option>
-              <option value="+971">UAE (+971)</option>
-              <option value="+966">SA (+966)</option>
-            </select>
-            <input
-              id="reg-phone"
-              required
-              type="tel"
-              placeholder="300 1234567"
-              value={phone}
-              onChange={(e) => {
-                setPhone(e.target.value);
-                if (fieldErrors.phone) setFieldErrors((prev) => ({ ...prev, phone: "" }));
-              }}
-              className="w-full p-3.5 font-serif text-base bg-transparent text-[var(--text-main)] border-none focus:outline-none"
-            />
-          </div>
-          {fieldErrors.phone ? (
+          <CountryPhoneInput
+            id="reg-phone"
+            phone={phone}
+            countryCode={countryCode}
+            onChangePhone={(val) => {
+              setPhone(val);
+              if (fieldErrors.phone) setFieldErrors((prev) => ({ ...prev, phone: "" }));
+            }}
+            onChangeCountryCode={(code) => setCountryCode(code)}
+            error={fieldErrors.phone}
+          />
+          {fieldErrors.phone && (
             <p className="mt-1.5 text-xs text-rose-500 font-serif flex items-center gap-1">
               <span className="material-symbols-outlined text-[14px]">error</span>
               {fieldErrors.phone}
-            </p>
-          ) : (
-            <p className="mt-1 text-[11px] font-serif text-[var(--text-muted)]">
-              For Pakistan (+92), enter mobile number (e.g. 0300 1234567 or 300 1234567).
             </p>
           )}
         </div>
@@ -557,16 +539,14 @@ export default function RegisterPage() {
               </span>
             </button>
           </div>
-          {fieldErrors.password ? (
+          {fieldErrors.password && (
             <p className="mt-1.5 text-xs text-rose-500 font-serif flex items-center gap-1">
               <span className="material-symbols-outlined text-[14px]">error</span>
               {fieldErrors.password}
             </p>
-          ) : (
-            <p className="mt-1.5 text-xs font-serif text-[var(--text-muted)]">
-              Must be at least 8 characters, including both letters and numbers.
-            </p>
           )}
+          {/* Real-time Password Requirements Checklist */}
+          <PasswordRequirementsList password={password} />
         </div>
 
         {/* Confirm Password */}
@@ -651,7 +631,7 @@ export default function RegisterPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-4 bg-[#1a1a1a] dark:bg-[#d4af37] text-white dark:text-[#1a1a1a] hover:bg-[#d4af37] hover:text-white transition-all duration-300 font-display text-xs uppercase tracking-widest font-bold rounded-full shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            className="w-full py-4 bg-[#1a1a1a] dark:bg-[#d4af37] text-white dark:text-[#1a1a1a] hover:bg-[#2a2a2a] dark:hover:bg-[#e0bc42] dark:hover:text-[#1a1a1a] transition-all duration-300 font-display text-xs uppercase tracking-widest font-bold rounded-full shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
           >
             {loading ? (
               <>

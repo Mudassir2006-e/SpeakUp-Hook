@@ -17,7 +17,7 @@ export default function AdminLayout({
       {/* Automatic Inactivity Watcher (2 continuous minutes timeout) */}
       <AdminInactivityWatcher />
 
-      <div className="min-h-screen flex bg-[#fdfbf7] dark:bg-[var(--bg-main)] text-[var(--text-main)] font-serif antialiased">
+      <div className="min-h-screen flex bg-[var(--bg-main)] text-[var(--text-main)] font-serif antialiased">
         {/* Dedicated Admin Sidebar */}
         <AdminSidebar adminEmail={adminEmail} />
 

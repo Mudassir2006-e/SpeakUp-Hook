@@ -4,7 +4,6 @@ import React, { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import AdminHeader from "@/components/admin/AdminHeader";
-import { createClient } from "@/lib/supabase/client";
 import {
   approveCourseEnrollment,
   rejectCourseEnrollment,

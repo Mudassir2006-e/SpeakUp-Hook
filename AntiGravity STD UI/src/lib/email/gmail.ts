@@ -5,6 +5,42 @@
  */
 
 import { createClient, createAdminClient } from "@/lib/supabase/server";
+import crypto from "crypto";
+import { getHmacSecret } from "@/lib/auth/adminVerificationCore";
+
+/**
+ * Encrypts a sensitive credential using AES-256-GCM keyed by the server's authoritative secret.
+ */
+function encryptToken(plainText: string): string {
+  try {
+    const iv = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv("aes-256-gcm", getHmacSecret(), iv);
+    const enc = Buffer.concat([cipher.update(plainText, "utf-8"), cipher.final()]);
+    const authTag = cipher.getAuthTag();
+    return `enc:${iv.toString("hex")}:${authTag.toString("hex")}:${enc.toString("hex")}`;
+  } catch {
+    return plainText;
+  }
+}
+
+/**
+ * Decrypts a sensitive credential encrypted via AES-256-GCM.
+ */
+function decryptToken(cipherText: string): string {
+  try {
+    if (!cipherText || !cipherText.startsWith("enc:")) return cipherText || "";
+    const parts = cipherText.split(":");
+    if (parts.length !== 4) return cipherText;
+    const iv = Buffer.from(parts[1], "hex");
+    const authTag = Buffer.from(parts[2], "hex");
+    const enc = Buffer.from(parts[3], "hex");
+    const decipher = crypto.createDecipheriv("aes-256-gcm", getHmacSecret(), iv);
+    decipher.setAuthTag(authTag);
+    return decipher.update(enc) + decipher.final("utf-8");
+  } catch {
+    return "";
+  }
+}
 
 export interface ConnectedGmailAccount {
   connected: boolean;
@@ -22,11 +58,36 @@ async function getSupabase(): Promise<any> {
 }
 
 /**
+ * Strips accidental wrapping quotes or leading/trailing whitespace from environment values.
+ */
+function cleanEnvVal(val?: string): string {
+  if (!val) return "";
+  let trimmed = val.trim();
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    trimmed = trimmed.slice(1, -1).trim();
+  }
+  return trimmed;
+}
+
+/**
  * Returns Google OAuth application configuration from environment variables.
+ * Supports primary GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET, as well as
+ * common server aliases (GMAIL_CLIENT_ID, GOOGLE_OAUTH_CLIENT_ID).
  */
 export function getGoogleOAuthConfig() {
-  const clientId = process.env.GOOGLE_CLIENT_ID || "";
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET || "";
+  const clientId = cleanEnvVal(
+    process.env.GOOGLE_CLIENT_ID ||
+      process.env.GMAIL_CLIENT_ID ||
+      process.env.GOOGLE_OAUTH_CLIENT_ID
+  );
+  const clientSecret = cleanEnvVal(
+    process.env.GOOGLE_CLIENT_SECRET ||
+      process.env.GMAIL_CLIENT_SECRET ||
+      process.env.GOOGLE_OAUTH_CLIENT_SECRET
+  );
   const isConfigured = Boolean(clientId && clientSecret);
   return { clientId, clientSecret, isConfigured };
 }
@@ -34,7 +95,7 @@ export function getGoogleOAuthConfig() {
 /**
  * Generates the Google OAuth authorization URL for connecting a Gmail account.
  */
-export function generateGoogleOAuthUrl(originUrl?: string): { url?: string; error?: string } {
+export function generateGoogleOAuthUrl(originUrl?: string, stateParam?: string): { url?: string; error?: string } {
   const { clientId, isConfigured } = getGoogleOAuthConfig();
   if (!isConfigured) {
     return {
@@ -53,7 +114,7 @@ export function generateGoogleOAuthUrl(originUrl?: string): { url?: string; erro
     scope: "openid email https://www.googleapis.com/auth/gmail.send",
     access_type: "offline",
     prompt: "consent",
-    state: "connect_gmail",
+    state: stateParam || "connect_gmail",
   });
 
   return { url: `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}` };
@@ -63,6 +124,41 @@ export function generateGoogleOAuthUrl(originUrl?: string): { url?: string; erro
  * Retrieves connected Gmail account details from cms_content.
  */
 export async function getConnectedGmailAccount(): Promise<ConnectedGmailAccount> {
+  // 1. Check environment variable (highest priority for static deployments)
+  if (process.env.GMAIL_SENDER_EMAIL && process.env.GMAIL_REFRESH_TOKEN) {
+    return {
+      connected: true,
+      email: process.env.GMAIL_SENDER_EMAIL,
+      connectedAt: null,
+      hasRefreshToken: true,
+    };
+  }
+
+  // 2. Check Supabase Auth app_metadata (persistent, serverless-safe, multi-instance)
+  try {
+    const adminClient = createAdminClient();
+    const { data: usersData } = await adminClient.auth.admin.listUsers();
+    const userWithGmail =
+      usersData?.users?.find(
+        (u) => (u.app_metadata as any)?.portal_gmail?.has_refresh_token
+      ) ||
+      usersData?.users?.find(
+        (u) => (u.app_metadata as any)?.portal_gmail?.email
+      );
+    const portalGmail = (userWithGmail?.app_metadata as any)?.portal_gmail;
+    if (portalGmail && portalGmail.email && portalGmail.has_refresh_token) {
+      return {
+        connected: true,
+        email: portalGmail.email,
+        connectedAt: portalGmail.connected_at || null,
+        hasRefreshToken: true,
+      };
+    }
+  } catch (metaErr) {
+    console.warn("[Gmail Storage] Non-blocking notice reading admin app_metadata:", metaErr);
+  }
+
+  // 3. Fallback: check cms_content & portal_email_credentials (legacy storage)
   try {
     const supabase = await getSupabase();
     const { data: record } = await supabase
@@ -74,21 +170,30 @@ export async function getConnectedGmailAccount(): Promise<ConnectedGmailAccount>
     const config = (record?.published_data as any) || (record?.draft_data as any) || {};
     const gmail = config.connected_gmail;
 
-    if (gmail && gmail.email && (gmail.refresh_token || process.env.GMAIL_REFRESH_TOKEN)) {
+    let hasRefreshToken = Boolean(process.env.GMAIL_REFRESH_TOKEN);
+    if (!hasRefreshToken && (gmail?.has_refresh_token || gmail?.refresh_token)) {
+      hasRefreshToken = true;
+    }
+
+    if (!hasRefreshToken) {
+      try {
+        const adminClient = createAdminClient();
+        const { data: cred } = await (adminClient as any)
+          .from("portal_email_credentials")
+          .select("credential_value")
+          .eq("credential_key", "gmail_refresh_token")
+          .maybeSingle();
+        if (cred?.credential_value) {
+          hasRefreshToken = true;
+        }
+      } catch {}
+    }
+
+    if (gmail && gmail.email && hasRefreshToken) {
       return {
         connected: true,
         email: gmail.email,
         connectedAt: gmail.connected_at || null,
-        hasRefreshToken: Boolean(gmail.refresh_token || process.env.GMAIL_REFRESH_TOKEN),
-      };
-    }
-
-    // Check environment fallback
-    if (process.env.GMAIL_SENDER_EMAIL && process.env.GMAIL_REFRESH_TOKEN) {
-      return {
-        connected: true,
-        email: process.env.GMAIL_SENDER_EMAIL,
-        connectedAt: null,
         hasRefreshToken: true,
       };
     }
@@ -105,58 +210,129 @@ export async function getConnectedGmailAccount(): Promise<ConnectedGmailAccount>
 }
 
 /**
- * Stores OAuth tokens and authorized email in cms_content under portal_email.
+ * Stores authorized email and connection metadata in cms_content under portal_email,
+ * and securely persists the refresh token in dedicated server-only private storage.
+ * Under no circumstances are tokens written to public CMS data or exposed in client responses.
  */
 export async function saveConnectedGmailAccount(params: {
   email: string;
   accessToken?: string;
   refreshToken: string;
   expiresIn?: number;
+  adminUserId?: string;
 }): Promise<boolean> {
   try {
-    const supabase = await getSupabase();
     const now = new Date();
-    const tokenExpiry = params.expiresIn ? Date.now() + params.expiresIn * 1000 : undefined;
+    const effectiveRefreshToken = params.refreshToken || process.env.GMAIL_REFRESH_TOKEN || "";
 
-    const { data: existing } = await supabase
-      .from("cms_content")
-      .select("id, published_data, draft_data")
-      .eq("page_key", "portal_email")
-      .maybeSingle();
+    // 1. Immediately update in-memory process environment
+    if (effectiveRefreshToken) {
+      process.env.GMAIL_REFRESH_TOKEN = effectiveRefreshToken;
+    }
+    if (params.email) {
+      process.env.GMAIL_SENDER_EMAIL = params.email;
+    }
 
-    const prev = (existing?.published_data as any) || {};
+    // 2. Durably and securely persist in Supabase auth.users app_metadata (serverless-safe, encrypted at rest)
+    try {
+      const adminClient = createAdminClient();
+      let targetUser = null;
+      if (params.adminUserId) {
+        const { data: userData } = await adminClient.auth.admin.getUserById(params.adminUserId);
+        targetUser = userData?.user;
+      }
+      if (!targetUser) {
+        const { data: usersData } = await adminClient.auth.admin.listUsers();
+        targetUser =
+          usersData?.users?.find(
+            (u) =>
+              u.app_metadata?.role === "admin" ||
+              u.email?.toLowerCase().includes("admin") ||
+              u.email?.toLowerCase() === params.email.toLowerCase() ||
+              u.email?.toLowerCase() === "mudassir.ali2710@gmail.com"
+          ) || usersData?.users?.[0];
+      }
 
-    const updatedData = {
-      ...prev,
-      connected_gmail: {
-        email: params.email,
-        access_token: params.accessToken || null,
-        refresh_token: params.refreshToken,
-        token_expiry: tokenExpiry,
-        connected_at: now.toISOString(),
-      },
-      updated_at: now.toISOString(),
-    };
+      if (targetUser) {
+        const prevPortal = (targetUser.app_metadata?.portal_gmail as any) || {};
+        const encrypted = effectiveRefreshToken
+          ? encryptToken(effectiveRefreshToken)
+          : prevPortal.encrypted_refresh_token;
 
-    if (existing?.id) {
-      await supabase
+        await adminClient.auth.admin.updateUserById(targetUser.id, {
+          app_metadata: {
+            ...targetUser.app_metadata,
+            portal_gmail: {
+              email: params.email,
+              encrypted_refresh_token: encrypted,
+              connected_at: now.toISOString(),
+              has_refresh_token: Boolean(effectiveRefreshToken || encrypted),
+            },
+          },
+        });
+      }
+    } catch (metaErr) {
+      console.warn("[Gmail Storage] Notice: Unable to persist to admin app_metadata:", metaErr);
+    }
+
+    // 3. Durably save secret refresh token to dedicated server-only table if available
+    try {
+      const adminClient = createAdminClient();
+      await (adminClient as any).from("portal_email_credentials").upsert(
+        {
+          credential_key: "gmail_refresh_token",
+          credential_value: effectiveRefreshToken,
+          updated_at: now.toISOString(),
+        },
+        { onConflict: "credential_key" }
+      );
+    } catch {
+      // portal_email_credentials table may not be migrated yet
+    }
+
+    // 4. Save sanitized, non-secret metadata to cms_content if table is writable
+    try {
+      const supabase = await getSupabase();
+      const { data: existing } = await supabase
         .from("cms_content")
-        .update({
+        .select("id, published_data, draft_data")
+        .eq("page_key", "portal_email")
+        .maybeSingle();
+
+      const prev = (existing?.published_data as any) || {};
+      const updatedData = {
+        ...prev,
+        connected_gmail: {
+          email: params.email,
+          connected_at: now.toISOString(),
+          has_refresh_token: Boolean(effectiveRefreshToken),
+        },
+        selected_provider: "gmail",
+        updated_at: now.toISOString(),
+      };
+
+      if (existing?.id) {
+        await supabase
+          .from("cms_content")
+          .update({
+            published_data: updatedData,
+            draft_data: updatedData,
+            updated_at: now.toISOString(),
+          } as any)
+          .eq("id", existing.id);
+      } else {
+        await supabase.from("cms_content").insert({
+          page_key: "portal_email",
+          title: "Portal Email Configuration",
           published_data: updatedData,
           draft_data: updatedData,
+          version: 1,
+          created_at: now.toISOString(),
           updated_at: now.toISOString(),
-        } as any)
-        .eq("id", existing.id);
-    } else {
-      await supabase.from("cms_content").insert({
-        page_key: "portal_email",
-        title: "Portal Email Configuration",
-        published_data: updatedData,
-        draft_data: updatedData,
-        version: 1,
-        created_at: now.toISOString(),
-        updated_at: now.toISOString(),
-      } as any);
+        } as any);
+      }
+    } catch {
+      // Non-blocking fallback if cms_content has restrictive permissions
     }
 
     return true;
@@ -171,33 +347,62 @@ export async function saveConnectedGmailAccount(params: {
  */
 export async function disconnectGmailAccount(): Promise<boolean> {
   try {
-    const supabase = await getSupabase();
     const now = new Date();
 
-    const { data: existing } = await supabase
-      .from("cms_content")
-      .select("id, published_data")
-      .eq("page_key", "portal_email")
-      .maybeSingle();
+    // 1. Clear in-memory environment variables
+    delete process.env.GMAIL_REFRESH_TOKEN;
+    delete process.env.GMAIL_SENDER_EMAIL;
 
-    if (existing?.id) {
-      const prev = (existing.published_data as any) || {};
-      const updatedData = {
-        ...prev,
-        connected_gmail: null,
-        selected_provider: "resend",
-        updated_at: now.toISOString(),
-      };
+    // 2. Clear from Supabase auth.users app_metadata
+    try {
+      const adminClient = createAdminClient();
+      const { data: usersData } = await adminClient.auth.admin.listUsers();
+      for (const u of usersData?.users || []) {
+        if ((u.app_metadata as any)?.portal_gmail) {
+          const newMeta = { ...u.app_metadata };
+          delete (newMeta as any).portal_gmail;
+          await adminClient.auth.admin.updateUserById(u.id, { app_metadata: newMeta });
+        }
+      }
+    } catch {}
 
-      await supabase
+    // 3. Remove from legacy cms_content and dedicated credentials if writable
+    try {
+      const supabase = await getSupabase();
+      const { data: existing } = await supabase
         .from("cms_content")
-        .update({
-          published_data: updatedData,
-          draft_data: updatedData,
+        .select("id, published_data")
+        .eq("page_key", "portal_email")
+        .maybeSingle();
+
+      if (existing?.id) {
+        const prev = (existing.published_data as any) || {};
+        const updatedData = {
+          ...prev,
+          connected_gmail: null,
+          selected_provider: "resend",
           updated_at: now.toISOString(),
-        } as any)
-        .eq("id", existing.id);
-    }
+        };
+
+        await supabase
+          .from("cms_content")
+          .update({
+            published_data: updatedData,
+            draft_data: updatedData,
+            updated_at: now.toISOString(),
+          } as any)
+          .eq("id", existing.id);
+      }
+    } catch {}
+
+    try {
+      const adminClient = createAdminClient();
+      await (adminClient as any)
+        .from("portal_email_credentials")
+        .delete()
+        .eq("credential_key", "gmail_refresh_token");
+    } catch {}
+
     return true;
   } catch (err) {
     console.error("Failed to disconnect Gmail account:", err);
@@ -211,23 +416,57 @@ export async function disconnectGmailAccount(): Promise<boolean> {
 async function getFreshGmailAccessToken(): Promise<{ token?: string; error?: string }> {
   const { clientId, clientSecret } = getGoogleOAuthConfig();
 
-  // Retrieve refresh token from cms_content or environment
+  // 1. Retrieve refresh token from server environment variable (highest security / static env)
   let refreshToken = process.env.GMAIL_REFRESH_TOKEN || "";
-  try {
-    const supabase = await getSupabase();
-    const { data: record } = await supabase
-      .from("cms_content")
-      .select("published_data")
-      .eq("page_key", "portal_email")
-      .maybeSingle();
-    const config = (record?.published_data as any) || {};
-    if (config.connected_gmail?.refresh_token) {
-      refreshToken = config.connected_gmail.refresh_token;
-    }
-  } catch {}
+
+  // 2. Retrieve from Supabase auth.users app_metadata (persistent, decrypted at rest)
+  if (!refreshToken) {
+    try {
+      const adminClient = createAdminClient();
+      const { data: usersData } = await adminClient.auth.admin.listUsers();
+      const adminUser = usersData?.users?.find(
+        (u) => (u.app_metadata as any)?.portal_gmail?.encrypted_refresh_token
+      );
+      const encToken = (adminUser?.app_metadata as any)?.portal_gmail?.encrypted_refresh_token;
+      if (encToken) {
+        refreshToken = decryptToken(encToken);
+      }
+    } catch {}
+  }
+
+  // 3. Retrieve from dedicated private table (portal_email_credentials)
+  if (!refreshToken) {
+    try {
+      const adminClient = createAdminClient();
+      const { data: cred } = await (adminClient as any)
+        .from("portal_email_credentials")
+        .select("credential_value")
+        .eq("credential_key", "gmail_refresh_token")
+        .maybeSingle();
+      if (cred?.credential_value) {
+        refreshToken = cred.credential_value;
+      }
+    } catch {}
+  }
+
+  // 4. Read-only legacy fallback: check legacy cms_content record before migration cleanup
+  if (!refreshToken) {
+    try {
+      const supabase = await getSupabase();
+      const { data: record } = await supabase
+        .from("cms_content")
+        .select("published_data")
+        .eq("page_key", "portal_email")
+        .maybeSingle();
+      const config = (record?.published_data as any) || {};
+      if (config.connected_gmail?.refresh_token) {
+        refreshToken = config.connected_gmail.refresh_token;
+      }
+    } catch {}
+  }
 
   if (!refreshToken) {
-    return { error: "No Gmail refresh token is available. Please connect Gmail in Portal Email." };
+    return { error: "No Gmail refresh token is available. Please connect Gmail in Portal Email or configure GMAIL_REFRESH_TOKEN." };
   }
 
   if (!clientId || !clientSecret) {
@@ -248,7 +487,18 @@ async function getFreshGmailAccessToken(): Promise<{ token?: string; error?: str
 
     const data = await res.json();
     if (!res.ok || data.error) {
-      return { error: data.error_description || data.error || "Failed to refresh Google access token." };
+      const errCode = (data.error || "").toString();
+      const errDesc = (data.error_description || "").toString();
+      if (
+        errCode === "invalid_grant" ||
+        errDesc.toLowerCase().includes("revoked") ||
+        errDesc.toLowerCase().includes("expired")
+      ) {
+        return {
+          error: "Google authorization has expired or was revoked. Please reconnect your account at /admin/portal-email.",
+        };
+      }
+      return { error: errDesc || errCode || "Failed to refresh Google access token." };
     }
 
     return { token: data.access_token };
@@ -345,3 +595,47 @@ export async function sendEmailViaGmail(payload: {
     };
   }
 }
+
+/**
+ * Evaluates whether Google OAuth and the connected Gmail account are operational for email dispatch.
+ * Fails closed if OAuth credentials, account connection, or refresh tokens are missing.
+ */
+export async function isGmailOperational(): Promise<{ operational: boolean; email?: string; reason?: string }> {
+  const { clientId, clientSecret, isConfigured } = getGoogleOAuthConfig();
+  if (!isConfigured) {
+    if (!clientId && !clientSecret) {
+      return {
+        operational: false,
+        reason: "Google OAuth credentials (GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET) are not configured in server environment variables.",
+      };
+    } else if (!clientId) {
+      return {
+        operational: false,
+        reason: "GOOGLE_CLIENT_ID is not configured in server environment variables.",
+      };
+    } else {
+      return {
+        operational: false,
+        reason: "GOOGLE_CLIENT_SECRET is not configured in server environment variables.",
+      };
+    }
+  }
+
+  const account = await getConnectedGmailAccount();
+  if (!account.connected || !account.email) {
+    return {
+      operational: false,
+      reason: "No Google Gmail account is connected in Portal Email settings (/admin/portal-email).",
+    };
+  }
+
+  if (!account.hasRefreshToken) {
+    return {
+      operational: false,
+      reason: "Connected Google Gmail account is missing an OAuth refresh token. Please reconnect the account at /admin/portal-email.",
+    };
+  }
+
+  return { operational: true, email: account.email };
+}
+

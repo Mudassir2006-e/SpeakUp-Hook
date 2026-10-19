@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient, createAdminClient } from "@/lib/supabase/server";
-import { getCurrentUserRole } from "@/lib/auth/roles";
+import { verifyAdminCaller as verifyAdminMfaCaller } from "@/lib/auth/adminVerification";
 import { revalidatePath } from "next/cache";
 import fs from "fs";
 import path from "path";
@@ -49,17 +49,7 @@ function writePublishedStore(store: Record<string, any>) {
  * Validates that the current user has verified administrator privileges.
  */
 async function verifyAdminCaller(): Promise<{ adminId: string } | { error: string }> {
-  try {
-    const { userId, role } = await getCurrentUserRole();
-    if (!userId || role !== "admin") {
-      return { error: "Forbidden: Administrative privileges required." };
-    }
-    return { adminId: userId };
-  } catch {
-    return {
-      error: "Authentication verification failed.",
-    };
-  }
+  return verifyAdminMfaCaller();
 }
 
 async function getSupabase(): Promise<any> {

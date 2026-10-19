@@ -1,0 +1,274 @@
+/**
+ * SpeakUp LMS — Reversible Premium Visual Polish
+ * ==============================================================================
+ * Dedicated, isolated stylesheet providing subtle, realistic, modern depth,
+ * multi-layered ambient shading, refined surface finishes, and typography clarity.
+ *
+ * SCOPE & ACTIVATION:
+ * All rules are strictly scoped under the `.speakup-visual-polish` opt-in class.
+ *
+ * ENABLE:
+ * Add `speakup-visual-polish` to the <body> element in `src/app/layout.tsx`.
+ *
+ * DISABLE / FULL REVERT:
+ * Remove `speakup-visual-polish` from the <body> element in `src/app/layout.tsx`.
+ * When the class is removed, 100% of these enhancements immediately deactivate,
+ * returning the website to its exact previous appearance.
+ * ==============================================================================
+ */
+
+/* -----------------------------------------------------------------------------
+ * 1. TYPOGRAPHY RENDERING & SMOOTHING
+ * ----------------------------------------------------------------------------- */
+.speakup-visual-polish {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* -----------------------------------------------------------------------------
+ * 2. SUBTLE AMBIENT LIGHTING & BACKGROUND DEPTH
+ * Refined micro-ambient depth that preserves the warm cream/obsidian palette
+ * ----------------------------------------------------------------------------- */
+body.speakup-visual-polish {
+  background-image: radial-gradient(
+    ellipse 90% 45% at 50% -10%,
+    rgba(212, 175, 55, 0.035) 0%,
+    transparent 70%
+  );
+  background-attachment: fixed;
+}
+
+.dark body.speakup-visual-polish {
+  background-image: radial-gradient(
+    ellipse 90% 45% at 50% -10%,
+    rgba(212, 175, 55, 0.045) 0%,
+    transparent 70%
+  );
+  background-attachment: fixed;
+}
+
+/* -----------------------------------------------------------------------------
+ * 3. REFINED STICKY NAVIGATION BAR
+ * Polished edge definition and subtle backdrop blur separation
+ * ----------------------------------------------------------------------------- */
+.speakup-visual-polish nav.sticky {
+  box-shadow:
+    0 1px 0 var(--surface-border),
+    0 6px 20px -4px rgba(26, 26, 26, 0.035);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.speakup-visual-polish.dark nav.sticky,
+.speakup-visual-polish .dark nav.sticky,
+.dark .speakup-visual-polish nav.sticky {
+  box-shadow:
+    0 1px 0 var(--surface-border),
+    0 8px 30px -4px rgba(0, 0, 0, 0.55);
+}
+
+/* -----------------------------------------------------------------------------
+ * 4. NATURAL DEPTH & LAYERED SHADING ON CARDS AND SURFACES
+ * Restrained layered shadows with hairline top edge highlights for realism
+ * ----------------------------------------------------------------------------- */
+
+/* Standard content cards and panels */
+.speakup-visual-polish .rounded-2xl.border,
+.speakup-visual-polish .rounded-2xl.border-2,
+.speakup-visual-polish .rounded-xl.border,
+.speakup-visual-polish .rounded-xl.border-2,
+.speakup-visual-polish div[class*="bg-[var(--surface-lowest)]"].border,
+.speakup-visual-polish div[class*="bg-[var(--surface-lowest)]"].border-2,
+.speakup-visual-polish div[class*="bg-[var(--surface-low)]"].border,
+.speakup-visual-polish div[class*="bg-[var(--surface-low)]"].border-2 {
+  box-shadow:
+    0 1px 2px 0 rgba(26, 26, 26, 0.03),
+    0 4px 16px -2px rgba(26, 26, 26, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  transition:
+    box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Dark theme card refinement */
+.speakup-visual-polish.dark .rounded-2xl.border,
+.speakup-visual-polish .dark .rounded-2xl.border,
+.dark .speakup-visual-polish .rounded-2xl.border,
+.speakup-visual-polish.dark .rounded-2xl.border-2,
+.speakup-visual-polish .dark .rounded-2xl.border-2,
+.dark .speakup-visual-polish .rounded-2xl.border-2,
+.speakup-visual-polish.dark .rounded-xl.border,
+.speakup-visual-polish .dark .rounded-xl.border,
+.dark .speakup-visual-polish .rounded-xl.border,
+.speakup-visual-polish.dark .rounded-xl.border-2,
+.speakup-visual-polish .dark .rounded-xl.border-2,
+.dark .speakup-visual-polish .rounded-xl.border-2,
+.speakup-visual-polish.dark div[class*="bg-[var(--surface-lowest)]"].border,
+.speakup-visual-polish .dark div[class*="bg-[var(--surface-lowest)]"].border,
+.dark .speakup-visual-polish div[class*="bg-[var(--surface-lowest)]"].border,
+.speakup-visual-polish.dark div[class*="bg-[var(--surface-lowest)]"].border-2,
+.speakup-visual-polish .dark div[class*="bg-[var(--surface-lowest)]"].border-2,
+.dark .speakup-visual-polish div[class*="bg-[var(--surface-lowest)]"].border-2,
+.speakup-visual-polish.dark div[class*="bg-[var(--surface-low)]"].border,
+.speakup-visual-polish .dark div[class*="bg-[var(--surface-low)]"].border,
+.dark .speakup-visual-polish div[class*="bg-[var(--surface-low)]"].border,
+.speakup-visual-polish.dark div[class*="bg-[var(--surface-low)]"].border-2,
+.speakup-visual-polish .dark div[class*="bg-[var(--surface-low)]"].border-2,
+.dark .speakup-visual-polish div[class*="bg-[var(--surface-low)]"].border-2 {
+  box-shadow:
+    0 1px 3px 0 rgba(0, 0, 0, 0.35),
+    0 8px 24px -4px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* Subtle micro-elevation on interactive card hover */
+.speakup-visual-polish .rounded-2xl.border.group:hover,
+.speakup-visual-polish .rounded-2xl.border-2.group:hover,
+.speakup-visual-polish .rounded-2xl.border.cursor-pointer:hover,
+.speakup-visual-polish .rounded-2xl.border-2.cursor-pointer:hover,
+.speakup-visual-polish .bento-hover:hover {
+  box-shadow:
+    0 2px 4px 0 rgba(26, 26, 26, 0.04),
+    0 12px 28px -6px rgba(212, 175, 55, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.speakup-visual-polish.dark .rounded-2xl.border.group:hover,
+.speakup-visual-polish .dark .rounded-2xl.border.group:hover,
+.dark .speakup-visual-polish .rounded-2xl.border.group:hover,
+.speakup-visual-polish.dark .rounded-2xl.border-2.group:hover,
+.speakup-visual-polish .dark .rounded-2xl.border-2.group:hover,
+.dark .speakup-visual-polish .rounded-2xl.border-2.group:hover,
+.speakup-visual-polish.dark .rounded-2xl.border.cursor-pointer:hover,
+.speakup-visual-polish .dark .rounded-2xl.border.cursor-pointer:hover,
+.dark .speakup-visual-polish .rounded-2xl.border.cursor-pointer:hover,
+.speakup-visual-polish.dark .rounded-2xl.border-2.cursor-pointer:hover,
+.speakup-visual-polish .dark .rounded-2xl.border-2.cursor-pointer:hover,
+.dark .speakup-visual-polish .rounded-2xl.border-2.cursor-pointer:hover,
+.speakup-visual-polish.dark .bento-hover:hover,
+.speakup-visual-polish .dark .bento-hover:hover,
+.dark .speakup-visual-polish .bento-hover:hover {
+  box-shadow:
+    0 2px 6px 0 rgba(0, 0, 0, 0.45),
+    0 14px 34px -6px rgba(212, 175, 55, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.09);
+}
+
+/* -----------------------------------------------------------------------------
+ * 5. MODALS, OVERLAYS & FLOATING DROPDOWNS
+ * Realistic atmospheric depth separation for high-z-index overlays
+ * ----------------------------------------------------------------------------- */
+.speakup-visual-polish .shadow-2xl {
+  box-shadow:
+    0 0 0 1px var(--surface-border),
+    0 8px 24px -4px rgba(26, 26, 26, 0.08),
+    0 24px 56px -12px rgba(26, 26, 26, 0.12);
+}
+
+.speakup-visual-polish.dark .shadow-2xl,
+.speakup-visual-polish .dark .shadow-2xl,
+.dark .speakup-visual-polish .shadow-2xl {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 16px 40px -6px rgba(0, 0, 0, 0.65),
+    0 32px 72px -12px rgba(0, 0, 0, 0.85),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* Floating menus and dropdowns */
+.speakup-visual-polish .shadow-xl {
+  box-shadow:
+    0 4px 16px -2px rgba(26, 26, 26, 0.06),
+    0 12px 30px -4px rgba(26, 26, 26, 0.09),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.speakup-visual-polish.dark .shadow-xl,
+.speakup-visual-polish .dark .shadow-xl,
+.dark .speakup-visual-polish .shadow-xl {
+  box-shadow:
+    0 4px 16px -2px rgba(0, 0, 0, 0.45),
+    0 16px 36px -4px rgba(0, 0, 0, 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+/* -----------------------------------------------------------------------------
+ * 6. REFINED FORM CONTROLS & INPUT FOCUS FINISHING
+ * Tactile, crisp surface borders without disturbing layout or autofill protection
+ * ----------------------------------------------------------------------------- */
+.speakup-visual-polish input:not([type="checkbox"]):not([type="radio"]),
+.speakup-visual-polish textarea,
+.speakup-visual-polish select {
+  box-shadow: inset 0 1px 2px rgba(26, 26, 26, 0.035);
+  transition:
+    border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 0.2s ease;
+}
+
+.speakup-visual-polish input:not([type="checkbox"]):not([type="radio"]):not(:-webkit-autofill):focus,
+.speakup-visual-polish textarea:not(:-webkit-autofill):focus,
+.speakup-visual-polish select:not(:-webkit-autofill):focus {
+  box-shadow:
+    0 0 0 3px rgba(212, 175, 55, 0.18),
+    inset 0 1px 2px rgba(26, 26, 26, 0.035) !important;
+}
+
+.speakup-visual-polish.dark input:not([type="checkbox"]):not([type="radio"]),
+.speakup-visual-polish .dark input:not([type="checkbox"]):not([type="radio"]),
+.dark .speakup-visual-polish input:not([type="checkbox"]):not([type="radio"]),
+.speakup-visual-polish.dark textarea,
+.speakup-visual-polish .dark textarea,
+.dark .speakup-visual-polish textarea,
+.speakup-visual-polish.dark select,
+.speakup-visual-polish .dark select,
+.dark .speakup-visual-polish select {
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.speakup-visual-polish.dark input:not([type="checkbox"]):not([type="radio"]):not(:-webkit-autofill):focus,
+.speakup-visual-polish .dark input:not([type="checkbox"]):not([type="radio"]):not(:-webkit-autofill):focus,
+.dark .speakup-visual-polish input:not([type="checkbox"]):not([type="radio"]):not(:-webkit-autofill):focus,
+.speakup-visual-polish.dark textarea:not(:-webkit-autofill):focus,
+.speakup-visual-polish .dark textarea:not(:-webkit-autofill):focus,
+.dark .speakup-visual-polish textarea:not(:-webkit-autofill):focus,
+.speakup-visual-polish.dark select:not(:-webkit-autofill):focus,
+.speakup-visual-polish .dark select:not(:-webkit-autofill):focus,
+.dark .speakup-visual-polish select:not(:-webkit-autofill):focus {
+  box-shadow:
+    0 0 0 3px rgba(212, 175, 55, 0.24),
+    inset 0 1px 2px rgba(0, 0, 0, 0.45) !important;
+}
+
+/* -----------------------------------------------------------------------------
+ * 7. BUTTON SURFACE FINISHING & SUBTLE TACTILE DEPTH
+ * Refined micro-shadows on primary & secondary action triggers
+ * ----------------------------------------------------------------------------- */
+.speakup-visual-polish a.rounded-full.font-bold,
+.speakup-visual-polish button.rounded-full.font-bold {
+  transition:
+    transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+/* -----------------------------------------------------------------------------
+ * 8. ACCESSIBILITY & PREFERS-REDUCED-MOTION COMPLIANCE
+ * Zero out all transitions and transforms when user requests reduced motion
+ * ----------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .speakup-visual-polish,
+  .speakup-visual-polish *,
+  .speakup-visual-polish *::before,
+  .speakup-visual-polish *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+    transform: none !important;
+  }
+}

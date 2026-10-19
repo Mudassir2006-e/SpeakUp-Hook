@@ -74,7 +74,7 @@ export default function AdminProfilePage() {
           // Check profiles table first for actual saved profile info
           const { data: profile } = await (supabase as any)
             .from("profiles")
-            .select("full_name, role, avatar_url, phone, status")
+            .select("full_name, role, avatar_url, phone, account_status")
             .eq("id", user.id)
             .maybeSingle();
 
@@ -228,7 +228,6 @@ export default function AdminProfilePage() {
           .update({
             full_name: trimmedName,
             phone: trimmedPhone || null,
-            updated_at: new Date().toISOString()
           })
           .eq("id", userId);
       }

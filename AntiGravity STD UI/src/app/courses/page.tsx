@@ -4,8 +4,6 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import { useCmsContent } from "@/lib/cms/useCmsContent";
-import { getPublicCoursesAction } from "@/app/admin/cms-actions";
-
 import { getUnifiedCourses } from "@/config/unifiedCourses";
 
 interface CourseItem {

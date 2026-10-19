@@ -3,7 +3,7 @@
 import fs from "fs";
 import path from "path";
 import { revalidatePath } from "next/cache";
-import { getCurrentUserRole } from "@/lib/auth/roles";
+import { verifyAdminCaller as verifyAdminMfaCaller } from "@/lib/auth/adminVerification";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 
 export interface MethodologyMediaItem {
@@ -111,12 +111,8 @@ function writeLocalConfig(cfg: MethodologyMediaConfig): void {
 }
 
 async function verifyAdmin(): Promise<boolean> {
-  try {
-    const { userId, role } = await getCurrentUserRole();
-    return Boolean(userId && role === "admin");
-  } catch {
-    return false;
-  }
+  const res = await verifyAdminMfaCaller();
+  return "adminId" in res;
 }
 
 async function getSupabaseClient() {

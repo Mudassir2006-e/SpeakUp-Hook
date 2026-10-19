@@ -46,7 +46,7 @@ export default function MethodologyMediaFrame() {
   };
 
   return (
-    <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl border border-[var(--surface-border)] bg-[var(--surface-low)] group">
+    <div className={`relative w-full aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl border border-[var(--surface-border)] bg-[var(--surface-low)] group ${loading ? "animate-pulse" : ""}`}>
       {/* Background Showcase Image */}
       <img
         src={currentItem.url}

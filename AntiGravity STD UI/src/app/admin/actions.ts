@@ -51,21 +51,13 @@ function sanitizeDbError(error: unknown, fallbackMessage: string): string {
   return fallbackMessage;
 }
 
+import { verifyAdminCaller as verifyAdminMfaCaller } from "@/lib/auth/adminVerification";
+
 /**
- * Validates that the current user has verified administrator privileges.
+ * Validates that the current user has verified administrator privileges and completed MFA email verification.
  */
-async function verifyAdminCaller(): Promise<{ adminId: string } | { error: string }> {
-  try {
-    const { userId, role } = await getCurrentUserRole();
-    if (!userId || role !== "admin") {
-      return { error: "Forbidden: Administrative privileges required." };
-    }
-    return { adminId: userId };
-  } catch {
-    return {
-      error: "Authentication verification failed.",
-    };
-  }
+async function verifyAdminCaller(): Promise<{ adminId: string; adminEmail?: string } | { error: string }> {
+  return verifyAdminMfaCaller();
 }
 
 /**
@@ -1355,7 +1347,7 @@ export async function suspendStudentAccount(studentId: string): Promise<ActionRe
 
     // 3. Attempt update on public.profiles table if accessible
     try {
-      await (adminClient as any).from("profiles").update({ status: "suspended" }).eq("id", studentId);
+      await (adminClient as any).from("profiles").update({ account_status: "suspended" }).eq("id", studentId);
     } catch {
       // Non-blocking database fallback
     }
@@ -1408,7 +1400,7 @@ export async function reactivateStudentAccount(studentId: string): Promise<Actio
 
     // Attempt update on public.profiles table
     try {
-      await (adminClient as any).from("profiles").update({ status: "active" }).eq("id", studentId);
+      await (adminClient as any).from("profiles").update({ account_status: "active" }).eq("id", studentId);
     } catch {
       // Non-blocking database fallback
     }
@@ -1445,7 +1437,7 @@ export async function approveStudentAccountAction(studentId: string): Promise<Ac
     // 1. Update public.profiles table
     const { error: profileError } = await (adminClient as any)
       .from("profiles")
-      .update({ status: "active" })
+      .update({ account_status: "active" })
       .eq("id", studentId);
 
     if (profileError) {
@@ -1517,7 +1509,7 @@ export async function rejectStudentAccountAction(studentId: string): Promise<Act
     // 1. Update public.profiles table
     const { error: profileError } = await (adminClient as any)
       .from("profiles")
-      .update({ status: "rejected" })
+      .update({ account_status: "rejected" })
       .eq("id", studentId);
 
     if (profileError) {
@@ -1582,11 +1574,11 @@ export async function getStudentAccountStatusAdmin(
     try {
       const { data: prof } = await (adminClient as any)
         .from("profiles")
-        .select("status")
+        .select("account_status")
         .eq("id", studentId)
         .maybeSingle();
-      if (prof?.status) {
-        resolvedStatus = prof.status as any;
+      if (prof?.account_status) {
+        resolvedStatus = prof.account_status as any;
       }
     } catch {}
 
@@ -1828,7 +1820,7 @@ export async function getStudentActivityDossier(
 
     // 2. Fetch course enrollments to gather authentic learning history
     let enrollments: any[] = [];
-    let courseMap = new Map<string, string>();
+    const courseMap = new Map<string, string>();
     try {
       let supabase: any;
       try {
@@ -2120,7 +2112,7 @@ export async function updateStudentAvatarAdmin(
     try {
       await (adminClient as any)
         .from("profiles")
-        .update({ avatar_url: avatarUrl, updated_at: new Date().toISOString() })
+        .update({ avatar_url: avatarUrl })
         .eq("id", studentId);
     } catch {
       // Non-blocking
@@ -2210,7 +2202,7 @@ export async function uploadAdminAvatarAction(
     try {
       await (adminClient as any)
         .from("profiles")
-        .update({ avatar_url: publicUrl, updated_at: new Date().toISOString() })
+        .update({ avatar_url: publicUrl })
         .eq("id", authCheck.adminId);
     } catch (dbErr) {
       console.warn("Could not update profiles table:", dbErr);
@@ -2255,7 +2247,7 @@ export async function removeAdminAvatarAction(): Promise<ActionResponse> {
     try {
       await (adminClient as any)
         .from("profiles")
-        .update({ avatar_url: null, updated_at: new Date().toISOString() })
+        .update({ avatar_url: null })
         .eq("id", authCheck.adminId);
     } catch {
       // Non-blocking
@@ -3099,7 +3091,7 @@ export async function getAdminStudentsListAction(): Promise<ActionResponse<Admin
       // 1. Fetch profiles table: explicitly exclude admin accounts
       const { data: profilesRaw } = await adminClient
         .from("profiles")
-        .select("id, email, full_name, phone, role, status, avatar_url, created_at")
+        .select("id, email, full_name, phone, role, account_status, avatar_url, created_at")
         .neq("role", "admin")
         .order("created_at", { ascending: false });
 
@@ -3237,7 +3229,7 @@ export async function getAdminStudentsListAction(): Promise<ActionResponse<Admin
             full_name: p.full_name || null,
             phone: p.phone || null,
             role: p.role || "student",
-            status: p.status || "active",
+            status: p.account_status || "pending",
             avatar_url: p.avatar_url || null,
             created_at: p.created_at || new Date().toISOString(),
             pendingCount: enrInfo.pending,
@@ -3371,13 +3363,13 @@ export async function getAdminDashboardMetricsAction(): Promise<ActionResponse<A
     // 2. Fetch profiles (excluding admin)
     const { data: profiles } = await adminClient
       .from("profiles")
-      .select("id, email, status, role")
+      .select("id, email, account_status, role")
       .neq("role", "admin");
 
     const studentMap = new Map<string, { status: string }>();
     (profiles || []).forEach((p: any) => {
       if (!adminIdSet.has(p.id)) {
-        studentMap.set(p.id, { status: p.status || "active" });
+        studentMap.set(p.id, { status: p.account_status || "pending" });
       }
     });
 
@@ -3815,8 +3807,7 @@ export async function createAdminStudentAction(
           full_name: fullName,
           phone: formattedPhone,
           role: "student",
-          status: "active",
-          updated_at: new Date().toISOString(),
+          account_status: "active",
         },
         { onConflict: "id" }
       );
@@ -3867,7 +3858,7 @@ export async function sendStudentPasswordResetAction(
     // Fetch student profile
     const { data: profile, error: profileErr } = await (adminClient as any)
       .from("profiles")
-      .select("id, email, full_name, status")
+      .select("id, email, full_name, account_status")
       .eq("id", studentId)
       .maybeSingle();
 
@@ -3945,7 +3936,7 @@ export async function sendStudentPasswordSetupAction(
 
     const { data: profile, error: profileErr } = await (adminClient as any)
       .from("profiles")
-      .select("id, email, full_name, status")
+      .select("id, email, full_name, account_status")
       .eq("id", studentId)
       .maybeSingle();
 

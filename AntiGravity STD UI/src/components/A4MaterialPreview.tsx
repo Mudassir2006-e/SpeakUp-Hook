@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import ExpandableImageViewer from "@/components/ExpandableImageViewer";
 
 export interface LearningMaterialItem {
   id: string;

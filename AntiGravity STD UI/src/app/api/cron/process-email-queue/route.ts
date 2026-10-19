@@ -20,6 +20,8 @@ export async function POST(req: Request) {
   return handleQueueExecution(req);
 }
 
+import { isCurrentAdminSessionVerified } from "@/lib/auth/adminVerification";
+
 async function handleQueueExecution(req: Request) {
   try {
     const cronSecret = process.env.CRON_SECRET;
@@ -38,11 +40,12 @@ async function handleQueueExecution(req: Request) {
       isAuthorized = true;
     }
 
-    // 3. Fallback: Authenticated admin session
+    // 3. Fallback: Authenticated and MFA-verified admin session
     if (!isAuthorized) {
       try {
         const { userId, role } = await getCurrentUserRole();
-        if (userId && role === "admin") {
+        const isMfa = await isCurrentAdminSessionVerified();
+        if (userId && role === "admin" && isMfa) {
           isAuthorized = true;
         }
       } catch {}

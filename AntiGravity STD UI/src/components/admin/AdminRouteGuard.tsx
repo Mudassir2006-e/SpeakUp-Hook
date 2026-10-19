@@ -134,7 +134,7 @@ export default function AdminRouteGuard({
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#fdfbf7] dark:bg-[var(--bg-main)] p-4">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--bg-main)] p-4">
         <div className="flex flex-col items-center space-y-4 animate-in fade-in duration-300">
           <Logo size="md" href="/admin/dashboard" brandText="SpeakUp" />
           <div className="flex items-center gap-2 text-xs font-display uppercase tracking-widest text-[#d4af37] font-bold">
@@ -148,8 +148,8 @@ export default function AdminRouteGuard({
 
   if (authorized === false) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#fdfbf7] dark:bg-[var(--bg-main)] p-4">
-        <div className="w-full max-w-md bg-white dark:bg-[#151518] border border-[var(--surface-border)] rounded-2xl p-8 shadow-xl text-center space-y-6">
+      <div className="min-h-screen flex items-center justify-center bg-[var(--bg-main)] p-4">
+        <div className="w-full max-w-md bg-[var(--surface-lowest)] border border-[var(--surface-border)] rounded-2xl p-8 shadow-xl text-center space-y-6">
           <div className="w-14 h-14 rounded-full bg-rose-500/10 text-rose-600 flex items-center justify-center mx-auto border border-rose-500/20">
             <span className="material-symbols-outlined text-[28px]">lock</span>
           </div>
@@ -163,7 +163,7 @@ export default function AdminRouteGuard({
             </p>
           </div>
 
-          <div className="p-3 bg-[#f9f5ed] dark:bg-[var(--surface-low)] rounded-xl border border-[var(--surface-border)] text-[11px] font-display text-[var(--text-muted)] leading-relaxed">
+          <div className="p-3 bg-[var(--surface-low)] rounded-xl border border-[var(--surface-border)] text-[11px] font-display text-[var(--text-muted)] leading-relaxed">
             Administrators must authenticate via the unified sign-in portal with assigned administrative credentials.
           </div>
 

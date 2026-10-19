@@ -12,6 +12,8 @@ import {
   validatePhone,
   validatePassword,
 } from "@/lib/validation";
+import PasswordRequirementsList from "@/components/PasswordRequirementsList";
+import CountryPhoneInput from "@/components/CountryPhoneInput";
 
 interface AddStudentModalProps {
   isOpen: boolean;
@@ -72,12 +74,40 @@ export default function AddStudentModal({
   };
 
   const generateRandomPassword = () => {
-    const chars = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789!@#$%";
-    let gen = "SpkUp!";
-    for (let i = 0; i < 8; i++) {
-      gen += chars.charAt(Math.floor(Math.random() * chars.length));
+    const uppers = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+    const lowers = "abcdefghijkmnpqrstuvwxyz";
+    const digits = "23456789";
+    const specials = "!@#$%&*";
+    const all = uppers + lowers + digits + specials;
+
+    const getRandomInt = (max: number): number => {
+      const array = new Uint32Array(1);
+      window.crypto.getRandomValues(array);
+      return array[0] % max;
+    };
+
+    // Guarantee: 1 uppercase, 1 lowercase, 2 digits, 1 special char + 7 random chars = 12 chars
+    const pool = [
+      uppers.charAt(getRandomInt(uppers.length)),
+      lowers.charAt(getRandomInt(lowers.length)),
+      digits.charAt(getRandomInt(digits.length)),
+      digits.charAt(getRandomInt(digits.length)),
+      specials.charAt(getRandomInt(specials.length)),
+    ];
+    for (let i = 0; i < 7; i++) {
+      pool.push(all.charAt(getRandomInt(all.length)));
     }
-    setPassword(gen);
+
+    // Cryptographically secure, unbiased Fisher-Yates shuffle
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = getRandomInt(i + 1);
+      const temp = pool[i];
+      pool[i] = pool[j];
+      pool[j] = temp;
+    }
+
+    const shuffled = pool.join("");
+    setPassword(shuffled);
     setShowPassword(true);
     if (fieldErrors.password) {
       setFieldErrors((prev) => ({ ...prev, password: "" }));
@@ -401,44 +431,19 @@ export default function AddStudentModal({
                 >
                   Phone / WhatsApp Number *
                 </label>
-                <div className="flex gap-2">
-                  <select
-                    value={countryCode}
-                    onChange={(e) => setCountryCode(e.target.value)}
-                    aria-label="Country Code"
-                    className="w-40 sm:w-48 py-2.5 px-3 rounded-xl border border-[var(--surface-border)] bg-[var(--surface-lowest)] text-[var(--text-main)] font-serif text-xs focus:outline-none focus:border-[#d4af37] cursor-pointer"
-                  >
-                    {COUNTRY_CODES.map((c) => (
-                      <option key={c.code} value={c.code}>
-                        {c.country}
-                      </option>
-                    ))}
-                  </select>
-
-                  <div className="relative flex-1">
-                    <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[18px] text-[var(--text-muted)] pointer-events-none">
-                      call
-                    </span>
-                    <input
-                      id="student-phone"
-                      type="tel"
-                      required
-                      placeholder="e.g. 0300 1234567"
-                      value={phone}
-                      onChange={(e) => {
-                        setPhone(e.target.value);
-                        if (fieldErrors.phone) {
-                          setFieldErrors((prev) => ({ ...prev, phone: "" }));
-                        }
-                      }}
-                      className={`w-full pl-10 pr-4 py-2.5 rounded-xl border bg-[var(--surface-lowest)] text-[var(--text-main)] font-serif text-xs focus:outline-none transition-all ${
-                        fieldErrors.phone
-                          ? "border-rose-500 focus:border-rose-500 focus:ring-1 focus:ring-rose-500"
-                          : "border-[var(--surface-border)] focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]"
-                      }`}
-                    />
-                  </div>
-                </div>
+                <CountryPhoneInput
+                  id="student-phone"
+                  phone={phone}
+                  countryCode={countryCode}
+                  onChangePhone={(val) => {
+                    setPhone(val);
+                    if (fieldErrors.phone) {
+                      setFieldErrors((prev) => ({ ...prev, phone: "" }));
+                    }
+                  }}
+                  onChangeCountryCode={(code) => setCountryCode(code)}
+                  error={fieldErrors.phone}
+                />
                 {fieldErrors.phone && (
                   <p className="mt-1 font-serif text-[11px] text-rose-500">{fieldErrors.phone}</p>
                 )}
@@ -548,6 +553,8 @@ export default function AddStudentModal({
                     {fieldErrors.password && (
                       <p className="font-serif text-[11px] text-rose-500">{fieldErrors.password}</p>
                     )}
+                    {/* Real-time Password Requirements Checklist */}
+                    <PasswordRequirementsList password={password} />
                   </div>
                 )}
               </div>

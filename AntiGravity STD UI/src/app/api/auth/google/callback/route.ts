@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getGoogleOAuthConfig, saveConnectedGmailAccount } from "@/lib/email/gmail";
 import { getCurrentUserRole } from "@/lib/auth/roles";
+import { isCurrentAdminSessionVerified } from "@/lib/auth/adminVerification";
+import { verifyOAuthState } from "@/lib/auth/adminVerificationCore";
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
   const errorParam = url.searchParams.get("error");
+  const stateParam = url.searchParams.get("state");
 
   const host = req.headers.get("host");
   const proto = req.headers.get("x-forwarded-proto") || "http";
@@ -28,6 +31,17 @@ export async function GET(req: NextRequest) {
     const { userId, role } = await getCurrentUserRole();
     if (!userId || role !== "admin") {
       return NextResponse.redirect(new URL("/auth/login?error=admin_required", req.url));
+    }
+
+    const isMfaVerified = await isCurrentAdminSessionVerified();
+    const errorTarget = isMfaVerified ? "/admin/portal-email" : "/admin/verify";
+
+    // Cryptographic state verification: bind callback to initiating session
+    const isStateValid = verifyOAuthState(stateParam, userId);
+    if (!isStateValid) {
+      return NextResponse.redirect(
+        new URL(`${errorTarget}?oauth_error=Invalid+or+expired+OAuth+session+state.+Please+retry+connecting+Gmail.`, req.url)
+      );
     }
 
     const { clientId, clientSecret, isConfigured } = getGoogleOAuthConfig();
@@ -81,14 +95,21 @@ export async function GET(req: NextRequest) {
       accessToken: tokenData.access_token,
       refreshToken: tokenData.refresh_token,
       expiresIn: tokenData.expires_in,
+      adminUserId: userId,
     });
+
+    if (!isMfaVerified) {
+      return NextResponse.redirect(
+        new URL(`/admin/verify?gmail_connected=true&email=${encodeURIComponent(authorizedEmail)}`, req.url)
+      );
+    }
 
     return NextResponse.redirect(
       new URL(`/admin/portal-email?connected=gmail&email=${encodeURIComponent(authorizedEmail)}`, req.url)
     );
   } catch (err: any) {
     return NextResponse.redirect(
-      new URL(`/admin/portal-email?oauth_error=${encodeURIComponent(err?.message || "OAuth processing error")}`, req.url)
+      new URL(`/admin/verify?oauth_error=${encodeURIComponent(err?.message || "OAuth processing error")}`, req.url)
     );
   }
 }
