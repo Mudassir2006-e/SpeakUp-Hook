@@ -2,6 +2,9 @@
   "name": "speakup",
   "version": "0.1.0",
   "private": true,
+  "allowScripts": {
+    "unrs-resolver": false
+  },
   "scripts": {
     "dev": "node --max-http-header-size=65536 ./node_modules/next/dist/bin/next dev",
     "tunnel": "node scripts/tunnel.js",
