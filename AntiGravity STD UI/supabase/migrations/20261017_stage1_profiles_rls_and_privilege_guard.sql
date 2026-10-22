@@ -208,14 +208,31 @@ DECLARE
     v_is_trusted BOOLEAN := FALSE;
     v_is_admin BOOLEAN := FALSE;
 BEGIN
-    v_jwt_role := COALESCE(auth.jwt() ->> 'role', '');
+    -- Extract verified JWT role claim if present (Supabase PostgREST context)
+    v_jwt_role := COALESCE(
+        auth.jwt() ->> 'role',
+        current_setting('request.jwt.claim.role', true),
+        ''
+    );
 
     -- =========================================================================
     -- A. TRUSTED EXECUTION BOUNDARY (DBA, GoTrue Auth Trigger, Backend Service Role)
     -- =========================================================================
-    IF (session_user IN ('postgres', 'supabase_admin', 'supabase_auth_admin'))
-       OR (current_user IN ('postgres', 'supabase_admin'))
-       OR (v_jwt_role = 'service_role') THEN
+    -- CRITICAL SECURITY DEFINER AUDIT RULE:
+    -- In PostgreSQL SECURITY DEFINER functions, current_user ALWAYS resolves to
+    -- the function owner ('postgres'), regardless of the actual caller.
+    -- Therefore, NEVER evaluate current_user to establish trust.
+    --
+    -- Legitimate trusted contexts are identified strictly by:
+    -- 1. Direct superuser/DBA sessions or internal GoTrue Auth engine sessions:
+    --    session_user IN ('postgres', 'supabase_admin', 'supabase_auth_admin')
+    --    ONLY when NO untrusted client JWT claim is present.
+    -- 2. Trusted backend service-role API calls:
+    --    v_jwt_role = 'service_role'
+    IF (
+        (session_user IN ('postgres', 'supabase_admin', 'supabase_auth_admin') AND v_jwt_role NOT IN ('authenticated', 'anon'))
+        OR (v_jwt_role = 'service_role')
+    ) AND v_jwt_role NOT IN ('authenticated', 'anon') THEN
         v_is_trusted := TRUE;
     END IF;
 
@@ -335,8 +352,13 @@ DROP POLICY IF EXISTS "profiles_select_policy" ON public.profiles;
 DROP POLICY IF EXISTS "profiles_insert_policy" ON public.profiles;
 DROP POLICY IF EXISTS "profiles_update_policy" ON public.profiles;
 DROP POLICY IF EXISTS "profiles_delete_policy" ON public.profiles;
+DROP POLICY IF EXISTS "Admins can delete profiles" ON public.profiles;
 DROP POLICY IF EXISTS "Users can view own profile or admins view all" ON public.profiles;
 DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Users can update own profile or admins update all" ON public.profiles;
+DROP POLICY IF EXISTS "Users can insert their own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Users can view their own profile" ON public.profiles;
 DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON public.profiles;
 DROP POLICY IF EXISTS "Enable read access for all users" ON public.profiles;
 DROP POLICY IF EXISTS "Enable insert for authenticated users only" ON public.profiles;

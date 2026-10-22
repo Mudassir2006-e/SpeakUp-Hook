@@ -45,3 +45,6 @@ Thumbs.db
 
 # Uploaded files — keep local unless explicitly approved
 /public/uploads/
+
+# Local scratch directory
+scratch/
