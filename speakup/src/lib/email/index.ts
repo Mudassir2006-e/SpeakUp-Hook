@@ -87,6 +87,8 @@ export async function getAuthoritativeSenderIdentity(): Promise<AuthoritativeSen
     email: null,
     connectedAt: null,
     hasRefreshToken: false,
+    isExpired: false,
+    expiredReason: null,
   };
 
   try {
@@ -95,9 +97,12 @@ export async function getAuthoritativeSenderIdentity(): Promise<AuthoritativeSen
     // Non-blocking
   }
 
-  // Primary provider logic: If Gmail is connected, default to Gmail as primary sender.
+  const isGmailOperationalHealthy =
+    connectedGmail.connected && !connectedGmail.isExpired && connectedGmail.hasRefreshToken;
+
+  // Primary provider logic: If Gmail is connected and healthy, default to Gmail as primary sender.
   // Otherwise use explicitly configured portal setting, EMAIL_PROVIDER, or Resend if available.
-  let selectedProvider: EmailProvider = connectedGmail.connected
+  let selectedProvider: EmailProvider = isGmailOperationalHealthy
     ? "gmail"
     : (process.env.EMAIL_PROVIDER as EmailProvider) || (process.env.RESEND_API_KEY ? "resend" : "gmail");
 
@@ -138,14 +143,16 @@ export async function getAuthoritativeSenderIdentity(): Promise<AuthoritativeSen
 
   const isVerified =
     selectedProvider === "gmail"
-      ? connectedGmail.connected
+      ? (connectedGmail.connected && !connectedGmail.isExpired && connectedGmail.hasRefreshToken)
       : Boolean(process.env.RESEND_API_KEY);
 
   const providerLabel: "Gmail" | "Resend" = selectedProvider === "gmail" ? "Gmail" : "Resend";
 
   const providerNotice =
     selectedProvider === "gmail"
-      ? connectedGmail.connected
+      ? connectedGmail.isExpired
+        ? (connectedGmail.expiredReason || "Google authorization has expired or was revoked. Please reconnect your account at /admin/portal-email.")
+        : connectedGmail.connected
         ? `Sending directly through authorized Google Gmail account (${connectedGmail.email}).`
         : "Gmail is selected as provider, but no Google account is connected. Please connect with Google OAuth in Portal Email."
       : isVerified

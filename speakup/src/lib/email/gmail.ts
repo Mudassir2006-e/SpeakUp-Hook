@@ -47,6 +47,8 @@ export interface ConnectedGmailAccount {
   email: string | null;
   connectedAt: string | null;
   hasRefreshToken: boolean;
+  isExpired?: boolean;
+  expiredReason?: string | null;
 }
 
 async function getSupabase(): Promise<any> {
@@ -146,12 +148,18 @@ export async function getConnectedGmailAccount(): Promise<ConnectedGmailAccount>
         (u) => (u.app_metadata as any)?.portal_gmail?.email
       );
     const portalGmail = (userWithGmail?.app_metadata as any)?.portal_gmail;
-    if (portalGmail && portalGmail.email && portalGmail.has_refresh_token) {
+    if (portalGmail && portalGmail.email) {
+      const isExpired = Boolean(portalGmail.is_expired);
+      const hasToken = !isExpired && Boolean(portalGmail.has_refresh_token || portalGmail.encrypted_refresh_token);
       return {
         connected: true,
         email: portalGmail.email,
         connectedAt: portalGmail.connected_at || null,
-        hasRefreshToken: true,
+        hasRefreshToken: hasToken,
+        isExpired,
+        expiredReason: isExpired
+          ? portalGmail.expired_reason || "Google authorization has expired or was revoked. Please reconnect your account at /admin/portal-email."
+          : null,
       };
     }
   } catch (metaErr) {
@@ -170,31 +178,36 @@ export async function getConnectedGmailAccount(): Promise<ConnectedGmailAccount>
     const config = (record?.published_data as any) || (record?.draft_data as any) || {};
     const gmail = config.connected_gmail;
 
-    let hasRefreshToken = Boolean(process.env.GMAIL_REFRESH_TOKEN);
-    if (!hasRefreshToken && (gmail?.has_refresh_token || gmail?.refresh_token)) {
-      hasRefreshToken = true;
-    }
+    if (gmail && gmail.email) {
+      const isExpired = Boolean(gmail.is_expired);
+      let hasRefreshToken = Boolean(process.env.GMAIL_REFRESH_TOKEN);
+      if (!hasRefreshToken && (gmail.has_refresh_token || gmail.refresh_token)) {
+        hasRefreshToken = true;
+      }
 
-    if (!hasRefreshToken) {
-      try {
-        const adminClient = createAdminClient();
-        const { data: cred } = await (adminClient as any)
-          .from("portal_email_credentials")
-          .select("credential_value")
-          .eq("credential_key", "gmail_refresh_token")
-          .maybeSingle();
-        if (cred?.credential_value) {
-          hasRefreshToken = true;
-        }
-      } catch {}
-    }
+      if (!hasRefreshToken) {
+        try {
+          const adminClient = createAdminClient();
+          const { data: cred } = await (adminClient as any)
+            .from("portal_email_credentials")
+            .select("credential_value")
+            .eq("credential_key", "gmail_refresh_token")
+            .maybeSingle();
+          if (cred?.credential_value) {
+            hasRefreshToken = true;
+          }
+        } catch {}
+      }
 
-    if (gmail && gmail.email && hasRefreshToken) {
       return {
         connected: true,
         email: gmail.email,
         connectedAt: gmail.connected_at || null,
-        hasRefreshToken: true,
+        hasRefreshToken: !isExpired && hasRefreshToken,
+        isExpired,
+        expiredReason: isExpired
+          ? gmail.expired_reason || "Google authorization has expired or was revoked. Please reconnect your account at /admin/portal-email."
+          : null,
       };
     }
   } catch (err) {
@@ -267,6 +280,8 @@ export async function saveConnectedGmailAccount(params: {
               encrypted_refresh_token: encrypted,
               connected_at: now.toISOString(),
               has_refresh_token: Boolean(effectiveRefreshToken || encrypted),
+              is_expired: false,
+              expired_reason: null,
             },
           },
         });
@@ -308,6 +323,9 @@ export async function saveConnectedGmailAccount(params: {
           email: params.email,
           connected_at: now.toISOString(),
           has_refresh_token: Boolean(effectiveRefreshToken),
+          is_expired: false,
+          expired_reason: null,
+          status: "connected",
         },
         selected_provider: "gmail",
         updated_at: now.toISOString(),
@@ -413,6 +431,87 @@ export async function disconnectGmailAccount(): Promise<boolean> {
 }
 
 /**
+ * Records that the Google OAuth authorization has expired or was revoked.
+ * Updates both cms_content and admin app_metadata so the system and UI
+ * correctly reflect the need for reconnection.
+ */
+export async function markGmailAuthorizationExpired(reason?: string): Promise<void> {
+  try {
+    const expiredReason =
+      reason ||
+      "Google authorization has expired or was revoked. Please reconnect your account at /admin/portal-email.";
+
+    // 1. Clear in-memory token to prevent immediate re-use of an invalid token
+    delete process.env.GMAIL_REFRESH_TOKEN;
+
+    // 2. Mark in cms_content
+    try {
+      const supabase = await getSupabase();
+      const { data: record } = await supabase
+        .from("cms_content")
+        .select("id, published_data, draft_data")
+        .eq("page_key", "portal_email")
+        .maybeSingle();
+
+      if (record?.id) {
+        const prev = (record.published_data as any) || {};
+        const currentGmail = prev.connected_gmail || {};
+        const updatedData = {
+          ...prev,
+          connected_gmail: {
+            ...currentGmail,
+            is_expired: true,
+            expired_reason: expiredReason,
+            updated_at: new Date().toISOString(),
+          },
+          updated_at: new Date().toISOString(),
+        };
+
+        await supabase
+          .from("cms_content")
+          .update({
+            published_data: updatedData,
+            draft_data: updatedData,
+            updated_at: new Date().toISOString(),
+          } as any)
+          .eq("id", record.id);
+      }
+    } catch (cmsErr) {
+      console.warn("[Gmail Storage] Notice updating cms_content expiration:", cmsErr);
+    }
+
+    // 3. Mark in admin app_metadata
+    try {
+      const adminClient = createAdminClient();
+      const { data: usersData } = await adminClient.auth.admin.listUsers();
+      const adminUser = usersData?.users?.find(
+        (u) =>
+          (u.app_metadata as any)?.portal_gmail?.has_refresh_token ||
+          (u.app_metadata as any)?.portal_gmail?.email
+      );
+
+      if (adminUser) {
+        const prevPortal = (adminUser.app_metadata?.portal_gmail as any) || {};
+        await adminClient.auth.admin.updateUserById(adminUser.id, {
+          app_metadata: {
+            ...adminUser.app_metadata,
+            portal_gmail: {
+              ...prevPortal,
+              is_expired: true,
+              expired_reason: expiredReason,
+            },
+          },
+        });
+      }
+    } catch (metaErr) {
+      console.warn("[Gmail Storage] Notice updating app_metadata expiration:", metaErr);
+    }
+  } catch (err) {
+    console.warn("Could not mark Gmail authorization expired:", err);
+  }
+}
+
+/**
  * Obtains a fresh access token using the stored refresh token.
  */
 async function getFreshGmailAccessToken(): Promise<{ token?: string; error?: string }> {
@@ -506,9 +605,12 @@ async function getFreshGmailAccessToken(): Promise<{ token?: string; error?: str
         errDesc.toLowerCase().includes("revoked") ||
         errDesc.toLowerCase().includes("expired")
       ) {
+        await markGmailAuthorizationExpired(
+          "Google authorization has expired or was revoked (Google Cloud 'Testing' mode tokens expire after 7 days). Please reconnect your account at /admin/portal-email."
+        );
         return {
           error:
-            "Google OAuth authorization has expired or was revoked (Google Cloud 'Testing' mode tokens expire after 7 days). Please reconnect your Google account at /api/auth/google/connect or configure a permanent GMAIL_REFRESH_TOKEN in server environment variables.",
+            "Google authorization has expired or was revoked (Google Cloud 'Testing' mode tokens expire after 7 days). Please reconnect your account at /admin/portal-email.",
         };
       }
       return { error: errDesc || errCode || "Failed to refresh Google access token." };
@@ -639,6 +741,15 @@ export async function isGmailOperational(): Promise<{ operational: boolean; emai
     return {
       operational: false,
       reason: "No Google Gmail account is connected in Portal Email settings (/admin/portal-email).",
+    };
+  }
+
+  if (account.isExpired) {
+    return {
+      operational: false,
+      reason:
+        account.expiredReason ||
+        "Google authorization has expired or was revoked. Please reconnect your account at /admin/portal-email.",
     };
   }
 

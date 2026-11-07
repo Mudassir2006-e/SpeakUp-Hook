@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { clearAdminMfaSessionAction } from "@/lib/auth/adminVerification";
 import { useTheme } from "@/components/ThemeContext";
@@ -13,6 +13,7 @@ interface AdminHeaderProps {
   subtitle?: string;
   adminEmail?: string | null;
   actions?: React.ReactNode;
+  showBookingButton?: boolean;
 }
 
 export default function AdminHeader({
@@ -20,8 +21,10 @@ export default function AdminHeader({
   subtitle = "SpeakUp Academic Administration & Access Control",
   adminEmail: initialAdminEmail,
   actions,
+  showBookingButton = true,
 }: AdminHeaderProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
   const [adminAvatar, setAdminAvatar] = useState<string>("");
   const [adminName, setAdminName] = useState<string>("Administrator");
@@ -116,6 +119,9 @@ export default function AdminHeader({
     router.replace("/auth/login");
   };
 
+  const isBookingsPage = pathname === "/admin/bookings" || pathname.startsWith("/admin/bookings/");
+  const shouldShowBookingButton = showBookingButton && !isBookingsPage;
+
   return (
     <header className="min-h-[5rem] sm:min-h-[5.5rem] py-3.5 px-4 sm:px-8 lg:px-10 bg-white dark:bg-[#141416] border-b border-[var(--surface-border)] flex items-center justify-between sticky top-0 z-30 shadow-2xs gap-4">
       {/* Left Side: Primary Large Heading & Refined Supporting Subtitle */}
@@ -131,7 +137,18 @@ export default function AdminHeader({
       </div>
 
       {/* Right Side: Actions + Admin Profile Avatar with Dropdown Menu */}
-      <div className="flex items-center gap-3 shrink-0 ml-auto">
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0 ml-auto">
+        {shouldShowBookingButton && (
+          <Link
+            href="/admin/bookings"
+            className="px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-[#d4af37] hover:bg-[#b5952f] text-[#141416] font-display text-xs uppercase tracking-wider font-bold shadow-xs transition-all active:scale-[0.98] inline-flex items-center gap-1.5 sm:gap-2 cursor-pointer shrink-0"
+            title="View and manage advisory booking requests"
+          >
+            <span className="material-symbols-outlined text-[16px] sm:text-[18px]">calendar_month</span>
+            <span className="hidden sm:inline">Booking Requests</span>
+            <span className="inline sm:hidden">Bookings</span>
+          </Link>
+        )}
         {actions && <div className="flex items-center gap-2">{actions}</div>}
         {/* Admin Profile Avatar Dropdown */}
         <div className="relative shrink-0" ref={dropdownRef}>
@@ -193,7 +210,17 @@ export default function AdminHeader({
                   <span>View Student LMS Portal</span>
                 </Link>
 
-              {/* 3. Profile */}
+                {/* 3. Advisory Bookings */}
+                <Link
+                  href="/admin/bookings"
+                  onClick={() => setIsOpen(false)}
+                  className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-display text-xs uppercase tracking-wider font-semibold text-[var(--text-main)] hover:bg-[#f9f5ed] dark:hover:bg-[var(--surface-low)] transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[18px] text-[#d4af37]">calendar_month</span>
+                  <span>Advisory Bookings</span>
+                </Link>
+
+                {/* 4. Profile */}
               <Link
                 href="/admin/profile"
                 onClick={() => setIsOpen(false)}

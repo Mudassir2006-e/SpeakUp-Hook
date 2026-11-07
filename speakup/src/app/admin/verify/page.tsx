@@ -253,17 +253,19 @@ export default function AdminVerifyPage() {
               {(errorMessage.includes("Portal Email") ||
                 errorMessage.includes("Google") ||
                 errorMessage.includes("Gmail") ||
-                errorMessage.includes("OAuth")) && (
+                errorMessage.includes("OAuth") ||
+                errorMessage.includes("expired") ||
+                errorMessage.includes("revoked")) && (
                 <div className="pt-3 border-t border-rose-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                   <span className="text-[11px] font-display uppercase tracking-wider text-[var(--text-muted)]">
-                    OAuth Setup:
+                    OAuth Authorization:
                   </span>
                   <a
-                    href="/api/auth/google/connect"
-                    className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-display text-xs font-bold rounded-lg transition-colors shadow-xs"
+                    href="/api/auth/google/connect?from=verify"
+                    className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-display text-xs font-bold rounded-lg transition-colors shadow-xs cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-[16px]">sync_alt</span>
-                    <span>Connect Portal Gmail Account</span>
+                    <span>Reconnect Google Account</span>
                   </a>
                 </div>
               )}

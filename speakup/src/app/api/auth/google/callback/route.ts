@@ -100,16 +100,18 @@ export async function GET(req: NextRequest) {
 
     if (!isMfaVerified) {
       return NextResponse.redirect(
-        new URL(`/admin/verify?gmail_connected=true&email=${encodeURIComponent(authorizedEmail)}`, req.url)
+        new URL(`/admin/verify?gmail_connected=true&redirect=/admin/portal-email&email=${encodeURIComponent(authorizedEmail)}`, req.url)
       );
     }
 
     return NextResponse.redirect(
-      new URL(`/admin/portal-email?connected=gmail&email=${encodeURIComponent(authorizedEmail)}`, req.url)
+      new URL(`/admin/portal-email?gmail_connected=true&connected=gmail&email=${encodeURIComponent(authorizedEmail)}`, req.url)
     );
   } catch (err: any) {
+    const isMfa = await isCurrentAdminSessionVerified().catch(() => false);
+    const errTarget = isMfa ? "/admin/portal-email" : "/admin/verify";
     return NextResponse.redirect(
-      new URL(`/admin/verify?oauth_error=${encodeURIComponent(err?.message || "OAuth processing error")}`, req.url)
+      new URL(`${errTarget}?oauth_error=${encodeURIComponent(err?.message || "OAuth processing error")}`, req.url)
     );
   }
 }

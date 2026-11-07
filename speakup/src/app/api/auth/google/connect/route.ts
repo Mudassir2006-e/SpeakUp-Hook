@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(url);
   } catch (err: any) {
     return NextResponse.redirect(
-      new URL(`/admin/verify?oauth_error=${encodeURIComponent(err?.message || "OAuth exception")}`, req.url)
+      new URL(`/admin/portal-email?oauth_error=${encodeURIComponent(err?.message || "OAuth exception")}`, req.url)
     );
   }
 }

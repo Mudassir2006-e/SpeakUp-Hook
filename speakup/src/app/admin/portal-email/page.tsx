@@ -30,12 +30,16 @@ export default function PortalEmailPage() {
     email: string | null;
     connectedAt: string | null;
     hasRefreshToken: boolean;
+    isExpired?: boolean;
+    expiredReason?: string | null;
     isOAuthConfigured: boolean;
   }>({
     connected: false,
     email: null,
     connectedAt: null,
     hasRefreshToken: false,
+    isExpired: false,
+    expiredReason: null,
     isOAuthConfigured: false,
   });
   const [disconnectingGmail, setDisconnectingGmail] = useState(false);
@@ -143,11 +147,13 @@ export default function PortalEmailPage() {
 
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
-      if (params.get("gmail_connected") === "true") {
+      const isConnected = params.get("gmail_connected") === "true" || params.get("connected") === "gmail";
+      const oauthErr = params.get("oauth_error") || params.get("error");
+      if (isConnected) {
         showToast("success", "Gmail account successfully authorized and linked via Google OAuth!");
         window.history.replaceState({}, document.title, window.location.pathname);
-      } else if (params.get("error")) {
-        showToast("error", decodeURIComponent(params.get("error") || "OAuth connection failed."));
+      } else if (oauthErr) {
+        showToast("error", decodeURIComponent(oauthErr || "OAuth connection failed."));
         window.history.replaceState({}, document.title, window.location.pathname);
       }
     }
@@ -885,13 +891,33 @@ export default function PortalEmailPage() {
                       </h4>
                     </div>
                     <span className={`text-[10px] font-display uppercase tracking-wider font-bold px-2 py-0.5 rounded-full ${
-                      connectedGmail.connected
+                      connectedGmail.isExpired
+                        ? "bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30"
+                        : connectedGmail.connected
                         ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30"
                         : "bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30"
                     }`}>
-                      {connectedGmail.connected ? "Connected" : "Not Connected"}
+                      {connectedGmail.isExpired
+                        ? "Authorization Expired"
+                        : connectedGmail.connected
+                        ? "Connected"
+                        : "Not Connected"}
                     </span>
                   </div>
+
+                  {connectedGmail.isExpired && (
+                    <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-800 dark:text-rose-300 font-serif text-xs leading-relaxed flex items-start gap-2.5">
+                      <span className="material-symbols-outlined text-[18px] text-rose-600 dark:text-rose-400 shrink-0 mt-0.5">error</span>
+                      <div className="space-y-1 flex-1">
+                        <p className="font-bold font-display text-[11px] uppercase tracking-wider">
+                          Google Authorization Expired or Revoked
+                        </p>
+                        <p>
+                          {connectedGmail.expiredReason || "Google authorization has expired or was revoked. Please reconnect your account at /admin/portal-email."}
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
                   {connectedGmail.connected ? (
                     <div className="space-y-3">
@@ -906,24 +932,44 @@ export default function PortalEmailPage() {
                             <span>{new Date(connectedGmail.connectedAt).toLocaleDateString()}</span>
                           </div>
                         )}
-                        <div className="flex justify-between items-center text-[10px] text-emerald-600 dark:text-emerald-400">
-                          <span>Token Refresh:</span>
-                          <span>Active (Offline Refresh Token)</span>
+                        <div className="flex justify-between items-center text-[10px]">
+                          <span className="text-[var(--text-muted)]">Token Refresh:</span>
+                          {connectedGmail.isExpired ? (
+                            <span className="text-rose-600 dark:text-rose-400 font-bold">Expired / Revoked (Action Required)</span>
+                          ) : (
+                            <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Active (Offline Refresh Token)</span>
+                          )}
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between gap-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
                         <p className="font-serif text-[11px] text-[var(--text-muted)] leading-relaxed">
-                          All student LMS application emails dispatch directly through your authorized Gmail account via Google&apos;s REST API.
+                          {connectedGmail.isExpired
+                            ? "Outbound delivery is paused until your Google account is reconnected."
+                            : "All student LMS application emails dispatch directly through your authorized Gmail account via Google's REST API."}
                         </p>
-                        <button
-                          type="button"
-                          onClick={handleDisconnectGmail}
-                          disabled={disconnectingGmail}
-                          className="px-3 py-1.5 rounded-lg border border-rose-500/30 text-rose-600 hover:bg-rose-500/10 text-xs font-display uppercase tracking-wider font-semibold cursor-pointer shrink-0 disabled:opacity-50"
-                        >
-                          {disconnectingGmail ? "Disconnecting..." : "Disconnect"}
-                        </button>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <a
+                            href="/api/auth/google/connect?from=portal-email"
+                            className={`px-3 py-1.5 rounded-lg font-display text-xs uppercase tracking-wider font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors ${
+                              connectedGmail.isExpired
+                                ? "bg-[#d4af37] hover:bg-[#b5952f] text-[#141416] font-bold shadow-xs"
+                                : "border border-[var(--surface-border)] bg-[var(--surface-low)] hover:border-[#d4af37] text-[var(--text-main)]"
+                            }`}
+                            title="Re-authorize with Google or update credentials"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">sync</span>
+                            <span>{connectedGmail.isExpired ? "Reconnect Google Account" : "Reconnect"}</span>
+                          </a>
+                          <button
+                            type="button"
+                            onClick={handleDisconnectGmail}
+                            disabled={disconnectingGmail}
+                            className="px-3 py-1.5 rounded-lg border border-rose-500/30 text-rose-600 hover:bg-rose-500/10 text-xs font-display uppercase tracking-wider font-semibold cursor-pointer shrink-0 disabled:opacity-50"
+                          >
+                            {disconnectingGmail ? "Disconnecting..." : "Disconnect"}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ) : (
@@ -934,8 +980,8 @@ export default function PortalEmailPage() {
 
                       <div className="flex items-center gap-3">
                         <a
-                          href="/api/auth/google/connect"
-                          className="px-4 py-2.5 rounded-xl bg-[#141416] text-[#d4af37] hover:bg-[#2a2a2e] font-display text-xs uppercase tracking-wider font-bold shadow-xs inline-flex items-center gap-2 transition-all cursor-pointer"
+                          href="/api/auth/google/connect?from=portal-email"
+                          className="px-4 py-2.5 rounded-xl bg-[#141416] text-[#d4af37] dark:bg-[#d4af37] dark:text-[#141416] hover:bg-[#2a2a2e] dark:hover:bg-[#e0bc42] font-display text-xs uppercase tracking-wider font-bold shadow-xs inline-flex items-center gap-2 transition-all cursor-pointer"
                         >
                           <span className="material-symbols-outlined text-[18px]">lock_open</span>
                           <span>Connect Gmail Account</span>

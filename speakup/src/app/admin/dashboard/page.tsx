@@ -98,16 +98,6 @@ export default function AdminDashboardPage() {
       <AdminHeader
         title="Dashboard Overview"
         subtitle="SpeakUp Academic Administration & Access Control"
-        actions={
-          <Link
-            href="/admin/bookings"
-            className="px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-[#d4af37] hover:bg-[#b5952f] text-[#141416] font-display text-xs uppercase tracking-wider font-bold shadow-xs transition-all active:scale-[0.98] inline-flex items-center gap-2 cursor-pointer shrink-0"
-            title="View and manage advisory booking requests"
-          >
-            <span className="material-symbols-outlined text-[18px]">calendar_month</span>
-            <span>Booking Requests</span>
-          </Link>
-        }
       />
 
       <div className="p-6 sm:p-8 max-w-[1360px] mx-auto space-y-8">

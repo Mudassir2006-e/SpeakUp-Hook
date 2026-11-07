@@ -285,7 +285,7 @@ export async function sendAdminVerificationCodeAction(options?: {
             deliveryFailed: true,
             maskedEmail: maskEmailAddress(targetEmail),
             resendCooldown: 0,
-            error: `Administrator verification email delivery failed on Portal Email (Gmail): ${primaryErr}. Fallback to Resend also failed: ${resendRes.error || "Resend error"}. Please reconnect Gmail via /api/auth/google/connect or verify your Resend credentials in server environment variables.`,
+            error: `Administrator verification email delivery failed on Portal Email (Gmail): ${primaryErr}. Fallback to Resend also failed: ${resendRes.error || "Resend error"}. Please reconnect Gmail at /admin/portal-email or verify your Resend credentials in server environment variables.`,
           };
         }
       }
@@ -313,7 +313,7 @@ export async function sendAdminVerificationCodeAction(options?: {
               deliveryFailed: true,
               maskedEmail: maskEmailAddress(targetEmail),
               resendCooldown: 0,
-              error: `Administrator verification email delivery failed on Resend: ${primaryErr}. Fallback to Portal Email (Gmail) also failed: ${gmailRes.error || "Gmail error"}. Please verify your Resend credentials or reconnect your Google account at /api/auth/google/connect.`,
+              error: `Administrator verification email delivery failed on Resend: ${primaryErr}. Fallback to Portal Email (Gmail) also failed: ${gmailRes.error || "Gmail error"}. Please verify your Resend credentials or reconnect your Google account at /admin/portal-email.`,
             };
           }
         } else {
@@ -323,7 +323,7 @@ export async function sendAdminVerificationCodeAction(options?: {
             deliveryFailed: true,
             maskedEmail: maskEmailAddress(targetEmail),
             resendCooldown: 0,
-            error: `Administrator verification email delivery failed: ${primaryErr}. Portal Email (Gmail) fallback is unavailable: ${gmailStatus.reason || "Google OAuth is not configured"}.`,
+            error: `Administrator verification email delivery failed: ${primaryErr}. Portal Email (Gmail) fallback is unavailable: ${gmailStatus.reason || "Google authorization has expired or was revoked. Please reconnect your account at /admin/portal-email."}.`,
           };
         }
       } else {
@@ -333,7 +333,9 @@ export async function sendAdminVerificationCodeAction(options?: {
           deliveryFailed: true,
           maskedEmail: maskEmailAddress(targetEmail),
           resendCooldown: 0,
-          error: `Administrator verification email delivery failed: ${primaryErr}.`,
+          error: primaryErr.includes("Google") || primaryErr.includes("Gmail") || primaryErr.includes("expired")
+            ? `Administrator verification email delivery failed: ${primaryErr}`
+            : `Administrator verification email delivery failed: ${primaryErr}.`,
         };
       }
     }
