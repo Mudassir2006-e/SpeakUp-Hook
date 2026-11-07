@@ -62,6 +62,8 @@ export default function StudentAssignmentCheckerPage() {
   const [adminStatus, setAdminStatus] = useState<AssignmentStatus>("Checked");
   const [isSavingGrade, setIsSavingGrade] = useState(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
+  const [recheckSuccessMsg, setRecheckSuccessMsg] = useState<string | null>(null);
+  const [recheckErrorMsg, setRecheckErrorMsg] = useState<string | null>(null);
 
   // Lightbox & Recheck confirmation
   const [lightboxPage, setLightboxPage] = useState<SubmissionPage | null>(null);
@@ -286,6 +288,8 @@ export default function StudentAssignmentCheckerPage() {
     if (!activeSubmission) return;
     setShowRecheckConfirm(false);
     setIsRechecking(true);
+    setRecheckSuccessMsg(null);
+    setRecheckErrorMsg(null);
     try {
       const res = await recheckSubmissionWithAiAction(activeSubmission.id);
       if (res.success && res.data) {
@@ -297,9 +301,14 @@ export default function StudentAssignmentCheckerPage() {
           setAdminScore(res.data.aiEvaluation.score);
           setAdminFeedback(res.data.aiEvaluation.feedback);
         }
+        setRecheckSuccessMsg(res.message || "AI re-evaluation completed successfully.");
+        setTimeout(() => setRecheckSuccessMsg(null), 5000);
+      } else {
+        setRecheckErrorMsg(res.error || "Failed to complete AI re-evaluation.");
       }
     } catch (err) {
       console.error("Recheck failed", err);
+      setRecheckErrorMsg(err instanceof Error ? err.message : "Failed to trigger AI re-evaluation.");
     } finally {
       setIsRechecking(false);
     }
@@ -1109,6 +1118,39 @@ export default function StudentAssignmentCheckerPage() {
 
               {/* Right Column: Evaluation & Final Grade Editor (5 cols) */}
               <div className="lg:col-span-5 flex flex-col p-6 overflow-y-auto space-y-6">
+                {/* Re-evaluation Feedback Banners */}
+                {recheckSuccessMsg && (
+                  <div className="p-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/35 text-emerald-700 dark:text-emerald-300 font-serif text-xs flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[18px] text-emerald-600 shrink-0">check_circle</span>
+                      <span>{recheckSuccessMsg}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setRecheckSuccessMsg(null)}
+                      className="text-[11px] font-display uppercase tracking-wider font-bold opacity-80 hover:opacity-100 cursor-pointer"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                )}
+
+                {recheckErrorMsg && (
+                  <div className="p-3.5 rounded-xl bg-rose-500/15 border border-rose-500/35 text-rose-700 dark:text-rose-300 font-serif text-xs flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[18px] text-rose-600 shrink-0">error</span>
+                      <span>{recheckErrorMsg}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setRecheckErrorMsg(null)}
+                      className="text-[11px] font-display uppercase tracking-wider font-bold opacity-80 hover:opacity-100 cursor-pointer"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                )}
+
                 {/* AI Evaluation Status Section */}
                 {activeSubmission.aiEvaluation ? (
                   <div className="space-y-3 p-4 rounded-xl bg-[var(--surface-low)] border border-[var(--surface-border)]">
@@ -1123,6 +1165,12 @@ export default function StudentAssignmentCheckerPage() {
                         {activeSubmission.aiEvaluation.score} / {activeAssignment.maxMarks}
                       </span>
                     </div>
+
+                    {activeSubmission.aiEvaluation.evaluationStatus === "provider_error" && (
+                      <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/25 text-rose-600 dark:text-rose-400 font-serif text-xs">
+                        {activeSubmission.aiEvaluation.providerError || "AI evaluation provider error or quota limit reached."}
+                      </div>
+                    )}
 
                     <p className="font-serif text-xs text-[var(--text-muted)] leading-relaxed">
                       {activeSubmission.aiEvaluation.feedback}
@@ -1161,7 +1209,7 @@ export default function StudentAssignmentCheckerPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/25 space-y-1">
+                  <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/25 space-y-2">
                     <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
                       <span className="material-symbols-outlined text-[18px]">lock</span>
                       <span className="font-display text-xs font-bold uppercase tracking-wider">
@@ -1169,8 +1217,19 @@ export default function StudentAssignmentCheckerPage() {
                       </span>
                     </div>
                     <p className="font-serif text-xs text-[var(--text-muted)] leading-relaxed">
-                      Automated AI scoring is disabled until backend API credentials are set. Use the form below to enter manual academic feedback and grades.
+                      Automated AI scoring was not available at submission time. If API credentials have since been configured in Settings, you can trigger an AI evaluation now, or use the form below to enter manual academic feedback and grades.
                     </p>
+                    <div className="pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setShowRecheckConfirm(true)}
+                        disabled={isRechecking}
+                        className="text-xs font-display font-bold uppercase tracking-wider text-[#d4af37] hover:underline cursor-pointer flex items-center gap-1.5"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">smart_toy</span>
+                        <span>{isRechecking ? "Running Evaluation..." : "Run AI Evaluation Now &rarr;"}</span>
+                      </button>
+                    </div>
                   </div>
                 )}
 

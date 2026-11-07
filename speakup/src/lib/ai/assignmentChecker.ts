@@ -6,17 +6,27 @@ import { createAdminClient } from "@/lib/supabase/server";
 export interface EvaluationInput {
   assignment: Assignment;
   pages: SubmissionPage[];
+  studentTextAnswer?: string;
   studentName?: string;
   courseTitle?: string;
   moduleTitle?: string;
   lessonTitle?: string;
 }
 
+function cleanAndParseJson(raw: string): any {
+  let cleaned = (raw || "").trim();
+  if (cleaned.startsWith("```")) {
+    cleaned = cleaned.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
+  }
+  return JSON.parse(cleaned);
+}
+
 /**
  * Evaluates an assignment submission using multi-page multimodal analysis.
  * 
  * Rules:
- * - All uploaded pages (1, 2, 3, 5, 6+) are evaluated together as ONE cohesive answer.
+ * - Supports typed text answers only, handwritten/image pages only, or both together.
+ * - Empty submissions are safely flagged without hallucinated grades.
  * - If images are blurry, unreadable, blank, or low quality, marks 'needsReview: true' (NO automatic zero!).
  * - Uses actual course context, level, instructions, and rubric.
  * - Server-side only (API keys never exposed to client).
@@ -25,38 +35,66 @@ export async function gradeAssignmentSubmission(
   input: EvaluationInput
 ): Promise<AiEvaluation | null> {
   const { assignment, pages } = input;
+  const hasPages = Array.isArray(pages) && pages.length > 0;
+  const trimmedText = (input.studentTextAnswer || "").trim();
+  const hasText = trimmedText.length > 0;
 
-  // 1. Initial Image Legibility / Quality Guard
-  const hasUnreliablePages = pages.some(
-    (p) => p.qualityWarning && (p.width ?? 1000) < 400
-  );
-
-  if (hasUnreliablePages) {
+  // 1. Safe Empty Input Guard
+  if (!hasPages && !hasText) {
     return {
       score: 0,
       maxScore: assignment.maxMarks,
       percentage: 0,
       feedback:
         assignment.language === "German"
-          ? "Ein oder mehrere hochgeladene Seiten weisen eine unzureichende Bildauflösung oder starke Unschärfe auf. Die Handschrift kann nicht sicher optisch ausgewertet werden. Der Status wurde auf 'Needs Review' gesetzt, damit ein Dozent das Dokument manuell prüfen kann."
-          : "One or more uploaded pages exhibit severe blur or critically low resolution. The handwritten text cannot be reliably evaluated. The submission has been marked 'Needs Review' for manual teacher evaluation without penalty.",
-      strengths: ["Submission received in prescribed document format."],
-      mistakes: [],
-      improvements: [
-        assignment.language === "German"
-          ? "Bitte fotografieren Sie die handschriftlichen Seiten bei gutem Licht ohne Schatten und achten Sie auf Bildschärfe."
-          : "Please capture photographs in clear natural daylight, ensuring steady focus on all text lines.",
-      ],
-      confidence: 20,
+          ? "Es wurde kein geschriebener Text und kein handschriftliches Dokument eingereicht. Bitte verfassen Sie Ihre Antwort oder laden Sie ein Foto hoch, um eine Auswertung zu erhalten."
+          : "No written answer or document image was found in this submission. Please submit your work to receive an evaluation.",
+      strengths: [],
+      mistakes: ["No submission content provided."],
+      improvements: ["Enter your written response or upload handwritten pages before submitting."],
+      confidence: 100,
       needsReview: true,
-      reviewReason:
-        "Low image resolution or optical blur detected across submitted pages. Requires manual mentor inspection.",
+      reviewReason: "Empty submission content.",
       checkedAt: new Date().toISOString(),
-      modelUsed: "Vision Pre-Screening & Quality Guard",
+      modelUsed: "Submission Guard",
+      evaluationStatus: "invalid_input",
     };
   }
 
-  // 2. Check for External LLM API Keys (from Admin Integrations Config or Environment Variables)
+  // 2. Initial Image Legibility / Quality Guard (applied if images are attached)
+  if (hasPages) {
+    const hasUnreliablePages = pages.some(
+      (p) => p.qualityWarning && (p.width ?? 1000) < 400
+    );
+
+    if (hasUnreliablePages) {
+      return {
+        score: 0,
+        maxScore: assignment.maxMarks,
+        percentage: 0,
+        feedback:
+          assignment.language === "German"
+            ? "Ein oder mehrere hochgeladene Seiten weisen eine unzureichende Bildauflösung oder starke Unschärfe auf. Die Handschrift kann nicht sicher optisch ausgewertet werden. Der Status wurde auf 'Needs Review' gesetzt, damit ein Dozent das Dokument manuell prüfen kann."
+            : "One or more uploaded pages exhibit severe blur or critically low resolution. The handwritten text cannot be reliably evaluated. The submission has been marked 'Needs Review' for manual teacher evaluation without penalty.",
+        strengths: ["Submission received in prescribed document format."],
+        mistakes: [],
+        improvements: [
+          assignment.language === "German"
+            ? "Bitte fotografieren Sie die handschriftlichen Seiten bei gutem Licht ohne Schatten und achten Sie auf Bildschärfe."
+            : "Please capture photographs in clear natural daylight, ensuring steady focus on all text lines.",
+        ],
+        confidence: 20,
+        needsReview: true,
+        reviewReason:
+          "Low image resolution or optical blur detected across submitted pages. Requires manual mentor inspection.",
+        checkedAt: new Date().toISOString(),
+        modelUsed: "Vision Pre-Screening & Quality Guard",
+        evaluationStatus: "needs_review",
+      };
+    }
+  }
+
+  // 3. Check for External LLM API Keys (from Admin Integrations Config or Environment Variables)
   let activeProvider = "gemini";
   let geminiKey = process.env.GEMINI_API_KEY;
   let openaiKey = process.env.OPENAI_API_KEY;
@@ -75,34 +113,72 @@ export async function gradeAssignmentSubmission(
     console.warn("Failed reading integrations-config.json:", cfgErr);
   }
 
+  let lastProviderError: Error | null = null;
+  let triedProviderName = "";
+
   if (activeProvider === "openai" && openaiKey) {
     try {
+      triedProviderName = "OpenAI GPT-4o";
       return await evaluateWithOpenAI(input, openaiKey);
     } catch (err) {
-      console.warn("OpenAI vision evaluation failed, falling back to pedagogical engine:", err);
+      lastProviderError = err instanceof Error ? err : new Error(String(err));
+      console.warn("OpenAI evaluation failed:", err);
     }
   }
 
   if (geminiKey) {
     try {
+      triedProviderName = "Gemini 1.5 Flash";
       return await evaluateWithGemini(input, geminiKey);
     } catch (err) {
-      console.warn("Gemini vision evaluation failed, falling back to pedagogical engine:", err);
+      lastProviderError = err instanceof Error ? err : new Error(String(err));
+      console.warn("Gemini evaluation failed:", err);
     }
   }
 
-  if (openaiKey) {
+  if (openaiKey && activeProvider !== "openai") {
     try {
+      triedProviderName = "OpenAI GPT-4o";
       return await evaluateWithOpenAI(input, openaiKey);
     } catch (err) {
-      console.warn("OpenAI vision evaluation failed, falling back to pedagogical engine:", err);
+      lastProviderError = err instanceof Error ? err : new Error(String(err));
+      console.warn("OpenAI fallback evaluation failed:", err);
     }
   }
+
+  // If AI credentials were never configured, return null (clean 'unconfigured' state)
   if (!isAiEvaluationConfigured()) {
     return null;
   }
 
-  // AI is configured with external provider key
+  // If AI was configured but provider execution failed (quota, timeout, API error), return honest failure
+  if (lastProviderError) {
+    const errorMsg = lastProviderError.message || "Provider service error";
+    return {
+      score: 0,
+      maxScore: assignment.maxMarks,
+      percentage: 0,
+      feedback:
+        assignment.language === "German"
+          ? "Die automatische KI-Auswertung konnte aufgrund einer technischen Dienstunterbrechung des Anbieters nicht abgeschlossen werden. Ihre Einreichung wurde sicher erfasst und ohne Punktabzug zur manuellen Prüfung durch einen Dozenten weitergeleitet."
+          : "Automated AI evaluation could not complete due to a provider service interruption. Your submission has been securely recorded and queued for manual instructor evaluation without any score penalty.",
+      strengths: [],
+      mistakes: [],
+      improvements: [
+        assignment.language === "German"
+          ? "Ihr Dokument liegt vor. Ein Dozent wird Ihre Ausarbeitung manuell korrigieren."
+          : "Your submission has been safely received. An academic instructor will review and grade your work.",
+      ],
+      confidence: 0,
+      needsReview: true,
+      reviewReason: `AI provider evaluation failed (${triedProviderName}): ${errorMsg}. Queued for instructor review.`,
+      checkedAt: new Date().toISOString(),
+      modelUsed: `${triedProviderName} (Service Unavailable)`,
+      evaluationStatus: "provider_error",
+      providerError: errorMsg,
+    };
+  }
+
   return null;
 }
 
@@ -220,27 +296,39 @@ export async function getPageImageBuffer(
 }
 
 /**
- * Gemini Multimodal Vision Evaluation
+ * Gemini Multimodal Vision & Text Evaluation
  */
 async function evaluateWithGemini(input: EvaluationInput, apiKey: string): Promise<AiEvaluation> {
   const { assignment, pages } = input;
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
+  const hasPages = Array.isArray(pages) && pages.length > 0;
+  const trimmedText = (input.studentTextAnswer || "").trim();
+  const hasText = trimmedText.length > 0;
+
   // Read image buffers to base64 parts (supports signed cloud URLs and local files)
   const imageParts: Array<{ inlineData: { mimeType: string; data: string } }> = [];
-  for (const page of pages) {
-    const buffer = await getPageImageBuffer(page);
-    if (buffer) {
-      imageParts.push({
-        inlineData: {
-          mimeType: "image/jpeg",
-          data: buffer.toString("base64"),
-        },
-      });
+  if (hasPages) {
+    for (const page of pages) {
+      const buffer = await getPageImageBuffer(page);
+      if (buffer) {
+        imageParts.push({
+          inlineData: {
+            mimeType: "image/jpeg",
+            data: buffer.toString("base64"),
+          },
+        });
+      }
     }
   }
 
-  const systemPrompt = `You are a certified professional language examiner evaluating a student's handwritten assignment for SpeakUp Language Institute.
+  const submissionContext = hasPages && hasText
+    ? `The student provided BOTH typed text AND ${pages.length} handwritten page image(s). Evaluate both components together as ONE complete submission.\n\nTyped Written Answer:\n"""\n${trimmedText}\n"""`
+    : hasPages
+    ? `The student uploaded ${pages.length} handwritten page image(s). All pages represent ONE continuous answer. Evaluate them together as a whole.`
+    : `The student submitted a typed text answer (no handwriting images attached). Evaluate the typed text according to the task and rubric:\n\nTyped Written Answer:\n"""\n${trimmedText}\n"""`;
+
+  const systemPrompt = `You are a certified professional language examiner evaluating a student's language assignment for SpeakUp Language Institute.
 Course: ${input.courseTitle || assignment.courseId} (${assignment.language || "German"} Level ${assignment.courseLevel || "A1"})
 Lesson: ${input.lessonTitle || assignment.lessonId}
 Assignment: "${assignment.title}"
@@ -250,10 +338,13 @@ Task Requirements: ${assignment.questionTask || "N/A"}
 Max Marks: ${assignment.maxMarks}
 Rubric: ${assignment.rubric}
 
-IMPORTANT INSTRUCTIONS:
-1. The student uploaded ${pages.length} page(s). All pages represent ONE continuous answer. Evaluate them together as a whole.
-2. If the pages are completely blank or unreadable, set "needsReview": true and do not give an unjustified zero.
-3. Provide pedagogical feedback that is constructive and encouraging.
+STUDENT SUBMISSION FORMAT & CONTENT:
+${submissionContext}
+
+IMPORTANT EVALUATION INSTRUCTIONS:
+1. Evaluate the student's submission strictly according to the task requirements and rubric.
+2. If the submission is completely blank, unreadable, or missing, set "needsReview": true and do not give an unjustified zero.
+3. Provide pedagogical feedback that is constructive, encouraging, and actionable.
 4. Output strict JSON with keys:
 {
   "score": number,
@@ -296,7 +387,7 @@ IMPORTANT INSTRUCTIONS:
 
   const json = await response.json();
   const rawText = json.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-  const parsed = JSON.parse(rawText);
+  const parsed = cleanAndParseJson(rawText);
 
   return {
     score: Math.min(Number(parsed.score) || 0, assignment.maxMarks),
@@ -313,38 +404,56 @@ IMPORTANT INSTRUCTIONS:
     needsReview: Boolean(parsed.needsReview),
     reviewReason: parsed.reviewReason || undefined,
     checkedAt: new Date().toISOString(),
-    modelUsed: "Gemini 1.5 Flash Vision",
+    modelUsed: "Gemini 1.5 Flash",
+    evaluationStatus: parsed.needsReview ? "needs_review" : "success",
   };
 }
 
 /**
- * OpenAI Vision Evaluation
+ * OpenAI Multimodal Vision & Text Evaluation
  */
 async function evaluateWithOpenAI(input: EvaluationInput, apiKey: string): Promise<AiEvaluation> {
   const { assignment, pages } = input;
+  const hasPages = Array.isArray(pages) && pages.length > 0;
+  const trimmedText = (input.studentTextAnswer || "").trim();
+  const hasText = trimmedText.length > 0;
+
   // Read image buffers to base64 parts (supports signed cloud URLs and local files)
   const imageContents: Array<{ type: string; image_url?: { url: string } }> = [];
 
-  for (const page of pages) {
-    const buffer = await getPageImageBuffer(page);
-    if (buffer) {
-      const b64 = buffer.toString("base64");
-      imageContents.push({
-        type: "image_url",
-        image_url: { url: `data:image/jpeg;base64,${b64}` },
-      });
+  if (hasPages) {
+    for (const page of pages) {
+      const buffer = await getPageImageBuffer(page);
+      if (buffer) {
+        const b64 = buffer.toString("base64");
+        imageContents.push({
+          type: "image_url",
+          image_url: { url: `data:image/jpeg;base64,${b64}` },
+        });
+      }
     }
   }
 
-  const promptText = `Evaluate this student's handwritten language assignment.
+  const submissionContext = hasPages && hasText
+    ? `The student provided BOTH typed text AND ${pages.length} handwritten page image(s). Evaluate both components together as ONE complete submission.\n\nTyped Written Answer:\n"""\n${trimmedText}\n"""`
+    : hasPages
+    ? `The student uploaded ${pages.length} handwritten page image(s). All pages represent ONE continuous answer. Evaluate them together as a whole.`
+    : `The student submitted a typed text answer (no handwriting images attached). Evaluate the typed text according to the task and rubric:\n\nTyped Written Answer:\n"""\n${trimmedText}\n"""`;
+
+  const promptText = `Evaluate this student's language assignment for SpeakUp Language Institute.
 Language: ${assignment.language || "German"} (${assignment.courseLevel || "A1"})
 Assignment Title: ${assignment.title}
 Task: ${assignment.questionTask || assignment.instructions}
 Max Marks: ${assignment.maxMarks}
 Rubric: ${assignment.rubric}
-Total Pages: ${pages.length} (Evaluate all pages together as one continuous piece).
 
-Return JSON only with:
+STUDENT SUBMISSION FORMAT & CONTENT:
+${submissionContext}
+
+IMPORTANT INSTRUCTIONS:
+1. Evaluate the student's submission strictly according to the task requirements and rubric.
+2. If the submission is blank or unreadable, set "needsReview": true and do not give an unjustified zero.
+3. Return strict JSON only with:
 {
   "score": number,
   "maxScore": ${assignment.maxMarks},
@@ -382,11 +491,12 @@ Return JSON only with:
   });
 
   if (!response.ok) {
-    throw new Error(`OpenAI API error: ${response.status}`);
+    throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
   }
 
   const json = await response.json();
-  const parsed = JSON.parse(json.choices?.[0]?.message?.content || "{}");
+  const rawText = json.choices?.[0]?.message?.content || "{}";
+  const parsed = cleanAndParseJson(rawText);
 
   return {
     score: Math.min(Number(parsed.score) || 0, assignment.maxMarks),
@@ -404,6 +514,7 @@ Return JSON only with:
     reviewReason: parsed.reviewReason || undefined,
     checkedAt: new Date().toISOString(),
     modelUsed: "GPT-4o Multimodal Vision",
+    evaluationStatus: parsed.needsReview ? "needs_review" : "success",
   };
 }
 

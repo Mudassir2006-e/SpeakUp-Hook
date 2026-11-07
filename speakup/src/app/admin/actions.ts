@@ -274,8 +274,9 @@ export async function grantCourseAccess(
     let supabase: any;
     try {
       supabase = createAdminClient();
-    } catch {
-      supabase = await createClient();
+    } catch (clientErr) {
+      console.error("[grantCourseAccess] Service-role client initialization failed:", clientErr);
+      return { success: false, error: "Administrative database service is unavailable." };
     }
 
     const duration =
@@ -434,8 +435,9 @@ export async function renewCourseEnrollmentAction(params: {
     let supabase: any;
     try {
       supabase = createAdminClient();
-    } catch {
-      supabase = await createClient();
+    } catch (clientErr) {
+      console.error("[renewCourseEnrollmentAction] Service-role client initialization failed:", clientErr);
+      return { success: false, error: "Administrative database service is unavailable." };
     }
 
     const now = new Date();
@@ -2095,32 +2097,123 @@ export async function getStudentActivityDossier(
 
 /**
  * Updates a student's profile picture from the Admin Panel.
+ * Validates admin caller and MFA, rejects direct Base64 writes into profiles/auth metadata,
+ * decodes and optimizes image data, uploads to Supabase Storage 'avatars' bucket,
+ * and durably references only the public URL.
  */
 export async function updateStudentAvatarAdmin(
   studentId: string,
-  avatarUrl: string
-): Promise<ActionResponse> {
+  avatarUrlOrData: string
+): Promise<ActionResponse<{ avatarUrl: string }>> {
   const authCheck = await verifyAdminCaller();
   if ("error" in authCheck) {
     return { success: false, error: authCheck.error };
   }
 
+  if (!studentId || typeof studentId !== "string" || !studentId.trim()) {
+    return { success: false, error: "A valid student ID is required." };
+  }
+
   try {
     const adminClient = createAdminClient();
+    let durableUrl = "";
 
-    // 1. Update profiles table if possible
+    if (avatarUrlOrData.startsWith("data:")) {
+      // Decode base64 data URL
+      const matches = avatarUrlOrData.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
+      if (!matches) {
+        return { success: false, error: "Invalid image data format." };
+      }
+
+      const mimeType = matches[1].toLowerCase();
+      const allowedMimes = ["image/jpeg", "image/png", "image/webp"];
+      if (!allowedMimes.includes(mimeType)) {
+        return { success: false, error: "Only JPEG, PNG, and WebP images are supported." };
+      }
+
+      const rawBuffer = Buffer.from(matches[2], "base64");
+      if (rawBuffer.length > 5 * 1024 * 1024) {
+        return { success: false, error: "Decoded avatar image exceeds the 5MB size limit." };
+      }
+
+      // Optimize image buffer
+      let optimizedBuffer = rawBuffer;
+      let contentType = mimeType;
+      let ext = mimeType === "image/png" ? "png" : mimeType === "image/webp" ? "webp" : "jpg";
+
+      try {
+        const sharp = (await import("sharp")).default;
+        optimizedBuffer = await sharp(rawBuffer)
+          .resize(256, 256, { fit: "cover", position: "center" })
+          .webp({ quality: 84 })
+          .toBuffer();
+        contentType = "image/webp";
+        ext = "webp";
+      } catch {
+        optimizedBuffer = rawBuffer;
+      }
+
+      if (optimizedBuffer.length > 5 * 1024 * 1024) {
+        return { success: false, error: "Avatar buffer exceeds the 5MB storage limit." };
+      }
+
+      const fileName = `student_${studentId}_${Date.now()}.${ext}`;
+
+      // Upload to Supabase Storage avatars bucket
+      const { error: uploadError } = await adminClient.storage
+        .from("avatars")
+        .upload(fileName, optimizedBuffer, {
+          contentType,
+          upsert: true,
+        });
+
+      if (uploadError) {
+        console.warn("Storage upload failed for student avatar:", uploadError.message);
+        if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
+          try {
+            const fs = (await import("fs")).default;
+            const path = (await import("path")).default;
+            const targetDir = path.join(process.cwd(), "public", "uploads", "avatars");
+            if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
+            fs.writeFileSync(path.join(targetDir, fileName), optimizedBuffer);
+            durableUrl = `/uploads/avatars/${fileName}`;
+          } catch (fsErr) {
+            console.warn("Local avatar write fallback skipped:", fsErr);
+          }
+        }
+        if (!durableUrl) {
+          return {
+            success: false,
+            error: "Failed to upload avatar to durable cloud storage.",
+          };
+        }
+      } else {
+        const { data: pubData } = adminClient.storage.from("avatars").getPublicUrl(fileName);
+        durableUrl = pubData.publicUrl;
+      }
+    } else if (
+      avatarUrlOrData.startsWith("http://") ||
+      avatarUrlOrData.startsWith("https://") ||
+      avatarUrlOrData.startsWith("/uploads/")
+    ) {
+      durableUrl = avatarUrlOrData;
+    } else {
+      return { success: false, error: "Invalid avatar URL or data provided." };
+    }
+
+    // 1. Update profiles table with ONLY the clean durable URL (never raw Base64)
     try {
       await (adminClient as any)
         .from("profiles")
-        .update({ avatar_url: avatarUrl })
+        .update({ avatar_url: durableUrl })
         .eq("id", studentId);
     } catch {
       // Non-blocking
     }
 
-    // 2. Update user_metadata in auth.users
+    // 2. Update user_metadata in auth.users with ONLY the clean durable URL
     const { error: authErr } = await adminClient.auth.admin.updateUserById(studentId, {
-      user_metadata: { avatar_url: avatarUrl },
+      user_metadata: { avatar_url: durableUrl },
     });
 
     if (authErr) {
@@ -2130,7 +2223,7 @@ export async function updateStudentAvatarAdmin(
     revalidatePath(`/admin/students/${studentId}`);
     revalidatePath("/admin/students");
 
-    return { success: true };
+    return { success: true, data: { avatarUrl: durableUrl } };
   } catch (err) {
     return {
       success: false,
@@ -2634,18 +2727,15 @@ function readCourseRequestsFile(): AdminCourseRequest[] {
   return [];
 }
 
-function writeCourseRequestsFile(requests: AdminCourseRequest[]) {
-  try {
-    fs.writeFileSync(COURSE_REQUESTS_FILE, JSON.stringify(requests, null, 2), "utf-8");
-  } catch (err) {
-    console.error("Error writing course requests file:", err);
-  }
+function writeCourseRequestsFile(_requests: AdminCourseRequest[]) {
+  // Production EROFS fix: course requests are persisted directly to Supabase public.course_enrollments.
+  // Filesystem writes to central-course-requests.json are disabled in serverless/production runtimes.
 }
 
 /**
  * Retrieves all student course enrollment requests.
  * Queries Supabase course_enrollments and joins with profiles & courses,
- * seamlessly merged with the central-course-requests store.
+ * supplemented seamlessly by legacy central-course-requests store if present.
  */
 export async function getAdminCourseRequestsAction(): Promise<ActionResponse<AdminCourseRequest[]>> {
   const authCheck = await verifyAdminCaller();
@@ -2661,15 +2751,9 @@ export async function getAdminCourseRequestsAction(): Promise<ActionResponse<Adm
       supabase = await createClient();
     }
 
-    const fileRequests = readCourseRequestsFile();
     const reqMap = new Map<string, AdminCourseRequest>();
 
-    // Seed with file-based requests first
-    for (const r of fileRequests) {
-      reqMap.set(r.id, r);
-    }
-
-    // Fetch database enrollments
+    // 1. Fetch database enrollments as the primary source of truth
     try {
       const { data: dbRecords, error: dbError } = await supabase
         .from("course_enrollments")
@@ -2684,12 +2768,16 @@ export async function getAdminCourseRequestsAction(): Promise<ActionResponse<Adm
           approved_by,
           rejected_at,
           rejected_by,
+          duration_months,
+          expires_at,
           profiles:user_id (id, full_name, email, phone),
           courses:course_id (id, slug, title, level)
         `)
         .order("requested_at", { ascending: false });
 
-      if (!dbError && Array.isArray(dbRecords)) {
+      if (dbError) {
+        console.error("Database error fetching course requests:", dbError);
+      } else if (Array.isArray(dbRecords)) {
         for (const row of dbRecords) {
           const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
           const course = Array.isArray(row.courses) ? row.courses[0] : row.courses;
@@ -2703,33 +2791,44 @@ export async function getAdminCourseRequestsAction(): Promise<ActionResponse<Adm
             }
           }
 
-          const existingFile = reqMap.get(row.id);
-
           const item: AdminCourseRequest = {
             id: row.id,
             userId: row.user_id,
-            studentName: profile?.full_name || existingFile?.studentName || "Registered Student",
-            studentEmail: profile?.email || existingFile?.studentEmail || "",
-            studentPhone: profile?.phone || existingFile?.studentPhone || parsedMeta?.studentPhone || null,
-            courseId: row.course_id || existingFile?.courseId || "course",
-            courseTitle: course?.title || parsedMeta?.courseTitle || existingFile?.courseTitle || "Academic Course",
-            level: course?.level || parsedMeta?.level || existingFile?.level || "Executive Series",
-            language: parsedMeta?.language || existingFile?.language || "German",
+            studentName: profile?.full_name || parsedMeta?.studentName || "Registered Student",
+            studentEmail: profile?.email || parsedMeta?.studentEmail || "",
+            studentPhone: profile?.phone || parsedMeta?.studentPhone || null,
+            courseId: row.course_id || "course",
+            courseTitle: course?.title || parsedMeta?.courseTitle || "Academic Course",
+            level: course?.level || parsedMeta?.level || "Executive Series",
+            language: parsedMeta?.language || "German",
             status: row.status as "pending" | "approved" | "rejected",
-            requestedAt: row.requested_at || existingFile?.requestedAt || new Date().toISOString(),
-            approvedAt: row.approved_at || existingFile?.approvedAt || null,
-            approvedBy: row.approved_by || existingFile?.approvedBy || null,
-            rejectedAt: row.rejected_at || existingFile?.rejectedAt || null,
-            rejectedBy: row.rejected_by || existingFile?.rejectedBy || null,
-            notes: parsedMeta?.notes || existingFile?.notes || null,
+            requestedAt: row.requested_at || new Date().toISOString(),
+            approvedAt: row.approved_at || null,
+            approvedBy: row.approved_by || null,
+            rejectedAt: row.rejected_at || null,
+            rejectedBy: row.rejected_by || null,
+            durationMonths: row.duration_months || undefined,
+            expiresAt: row.expires_at || undefined,
+            receipt_tid: row.receipt_tid || null,
+            notes: parsedMeta?.notes || null,
           };
 
           reqMap.set(row.id, item);
         }
       }
     } catch (dbErr) {
-      console.warn("Notice: Using central requests cache for course requests list", dbErr);
+      console.warn("Database notice for course_enrollments:", dbErr);
     }
+
+    // 2. Read legacy file requests only to supplement un-migrated local mock records
+    try {
+      const fileRequests = readCourseRequestsFile();
+      for (const r of fileRequests) {
+        if (!reqMap.has(r.id)) {
+          reqMap.set(r.id, r);
+        }
+      }
+    } catch {}
 
     const sortedList = Array.from(reqMap.values()).sort(
       (a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime()
@@ -2743,7 +2842,7 @@ export async function getAdminCourseRequestsAction(): Promise<ActionResponse<Adm
 
 /**
  * Approves a student course request.
- * Updates status in course_enrollments, syncs file store, and sends a student notification.
+ * Updates status in course_enrollments and dispatches student email and notification.
  */
 export async function approveCourseRequestAction(
   requestId: string,
@@ -2765,24 +2864,33 @@ export async function approveCourseRequestAction(
     const startDate = new Date();
     const now = startDate.toISOString();
 
-    // 1. Inspect file requests first to check course ID
-    const fileRequests = readCourseRequestsFile();
-    const item = fileRequests.find((r) => r.id === requestId);
-
-    let courseId = item?.courseId || "";
-    let userId = item?.userId || "";
+    let courseId = "";
+    let userId = "";
+    let enrollmentRecord: any = null;
     let recordFoundInDb = false;
 
+    // 1. Fetch from Supabase course_enrollments if requestId is a valid UUID
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId);
     if (isUuid) {
       try {
-        const { data: record } = await supabase
+        const { data: record, error: selectErr } = await supabase
           .from("course_enrollments")
-          .select("user_id, course_id")
+          .select(`
+            id,
+            user_id,
+            course_id,
+            status,
+            receipt_tid,
+            duration_months,
+            expires_at,
+            profiles:user_id (id, full_name, email),
+            courses:course_id (id, slug, title)
+          `)
           .eq("id", requestId)
           .maybeSingle();
 
-        if (record) {
+        if (record && !selectErr) {
+          enrollmentRecord = record;
           courseId = record.course_id;
           userId = record.user_id;
         }
@@ -2790,6 +2898,30 @@ export async function approveCourseRequestAction(
         console.warn("DB select notice:", dbErr);
       }
     }
+
+    // Fallback check against legacy file requests if not found in DB
+    const fileRequests = readCourseRequestsFile();
+    const item = fileRequests.find((r) => r.id === requestId);
+    if (!enrollmentRecord && item) {
+      if (!courseId) courseId = item.courseId;
+      if (!userId) userId = item.userId;
+    }
+
+    let parsedMeta: any = {};
+    if (enrollmentRecord?.receipt_tid) {
+      try {
+        parsedMeta = JSON.parse(enrollmentRecord.receipt_tid);
+      } catch {
+        parsedMeta = { rawTid: enrollmentRecord.receipt_tid };
+      }
+    }
+
+    const profile = Array.isArray(enrollmentRecord?.profiles) ? enrollmentRecord.profiles[0] : enrollmentRecord?.profiles;
+    const course = Array.isArray(enrollmentRecord?.courses) ? enrollmentRecord.courses[0] : enrollmentRecord?.courses;
+
+    const studentEmail = profile?.email || parsedMeta?.studentEmail || item?.studentEmail;
+    const studentName = profile?.full_name || parsedMeta?.studentName || item?.studentName;
+    const courseTitle = course?.title || parsedMeta?.courseTitle || item?.courseTitle || "Course";
 
     const duration =
       durationMonths && durationMonths > 0
@@ -2799,10 +2931,10 @@ export async function approveCourseRequestAction(
     const expiresDate = new Date(startDate.getTime());
     expiresDate.setMonth(expiresDate.getMonth() + duration);
 
-    // Update in Supabase by UUID
+    // 2. Update status in Supabase course_enrollments by UUID
     if (isUuid) {
       try {
-        const { error: updateErr } = await supabase
+        let { error: updateErr } = await supabase
           .from("course_enrollments")
           .update({
             status: "approved",
@@ -2815,44 +2947,52 @@ export async function approveCourseRequestAction(
           } as any)
           .eq("id", requestId);
 
+        // Safe retry without approved_by if foreign key constraint on public.profiles fails
+        if (updateErr) {
+          console.warn("[approveCourseRequestAction] Update with approved_by failed, retrying without approved_by:", updateErr.message);
+          const retry = await supabase
+            .from("course_enrollments")
+            .update({
+              status: "approved",
+              approved_at: now,
+              rejected_at: null,
+              rejected_by: null,
+              duration_months: duration,
+              expires_at: expiresDate.toISOString(),
+            } as any)
+            .eq("id", requestId);
+          updateErr = retry.error;
+        }
+
         if (!updateErr) {
           recordFoundInDb = true;
+        } else {
+          console.error("DB update error approving course enrollment:", updateErr);
+          return { success: false, error: updateErr.message || "Failed to approve enrollment in database." };
         }
       } catch (dbErr) {
         console.warn("DB update error:", dbErr);
       }
     }
 
-    // 2. Update in central-course-requests file store
-    if (item) {
-      item.status = "approved";
-      item.approvedAt = now;
-      item.approvedBy = authCheck.adminId;
-      item.durationMonths = duration;
-      item.expiresAt = expiresDate.toISOString();
-      item.rejectedAt = null;
-      item.rejectedBy = null;
-      writeCourseRequestsFile(fileRequests);
-
-      if (!courseId) courseId = item.courseId;
-      if (!userId) userId = item.userId;
-    }
-
-    // Fallback sync to Supabase if not updated by UUID but user/course are identified
+    // Fallback sync to Supabase if not updated by UUID but user/course are identified (legacy file records)
     if (!recordFoundInDb && userId && courseId) {
       try {
         let dbCourseId = courseId;
-        const { data: matchedDbCourse } = await supabase
-          .from("courses")
-          .select("id")
-          .or(`id.eq.${courseId},slug.eq.${courseId.toLowerCase()}`)
-          .maybeSingle();
+        const isCourseUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(courseId);
+        if (!isCourseUuid) {
+          const { data: matchedDbCourse } = await supabase
+            .from("courses")
+            .select("id")
+            .eq("slug", courseId.toLowerCase())
+            .maybeSingle();
 
-        if (matchedDbCourse) {
-          dbCourseId = matchedDbCourse.id;
+          if (matchedDbCourse) {
+            dbCourseId = matchedDbCourse.id;
+          }
         }
 
-        await supabase
+        let { error: fallbackErr } = await supabase
           .from("course_enrollments")
           .update({
             status: "approved",
@@ -2865,41 +3005,72 @@ export async function approveCourseRequestAction(
           } as any)
           .eq("user_id", userId)
           .eq("course_id", dbCourseId);
+
+        if (fallbackErr) {
+          const retry = await supabase
+            .from("course_enrollments")
+            .update({
+              status: "approved",
+              approved_at: now,
+              rejected_at: null,
+              rejected_by: null,
+              duration_months: duration,
+              expires_at: expiresDate.toISOString(),
+            } as any)
+            .eq("user_id", userId)
+            .eq("course_id", dbCourseId);
+          fallbackErr = retry.error;
+        }
+
+        if (!fallbackErr) {
+          recordFoundInDb = true;
+        }
       } catch (syncErr) {
         console.warn("DB fallback approve sync error:", syncErr);
       }
     }
 
-    // 3. Dispatch Course Notification for the student
-    const notifsPath = path.join(process.cwd(), "src", "config", "central-notifications.json");
-    let allNotifs: any[] = [];
-    if (fs.existsSync(notifsPath)) {
-      try {
-        allNotifs = JSON.parse(fs.readFileSync(notifsPath, "utf-8") || "[]");
-      } catch {}
+    if (!recordFoundInDb) {
+      return {
+        success: false,
+        error: "Course enrollment record not found in database or update failed. Please refresh and try again.",
+      };
     }
 
-    const courseTitle = item?.courseTitle || "Course";
-    allNotifs.unshift({
-      id: `notif_${Date.now()}`,
-      courseId: courseId || "course",
-      courseTitle: courseTitle,
-      type: "announcement",
-      title: `Course Enrollment Approved: ${courseTitle}`,
-      message: `Your enrollment request has been approved! You now have unrestricted access to all modules, lectures, and resources for ${courseTitle}.`,
-      studentEmail: item?.studentEmail,
-      timestamp: now,
-      read: false,
-    });
-    fs.writeFileSync(notifsPath, JSON.stringify(allNotifs, null, 2), "utf-8");
+    // 3. Dispatch Course Notification for the student (safely handled for serverless)
+    try {
+      const notifsPath = path.join(process.cwd(), "src", "config", "central-notifications.json");
+      let allNotifs: any[] = [];
+      if (fs.existsSync(notifsPath)) {
+        try {
+          allNotifs = JSON.parse(fs.readFileSync(notifsPath, "utf-8") || "[]");
+        } catch {}
+      }
 
-    // Non-blocking branded student email dispatch (Section 4)
-    if (item?.studentEmail) {
+      allNotifs.unshift({
+        id: `notif_${Date.now()}`,
+        courseId: courseId || "course",
+        courseTitle: courseTitle,
+        type: "announcement",
+        title: `Course Enrollment Approved: ${courseTitle}`,
+        message: `Your enrollment request has been approved! You now have unrestricted access to all modules, lectures, and resources for ${courseTitle}.`,
+        studentEmail: studentEmail || item?.studentEmail,
+        timestamp: now,
+        read: false,
+      });
+
+      fs.writeFileSync(notifsPath, JSON.stringify(allNotifs, null, 2), "utf-8");
+    } catch (notifErr) {
+      console.warn("Notice: Local notifications store write skipped (serverless read-only filesystem):", notifErr);
+    }
+
+    // 4. Non-blocking branded student email dispatch
+    if (studentEmail) {
       try {
         const { sendCourseEnrollmentDecisionEmail } = await import("@/lib/email");
         await sendCourseEnrollmentDecisionEmail({
-          studentEmail: item.studentEmail,
-          studentName: item.studentName || undefined,
+          studentEmail,
+          studentName: studentName || undefined,
           courseTitle,
           decision: "approved",
         });
@@ -2939,12 +3110,36 @@ export async function rejectCourseRequestAction(requestId: string): Promise<Acti
 
     const now = new Date().toISOString();
 
-    // 1. Update in Supabase by UUID if applicable
+    let courseId = "";
+    let userId = "";
+    let enrollmentRecord: any = null;
     let dbUpdated = false;
+
+    // 1. Fetch and update in Supabase by UUID if applicable
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId);
     if (isUuid) {
       try {
-        const { error: dbErr } = await supabase
+        const { data: record } = await supabase
+          .from("course_enrollments")
+          .select(`
+            id,
+            user_id,
+            course_id,
+            status,
+            receipt_tid,
+            profiles:user_id (id, full_name, email),
+            courses:course_id (id, slug, title)
+          `)
+          .eq("id", requestId)
+          .maybeSingle();
+
+        if (record) {
+          enrollmentRecord = record;
+          courseId = record.course_id;
+          userId = record.user_id;
+        }
+
+        let { error: dbErr } = await supabase
           .from("course_enrollments")
           .update({
             status: "rejected",
@@ -2952,58 +3147,110 @@ export async function rejectCourseRequestAction(requestId: string): Promise<Acti
             rejected_by: authCheck.adminId,
           } as any)
           .eq("id", requestId);
+
+        // Safe retry without rejected_by if foreign key constraint on public.profiles fails
+        if (dbErr) {
+          console.warn("[rejectCourseRequestAction] Update with rejected_by failed, retrying without rejected_by:", dbErr.message);
+          const retry = await supabase
+            .from("course_enrollments")
+            .update({
+              status: "rejected",
+              rejected_at: now,
+            } as any)
+            .eq("id", requestId);
+          dbErr = retry.error;
+        }
+
         if (!dbErr) dbUpdated = true;
       } catch (dbErr) {
         console.warn("DB update error:", dbErr);
       }
     }
 
-    // 2. Update in file store
+    // 2. Fallback check against legacy file requests if needed
     const fileRequests = readCourseRequestsFile();
     const item = fileRequests.find((r) => r.id === requestId);
-    if (item) {
-      item.status = "rejected";
-      item.rejectedAt = now;
-      item.rejectedBy = authCheck.adminId;
-      writeCourseRequestsFile(fileRequests);
+    if (!enrollmentRecord && item) {
+      if (!courseId) courseId = item.courseId;
+      if (!userId) userId = item.userId;
+    }
 
-      // Fallback sync to Supabase if not updated by UUID
-      if (!dbUpdated && item.userId && item.courseId) {
-        try {
-          let dbCourseId = item.courseId;
+    // Fallback sync to Supabase if not updated by UUID but user/course are identified (legacy file records)
+    if (!dbUpdated && userId && courseId) {
+      try {
+        let dbCourseId = courseId;
+        const isCourseUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(courseId);
+        if (!isCourseUuid) {
           const { data: matchedDbCourse } = await supabase
             .from("courses")
             .select("id")
-            .or(`id.eq.${item.courseId},slug.eq.${item.courseId.toLowerCase()}`)
+            .eq("slug", courseId.toLowerCase())
             .maybeSingle();
 
           if (matchedDbCourse) {
             dbCourseId = matchedDbCourse.id;
           }
+        }
 
-          await supabase
+        let { error: fallbackErr } = await supabase
+          .from("course_enrollments")
+          .update({
+            status: "rejected",
+            rejected_at: now,
+            rejected_by: authCheck.adminId,
+          } as any)
+          .eq("user_id", userId)
+          .eq("course_id", dbCourseId);
+
+        if (fallbackErr) {
+          const retry = await supabase
             .from("course_enrollments")
             .update({
               status: "rejected",
               rejected_at: now,
-              rejected_by: authCheck.adminId,
             } as any)
-            .eq("user_id", item.userId)
+            .eq("user_id", userId)
             .eq("course_id", dbCourseId);
-        } catch (syncErr) {
-          console.warn("DB fallback rejection sync error:", syncErr);
+          fallbackErr = retry.error;
         }
+
+        if (!fallbackErr) dbUpdated = true;
+      } catch (syncErr) {
+        console.warn("DB fallback rejection sync error:", syncErr);
       }
     }
 
-    // Non-blocking branded student email dispatch (Section 4)
-    if (item?.studentEmail) {
+    if (!dbUpdated) {
+      return {
+        success: false,
+        error: "Course enrollment record not found in database or update failed. Please refresh and try again.",
+      };
+    }
+
+    // 3. Branded student rejection email dispatch
+    let parsedMeta: any = {};
+    if (enrollmentRecord?.receipt_tid) {
+      try {
+        parsedMeta = JSON.parse(enrollmentRecord.receipt_tid);
+      } catch {
+        parsedMeta = { rawTid: enrollmentRecord.receipt_tid };
+      }
+    }
+
+    const profile = Array.isArray(enrollmentRecord?.profiles) ? enrollmentRecord.profiles[0] : enrollmentRecord?.profiles;
+    const course = Array.isArray(enrollmentRecord?.courses) ? enrollmentRecord.courses[0] : enrollmentRecord?.courses;
+
+    const studentEmail = profile?.email || parsedMeta?.studentEmail || item?.studentEmail;
+    const studentName = profile?.full_name || parsedMeta?.studentName || item?.studentName;
+    const courseTitle = course?.title || parsedMeta?.courseTitle || item?.courseTitle || "Academic Course";
+
+    if (studentEmail) {
       try {
         const { sendCourseEnrollmentDecisionEmail } = await import("@/lib/email");
         await sendCourseEnrollmentDecisionEmail({
-          studentEmail: item.studentEmail,
-          studentName: item.studentName || undefined,
-          courseTitle: item.courseTitle || "Academic Course",
+          studentEmail,
+          studentName: studentName || undefined,
+          courseTitle,
           decision: "rejected",
         });
       } catch (emailErr) {

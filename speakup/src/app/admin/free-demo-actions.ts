@@ -96,11 +96,58 @@ function readFreeDemoConfig(): FreeDemoStore {
 
 function writeFreeDemoConfig(store: FreeDemoStore) {
   try {
+    if (process.env.VERCEL || process.env.NODE_ENV === "production") return;
     const dir = path.dirname(CONFIG_PATH);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(CONFIG_PATH, JSON.stringify(store, null, 2), "utf-8");
   } catch (err) {
-    console.error("Error writing free-demo-config.json:", err);
+    console.warn("Notice: Local free-demo-config.json write skipped:", err);
+  }
+}
+
+async function syncFreeDemoConfigToDatabase(store: FreeDemoStore): Promise<boolean> {
+  try {
+    let client: any;
+    try {
+      client = createAdminClient();
+    } catch {
+      client = await createClient();
+    }
+
+    const { data: existing } = await client
+      .from("cms_content")
+      .select("id, version")
+      .eq("page_key", "free_demo_config")
+      .maybeSingle();
+
+    const now = new Date().toISOString();
+
+    if (existing?.id) {
+      const { error } = await client
+        .from("cms_content")
+        .update({
+          published_data: store,
+          draft_data: store,
+          version: (existing.version || 1) + 1,
+          updated_at: now,
+        })
+        .eq("id", existing.id);
+      return !error;
+    } else {
+      const { error } = await client
+        .from("cms_content")
+        .insert({
+          page_key: "free_demo_config",
+          published_data: store,
+          draft_data: store,
+          version: 1,
+          updated_at: now,
+        });
+      return !error;
+    }
+  } catch (err) {
+    console.warn("Database free demo sync notice:", err);
+    return false;
   }
 }
 
@@ -243,28 +290,7 @@ export async function saveFreeDemoAction(params: {
     store.courseDemos[params.courseId] = entry;
     writeFreeDemoConfig(store);
 
-    let dbPersisted = false;
-    try {
-      let supabase: any;
-      try {
-        supabase = createAdminClient();
-      } catch {
-        supabase = await createClient();
-      }
-      const { error: dbErr } = await supabase.from("cms_content").upsert({
-        page_key: "free_demo_config",
-        published_data: store,
-        draft_data: store,
-        updated_at: new Date().toISOString(),
-        updated_by: authCheck.adminId,
-      }, { onConflict: "page_key" });
-
-      if (!dbErr) {
-        dbPersisted = true;
-      }
-    } catch (dbErr) {
-      console.warn("Database free demo upsert notice:", dbErr);
-    }
+    const dbPersisted = await syncFreeDemoConfigToDatabase(store);
 
     if (!dbPersisted && (process.env.VERCEL || process.env.NODE_ENV === "production")) {
       return {
@@ -345,28 +371,7 @@ export async function saveGeneralDemoAction(params: {
 
     writeFreeDemoConfig(store);
 
-    let dbPersisted = false;
-    try {
-      let supabase: any;
-      try {
-        supabase = createAdminClient();
-      } catch {
-        supabase = await createClient();
-      }
-      const { error: dbErr } = await supabase.from("cms_content").upsert({
-        page_key: "free_demo_config",
-        published_data: store,
-        draft_data: store,
-        updated_at: now,
-        updated_by: authCheck.adminId,
-      }, { onConflict: "page_key" });
-
-      if (!dbErr) {
-        dbPersisted = true;
-      }
-    } catch (dbErr) {
-      console.warn("Database general demo upsert notice:", dbErr);
-    }
+    const dbPersisted = await syncFreeDemoConfigToDatabase(store);
 
     if (!dbPersisted && (process.env.VERCEL || process.env.NODE_ENV === "production")) {
       return {
@@ -404,28 +409,7 @@ export async function deleteGeneralDemoAction(demoId: string): Promise<{
     };
     writeFreeDemoConfig(store);
 
-    let dbPersisted = false;
-    try {
-      let supabase: any;
-      try {
-        supabase = createAdminClient();
-      } catch {
-        supabase = await createClient();
-      }
-      const { error: dbErr } = await supabase.from("cms_content").upsert({
-        page_key: "free_demo_config",
-        published_data: store,
-        draft_data: store,
-        updated_at: new Date().toISOString(),
-        updated_by: authCheck.adminId,
-      }, { onConflict: "page_key" });
-
-      if (!dbErr) {
-        dbPersisted = true;
-      }
-    } catch (dbErr) {
-      console.warn("Database delete general demo notice:", dbErr);
-    }
+    const dbPersisted = await syncFreeDemoConfigToDatabase(store);
 
     if (!dbPersisted && (process.env.VERCEL || process.env.NODE_ENV === "production")) {
       return {
@@ -464,28 +448,7 @@ export async function deleteFreeDemoAction(courseId: string): Promise<{
     delete store.courseDemos[courseId];
     writeFreeDemoConfig(store);
 
-    let dbPersisted = false;
-    try {
-      let supabase: any;
-      try {
-        supabase = createAdminClient();
-      } catch {
-        supabase = await createClient();
-      }
-      const { error: dbErr } = await supabase.from("cms_content").upsert({
-        page_key: "free_demo_config",
-        published_data: store,
-        draft_data: store,
-        updated_at: new Date().toISOString(),
-        updated_by: authCheck.adminId,
-      }, { onConflict: "page_key" });
-
-      if (!dbErr) {
-        dbPersisted = true;
-      }
-    } catch (dbErr) {
-      console.warn("Database delete course demo notice:", dbErr);
-    }
+    const dbPersisted = await syncFreeDemoConfigToDatabase(store);
 
     if (!dbPersisted && (process.env.VERCEL || process.env.NODE_ENV === "production")) {
       return {

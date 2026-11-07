@@ -53,11 +53,12 @@ function readLocalSettings(): LmsWorkingVideoSettings {
 
 function writeLocalSettings(settings: LmsWorkingVideoSettings): void {
   try {
+    if (process.env.VERCEL || process.env.NODE_ENV === "production") return;
     const dir = path.dirname(CONFIG_PATH);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(CONFIG_PATH, JSON.stringify(settings, null, 2), "utf-8");
   } catch (err) {
-    console.error("Error writing lms-working-video.json:", err);
+    console.warn("Notice: Local lms working video config write skipped:", err);
   }
 }
 

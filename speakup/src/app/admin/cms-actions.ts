@@ -132,9 +132,10 @@ export async function saveCmsPageDraftAction(
 
     const newVersion = (existing?.version || 0) + 1;
 
+      let dbPersisted = false;
       try {
         if (existing?.id) {
-          await supabase
+          const { error: updErr } = await supabase
             .from("cms_content")
             .update({
               draft_data: sectionsData,
@@ -143,8 +144,23 @@ export async function saveCmsPageDraftAction(
               updated_by: authCheck.adminId,
             })
             .eq("id", existing.id);
+
+          if (updErr) {
+            console.warn("Retrying draft update without updated_by fkey:", updErr.message);
+            const { error: retryErr } = await supabase
+              .from("cms_content")
+              .update({
+                draft_data: sectionsData,
+                version: newVersion,
+                updated_at: now,
+              })
+              .eq("id", existing.id);
+            if (!retryErr) dbPersisted = true;
+          } else {
+            dbPersisted = true;
+          }
         } else {
-          await supabase
+          const { error: insErr } = await supabase
             .from("cms_content")
             .insert({
               page_key: pageKey,
@@ -153,15 +169,34 @@ export async function saveCmsPageDraftAction(
               updated_at: now,
               updated_by: authCheck.adminId,
             });
+
+          if (insErr) {
+            console.warn("Retrying draft insert without updated_by fkey:", insErr.message);
+            const { error: retryErr } = await supabase
+              .from("cms_content")
+              .insert({
+                page_key: pageKey,
+                draft_data: sectionsData,
+                version: 1,
+                updated_at: now,
+              });
+            if (!retryErr) dbPersisted = true;
+          } else {
+            dbPersisted = true;
+          }
         }
       } catch (dbErr) {
         console.warn("DB draft save notice:", dbErr);
       }
 
-      // Always persist to local draft store for immediate retrieval
+      // Persist to local draft store for local dev
       const store = readDraftStore();
       store[pageKey] = sectionsData;
       writeDraftStore(store);
+
+      if (!dbPersisted && (process.env.VERCEL || process.env.NODE_ENV === "production")) {
+        return { success: false, error: "Failed to persist draft changes to database." };
+      }
 
       revalidatePath("/admin/pages");
       revalidatePath("/admin/edit");
@@ -172,7 +207,7 @@ export async function saveCmsPageDraftAction(
       const store = readDraftStore();
       store[pageKey] = sectionsData;
       writeDraftStore(store);
-      return { success: true, data: { version: 1 } };
+      return { success: false, error: err?.message || "Failed to save draft." };
     }
   }
 
@@ -204,9 +239,10 @@ function readPublishedStore(): Record<string, any> {
 
 function writePublishedStore(store: Record<string, any>) {
   try {
+    if (process.env.VERCEL || process.env.NODE_ENV === "production") return;
     fs.writeFileSync(PUBLISHED_STORE_PATH, JSON.stringify(store, null, 2), "utf-8");
   } catch (err) {
-    console.error("Failed to write to published store:", err);
+    console.warn("Notice: Local published store write skipped:", err);
   }
 }
 
@@ -224,9 +260,10 @@ function readDraftStore(): Record<string, any> {
 
 function writeDraftStore(store: Record<string, any>) {
   try {
+    if (process.env.VERCEL || process.env.NODE_ENV === "production") return;
     fs.writeFileSync(DRAFT_STORE_PATH, JSON.stringify(store, null, 2), "utf-8");
   } catch (err) {
-    console.error("Failed to write to draft store:", err);
+    console.warn("Notice: Local draft store write skipped:", err);
   }
 }
 
@@ -242,9 +279,10 @@ function readRevisionsStore(): Record<string, CmsRevision[]> {
 
 function writeRevisionsStore(store: Record<string, CmsRevision[]>) {
   try {
+    if (process.env.VERCEL || process.env.NODE_ENV === "production") return;
     fs.writeFileSync(REVISIONS_STORE_PATH, JSON.stringify(store, null, 2), "utf-8");
   } catch (err) {
-    console.error("Failed to write to revisions store:", err);
+    console.warn("Notice: Local revisions store write skipped:", err);
   }
 }
 
@@ -290,17 +328,24 @@ export async function uploadWebsiteAssetAction(
       });
 
     if (uploadError) {
-      console.warn("Supabase storage upload warning, using local public fallback:", uploadError.message);
-      const publicUploadsDir = path.join(process.cwd(), "public", "uploads");
-      if (!fs.existsSync(publicUploadsDir)) {
-        fs.mkdirSync(publicUploadsDir, { recursive: true });
+      console.warn("Supabase storage upload warning:", uploadError.message);
+      if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
+        try {
+          const publicUploadsDir = path.join(process.cwd(), "public", "uploads");
+          if (!fs.existsSync(publicUploadsDir)) {
+            fs.mkdirSync(publicUploadsDir, { recursive: true });
+          }
+          const localFileName = `${Date.now()}_${sanitizedName}`;
+          fs.writeFileSync(path.join(publicUploadsDir, localFileName), buffer);
+          return {
+            success: true,
+            data: { url: `/uploads/${localFileName}`, fileName: file.name, size: file.size },
+          };
+        } catch (fsErr) {
+          console.warn("Local uploads fallback skipped:", fsErr);
+        }
       }
-      const localFileName = `${Date.now()}_${sanitizedName}`;
-      fs.writeFileSync(path.join(publicUploadsDir, localFileName), buffer);
-      return {
-        success: true,
-        data: { url: `/uploads/${localFileName}`, fileName: file.name, size: file.size },
-      };
+      return { success: false, error: "Image upload failed: durable storage unavailable." };
     }
 
     const { data: pubData } = adminClient.storage.from("avatars").getPublicUrl(storagePath);
@@ -315,6 +360,8 @@ export async function uploadWebsiteAssetAction(
 
 export interface UploadedMaterialData {
   url: string;
+  storagePath?: string;
+  bucket?: string;
   fileName: string;
   fileType: "image" | "pdf" | "video" | "document";
   size: number;
@@ -323,7 +370,7 @@ export interface UploadedMaterialData {
 /**
  * Uploads learning materials (images, PDFs, videos, worksheets, documents)
  * for Lecture Notes and Reading Sessions.
- * Stores in Supabase Storage with local public fallback.
+ * Routes to the private 'course_materials' bucket with private signed URLs.
  */
 export async function uploadLearningMaterialAction(
   formData: FormData
@@ -358,32 +405,52 @@ export async function uploadLearningMaterialAction(
     return { success: false, error: "Material file exceeds maximum size limit of 50 MB." };
   }
 
+  // Validate allowed extensions and MIME types for learning materials
+  const isAllowedExt = /\.(jpe?g|png|webp|gif|svg|pdf|mp4|webm|ogg|mov|m4v|doc|docx|xls|xlsx|ppt|pptx|txt|rtf|odt|csv)$/i.test(name);
+  const isAllowedMime =
+    mime.startsWith("image/") ||
+    mime.startsWith("video/") ||
+    mime === "application/pdf" ||
+    mime.includes("document") ||
+    mime.includes("sheet") ||
+    mime.includes("presentation") ||
+    mime.includes("msword") ||
+    mime.includes("text/") ||
+    (mime === "application/octet-stream" && isAllowedExt);
+
+  if (!isAllowedExt && !isAllowedMime) {
+    return {
+      success: false,
+      error: "File type not supported for course materials. Supported types: PDF, Word, Excel, PowerPoint, Text, Images, and Videos.",
+    };
+  }
+
   try {
     const adminClient = createAdminClient();
     const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
     const storagePath = `learning_materials/${Date.now()}_${sanitizedName}`;
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    // Try Supabase Storage
+    // 1. Primary storage: private 'course_materials' bucket
     const { error: uploadError } = await adminClient.storage
-      .from("avatars")
+      .from("course_materials")
       .upload(storagePath, buffer, {
         contentType: file.type || "application/octet-stream",
         upsert: true,
       });
 
-    if (uploadError) {
-      console.warn("Notice: Storing learning material via public fallback storage:", uploadError.message);
-      const publicUploadsDir = path.join(process.cwd(), "public", "uploads", "materials");
-      if (!fs.existsSync(publicUploadsDir)) {
-        fs.mkdirSync(publicUploadsDir, { recursive: true });
-      }
-      const localFileName = `${Date.now()}_${sanitizedName}`;
-      fs.writeFileSync(path.join(publicUploadsDir, localFileName), buffer);
+    if (!uploadError) {
+      // The bucket is private. Generate a signed URL for initial preview (24 hours)
+      const { data: signData } = await adminClient.storage
+        .from("course_materials")
+        .createSignedUrl(storagePath, 3600 * 24);
+
       return {
         success: true,
         data: {
-          url: `/uploads/materials/${localFileName}`,
+          url: signData?.signedUrl || "",
+          storagePath,
+          bucket: "course_materials",
           fileName: file.name,
           fileType: detectedType,
           size: file.size,
@@ -391,15 +458,70 @@ export async function uploadLearningMaterialAction(
       };
     }
 
-    const { data: pubData } = adminClient.storage.from("avatars").getPublicUrl(storagePath);
+    console.warn("Notice: course_materials upload error:", uploadError.message);
+
+    // 2. Secondary fallback for small images if course_materials upload failed
+    const isAvatarsCompatible =
+      detectedType === "image" &&
+      file.size <= 5 * 1024 * 1024 &&
+      ["image/jpeg", "image/png", "image/webp"].includes(file.type.toLowerCase());
+
+    if (isAvatarsCompatible) {
+      const { error: avatarsError } = await adminClient.storage
+        .from("avatars")
+        .upload(storagePath, buffer, {
+          contentType: file.type || "application/octet-stream",
+          upsert: true,
+        });
+
+      if (!avatarsError) {
+        const { data: pubData } = adminClient.storage.from("avatars").getPublicUrl(storagePath);
+        return {
+          success: true,
+          data: {
+            url: pubData.publicUrl,
+            storagePath,
+            bucket: "avatars",
+            fileName: file.name,
+            fileType: detectedType,
+            size: file.size,
+          },
+        };
+      }
+    }
+
+    // 3. Local filesystem fallback is permitted ONLY in local development outside Vercel
+    if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
+      try {
+        const publicUploadsDir = path.join(process.cwd(), "public", "uploads", "materials");
+        if (!fs.existsSync(publicUploadsDir)) {
+          fs.mkdirSync(publicUploadsDir, { recursive: true });
+        }
+        const localFileName = `${Date.now()}_${sanitizedName}`;
+        fs.writeFileSync(path.join(publicUploadsDir, localFileName), buffer);
+        return {
+          success: true,
+          data: {
+            url: `/uploads/materials/${localFileName}`,
+            storagePath: `public/uploads/materials/${localFileName}`,
+            fileName: file.name,
+            fileType: detectedType,
+            size: file.size,
+          },
+        };
+      } catch (fsErr) {
+        console.warn("Local materials fallback skipped:", fsErr);
+      }
+    }
+
+    // In production / Vercel: return a clear, actionable error
+    const reason = uploadError
+      ? `Failed to upload learning material: ${uploadError.message}`
+      : `Cloud storage bucket for non-image or large learning materials (${detectedType}, ${(file.size / (1024 * 1024)).toFixed(1)} MB) failed to accept upload. Dedicated materials storage bucket is required.`;
+
     return {
-      success: true,
-      data: {
-        url: pubData.publicUrl,
-        fileName: file.name,
-        fileType: detectedType,
-        size: file.size,
-      },
+      success: false,
+      error: reason,
     };
   } catch (err: any) {
     return { success: false, error: err?.message || "Failed to process learning material upload." };
@@ -674,9 +796,10 @@ export async function publishCmsPageAction(
     const version = (existing?.version || 1) + 1;
 
     // 1. Update Supabase cms_content
+    let dbPersisted = false;
     try {
       if (existing?.id) {
-        await supabase
+        const { error: updErr } = await supabase
           .from("cms_content")
           .update({
             draft_data: sectionsData,
@@ -686,8 +809,24 @@ export async function publishCmsPageAction(
             updated_by: authCheck.adminId,
           })
           .eq("id", existing.id);
+
+        if (updErr) {
+          console.warn("Retrying publish update without updated_by fkey:", updErr.message);
+          const { error: retryErr } = await supabase
+            .from("cms_content")
+            .update({
+              draft_data: sectionsData,
+              published_data: sectionsData,
+              version,
+              updated_at: now,
+            })
+            .eq("id", existing.id);
+          if (!retryErr) dbPersisted = true;
+        } else {
+          dbPersisted = true;
+        }
       } else {
-        await supabase
+        const { error: insErr } = await supabase
           .from("cms_content")
           .insert({
             page_key: pageKey,
@@ -697,9 +836,29 @@ export async function publishCmsPageAction(
             updated_at: now,
             updated_by: authCheck.adminId,
           });
+
+        if (insErr) {
+          console.warn("Retrying publish insert without updated_by fkey:", insErr.message);
+          const { error: retryErr } = await supabase
+            .from("cms_content")
+            .insert({
+              page_key: pageKey,
+              draft_data: sectionsData,
+              published_data: sectionsData,
+              version: 1,
+              updated_at: now,
+            });
+          if (!retryErr) dbPersisted = true;
+        } else {
+          dbPersisted = true;
+        }
       }
     } catch (dbErr) {
       console.error("DB update error in publishCmsPageAction:", dbErr);
+    }
+
+    if (!dbPersisted && (process.env.VERCEL || process.env.NODE_ENV === "production")) {
+      return { success: false, error: "Failed to publish page changes to database." };
     }
 
     // 2. Persist to local published store for instantaneous, robust frontend consumption
@@ -1499,6 +1658,8 @@ export async function saveCourseLessonAction(
     notes_materials?: Array<{
       id: string;
       url: string;
+      storagePath?: string;
+      bucket?: string;
       name: string;
       type: "image" | "pdf" | "video" | "document" | "url";
       size?: number;
@@ -1510,6 +1671,8 @@ export async function saveCourseLessonAction(
     reading_materials?: Array<{
       id: string;
       url: string;
+      storagePath?: string;
+      bucket?: string;
       name: string;
       type: "image" | "pdf" | "video" | "document" | "url";
       size?: number;

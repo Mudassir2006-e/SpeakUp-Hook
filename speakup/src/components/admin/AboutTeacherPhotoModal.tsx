@@ -115,22 +115,49 @@ export default function AboutTeacherPhotoModal({
     }
   };
 
-  // Mouse / Pointer dragging handlers
-  const handleMouseDown = (e: React.MouseEvent) => {
+  // Mouse / Pointer dragging handlers with pointer capture & touch support
+  const handlePointerDown = (e: React.PointerEvent) => {
     if (!photoUrl) return;
     setIsDragging(true);
     setDragStart({ x: e.clientX - posX, y: e.clientY - posY });
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {}
   };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
+  const handlePointerMove = (e: React.PointerEvent) => {
     if (!isDragging) return;
-    const newX = Math.max(-50, Math.min(50, e.clientX - dragStart.x));
-    const newY = Math.max(-50, Math.min(50, e.clientY - dragStart.y));
+    const maxOffset = Math.max(90, Math.round(100 * zoom));
+    const newX = Math.max(-maxOffset, Math.min(maxOffset, e.clientX - dragStart.x));
+    const newY = Math.max(-maxOffset, Math.min(maxOffset, e.clientY - dragStart.y));
     setPosX(Math.round(newX));
     setPosY(Math.round(newY));
   };
 
-  const handleMouseUp = () => {
+  const handlePointerUp = (e: React.PointerEvent) => {
+    setIsDragging(false);
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {}
+  };
+
+  // Touch drag fallback handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!photoUrl || e.touches.length !== 1) return;
+    setIsDragging(true);
+    setDragStart({ x: e.touches[0].clientX - posX, y: e.touches[0].clientY - posY });
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging || e.touches.length !== 1) return;
+    const maxOffset = Math.max(90, Math.round(100 * zoom));
+    const newX = Math.max(-maxOffset, Math.min(maxOffset, e.touches[0].clientX - dragStart.x));
+    const newY = Math.max(-maxOffset, Math.min(maxOffset, e.touches[0].clientY - dragStart.y));
+    setPosX(Math.round(newX));
+    setPosY(Math.round(newY));
+  };
+
+  const handleTouchEnd = () => {
     setIsDragging(false);
   };
 
@@ -252,11 +279,15 @@ export default function AboutTeacherPhotoModal({
 
                 <div
                   ref={imageFrameRef}
-                  onMouseDown={handleMouseDown}
-                  onMouseMove={handleMouseMove}
-                  onMouseUp={handleMouseUp}
-                  onMouseLeave={handleMouseUp}
-                  className={`relative w-48 h-48 sm:w-56 sm:h-56 rounded-full overflow-hidden border-4 border-[#d4af37]/50 shadow-xl bg-[var(--surface-low)] flex items-center justify-center select-none ${
+                  onPointerDown={handlePointerDown}
+                  onPointerMove={handlePointerMove}
+                  onPointerUp={handlePointerUp}
+                  onPointerCancel={handlePointerUp}
+                  onTouchStart={handleTouchStart}
+                  onTouchMove={handleTouchMove}
+                  onTouchEnd={handleTouchEnd}
+                  onTouchCancel={handleTouchEnd}
+                  className={`relative w-48 h-48 sm:w-56 sm:h-56 rounded-full overflow-hidden border-4 border-[#d4af37]/50 shadow-xl bg-[var(--surface-low)] flex items-center justify-center select-none touch-none ${
                     photoUrl ? "cursor-grab active:cursor-grabbing" : ""
                   }`}
                   title={photoUrl ? "Click and drag to position image" : "Upload picture to preview"}
@@ -265,7 +296,8 @@ export default function AboutTeacherPhotoModal({
                     <div
                       className="w-full h-full transition-transform"
                       style={{
-                        transform: `scale(${zoom}) translate(${posX}px, ${posY}px)`,
+                        transform: `translate(${posX}px, ${posY}px) scale(${zoom})`,
+                        transformOrigin: "center center",
                       }}
                     >
                       <img
@@ -373,15 +405,17 @@ export default function AboutTeacherPhotoModal({
                         <div className="flex items-center gap-1">
                           <button
                             type="button"
-                            onClick={() => setZoom((prev) => Math.max(0.8, prev - 0.1))}
-                            className="w-6 h-6 rounded-md border border-[var(--surface-border)] flex items-center justify-center hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer"
+                            onClick={() => setZoom((prev) => Math.max(0.5, Number((prev - 0.1).toFixed(2))))}
+                            className="w-7 h-7 rounded-lg border border-[var(--surface-border)] flex items-center justify-center hover:border-[#d4af37] hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer font-bold text-xs"
+                            title="Zoom Out"
                           >
                             -
                           </button>
                           <button
                             type="button"
-                            onClick={() => setZoom((prev) => Math.min(3, prev + 0.1))}
-                            className="w-6 h-6 rounded-md border border-[var(--surface-border)] flex items-center justify-center hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer"
+                            onClick={() => setZoom((prev) => Math.min(3, Number((prev + 0.1).toFixed(2))))}
+                            className="w-7 h-7 rounded-lg border border-[var(--surface-border)] flex items-center justify-center hover:border-[#d4af37] hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer font-bold text-xs"
+                            title="Zoom In"
                           >
                             +
                           </button>
@@ -389,7 +423,7 @@ export default function AboutTeacherPhotoModal({
                       </div>
                       <input
                         type="range"
-                        min="0.8"
+                        min="0.5"
                         max="3"
                         step="0.05"
                         value={zoom}

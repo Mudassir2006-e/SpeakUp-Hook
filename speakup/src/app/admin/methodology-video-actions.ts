@@ -60,11 +60,12 @@ function readLocalSettings(): MethodologyVideoSettings {
 
 function writeLocalSettings(settings: MethodologyVideoSettings): void {
   try {
+    if (process.env.VERCEL || process.env.NODE_ENV === "production") return;
     const dir = path.dirname(CONFIG_PATH);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(CONFIG_PATH, JSON.stringify(settings, null, 2), "utf-8");
   } catch (err) {
-    console.error("Error writing methodology-video.json:", err);
+    console.warn("Notice: Local methodology video config write skipped:", err);
   }
 }
 

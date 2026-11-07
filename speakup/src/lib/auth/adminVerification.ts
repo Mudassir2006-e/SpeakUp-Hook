@@ -147,12 +147,15 @@ async function deleteStoredChallenge(adminId: string): Promise<boolean> {
 /**
  * Server Action: Triggers and sends a one-time verification code to the authorized admin email.
  */
-export async function sendAdminVerificationCodeAction(): Promise<{
+export async function sendAdminVerificationCodeAction(options?: {
+  forceResend?: boolean;
+}): Promise<{
   success: boolean;
   maskedEmail?: string;
   resendCooldown?: number;
   expiresInSeconds?: number;
   deliveryFailed?: boolean;
+  alreadySent?: boolean;
   error?: string;
   provider?: string;
 }> {
@@ -182,6 +185,22 @@ export async function sendAdminVerificationCodeAction(): Promise<{
 
     const now = Date.now();
     const existing = await getStoredChallenge(user.id);
+
+    // If not forcing resend (e.g. initial page mount), check if an active valid challenge is already in-flight
+    if (!options?.forceResend && existing) {
+      const isStillValid = existing.expiresAt > now && existing.attemptsLeft > 0;
+      if (isStillValid) {
+        const remainingExpirySec = Math.max(1, Math.ceil((existing.expiresAt - now) / 1000));
+        const remainingCooldownSec = Math.max(0, Math.ceil((existing.resendAvailableAt - now) / 1000));
+        return {
+          success: true,
+          alreadySent: true,
+          maskedEmail: maskEmailAddress(targetEmail),
+          expiresInSeconds: remainingExpirySec,
+          resendCooldown: remainingCooldownSec,
+        };
+      }
+    }
 
     // Check resend cooldown
     if (existing && existing.resendAvailableAt > now) {
@@ -237,25 +256,45 @@ export async function sendAdminVerificationCodeAction(): Promise<{
       text: emailText,
     });
 
-    // Check if initial dispatch failed due to Resend sandbox restrictions or unverified domain
+    // Bidirectional Dual-Provider Failover:
     if (!sendRes.success) {
-      const errLower = (sendRes.error || "").toLowerCase();
-      const isSandboxRestriction =
-        errLower.includes("own email address") ||
-        errLower.includes("sandbox") ||
-        errLower.includes("unverified") ||
-        errLower.includes("resend.com/domains") ||
-        errLower.includes("testing emails") ||
-        errLower.includes("validation_error");
+      const primaryErr = sendRes.error || "Primary provider failure";
+      const wasGmail =
+        sendRes.provider === "gmail" ||
+        (!sendRes.provider &&
+          (primaryErr.toLowerCase().includes("gmail") ||
+            primaryErr.toLowerCase().includes("google")));
 
-      if (isSandboxRestriction) {
-        // Inspect whether Portal Email (Gmail) is configured, authorized and operational
+      // Case A: Primary was Gmail (or failed on Gmail) -> Try Resend fallback if RESEND_API_KEY is configured
+      if (wasGmail && process.env.RESEND_API_KEY) {
+        const resendRes = await sendBrandedEmail({
+          to: targetEmail,
+          fromName: "SpeakUp Team",
+          subject: emailSubject,
+          html: emailHtml,
+          text: emailText,
+          provider: "resend",
+        });
+
+        if (resendRes.success) {
+          sendRes = resendRes;
+        } else {
+          await deleteStoredChallenge(user.id);
+          return {
+            success: false,
+            deliveryFailed: true,
+            maskedEmail: maskEmailAddress(targetEmail),
+            resendCooldown: 0,
+            error: `Administrator verification email delivery failed on Portal Email (Gmail): ${primaryErr}. Fallback to Resend also failed: ${resendRes.error || "Resend error"}. Please reconnect Gmail via /api/auth/google/connect or verify your Resend credentials in server environment variables.`,
+          };
+        }
+      }
+      // Case B: Primary was Resend (or failed on Resend) -> Try Gmail fallback if operational or configured
+      else if (!wasGmail) {
         const { isGmailOperational } = await import("@/lib/email");
         const gmailStatus = await isGmailOperational();
 
         if (gmailStatus.operational) {
-          // Route MFA dispatch through authorized Portal Email (Gmail).
-          // Recipient remains strictly fixed to authoritative administrator login email (targetEmail).
           const gmailRes = await sendBrandedEmail({
             to: targetEmail,
             fromName: "SpeakUp Team",
@@ -268,44 +307,35 @@ export async function sendAdminVerificationCodeAction(): Promise<{
           if (gmailRes.success) {
             sendRes = gmailRes;
           } else {
-            // Delete undelivered challenge so no phantom challenge remains active
             await deleteStoredChallenge(user.id);
             return {
               success: false,
               deliveryFailed: true,
               maskedEmail: maskEmailAddress(targetEmail),
               resendCooldown: 0,
-              error: `Administrator verification email delivery failed: Resend sandbox rejected recipient (${maskEmailAddress(targetEmail)}), and Portal Email (Gmail) dispatch failed: ${gmailRes.error || "Gmail dispatch error"}. Please reconnect or reauthorize your Google account in Portal Email settings (/admin/portal-email).`,
+              error: `Administrator verification email delivery failed on Resend: ${primaryErr}. Fallback to Portal Email (Gmail) also failed: ${gmailRes.error || "Gmail error"}. Please verify your Resend credentials or reconnect your Google account at /api/auth/google/connect.`,
             };
           }
         } else {
-          // Gmail is not operational, authorized, or configured:
-          // Show clear, actionable error with exact missing configuration.
-          // Never redirect to Resend owner or bypass MFA.
           await deleteStoredChallenge(user.id);
           return {
             success: false,
             deliveryFailed: true,
             maskedEmail: maskEmailAddress(targetEmail),
             resendCooldown: 0,
-            error: `Administrator verification email delivery failed: Resend is in unverified sandbox mode and only sends to its account owner. Portal Email (Gmail) fallback is unavailable: ${gmailStatus.reason || "Google OAuth is not configured"}. To deliver verification codes to your admin email (${maskEmailAddress(targetEmail)}), please configure Google OAuth in .env.local and connect your account at /admin/portal-email, or verify your custom sending domain in Resend.`,
+            error: `Administrator verification email delivery failed: ${primaryErr}. Portal Email (Gmail) fallback is unavailable: ${gmailStatus.reason || "Google OAuth is not configured"}.`,
           };
         }
+      } else {
+        await deleteStoredChallenge(user.id);
+        return {
+          success: false,
+          deliveryFailed: true,
+          maskedEmail: maskEmailAddress(targetEmail),
+          resendCooldown: 0,
+          error: `Administrator verification email delivery failed: ${primaryErr}.`,
+        };
       }
-    }
-
-    if (!sendRes.success) {
-      // Delete undelivered challenge so no phantom challenge remains active
-      await deleteStoredChallenge(user.id);
-      return {
-        success: false,
-        deliveryFailed: true,
-        maskedEmail: maskEmailAddress(targetEmail),
-        resendCooldown: 0,
-        error:
-          sendRes.error ||
-          "Failed to dispatch verification email. Please ensure your email delivery provider (Gmail or Resend) is configured.",
-      };
     }
 
     return {

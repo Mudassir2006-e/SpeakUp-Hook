@@ -276,18 +276,20 @@ export async function saveConnectedGmailAccount(params: {
     }
 
     // 3. Durably save secret refresh token to dedicated server-only table if available
-    try {
-      const adminClient = createAdminClient();
-      await (adminClient as any).from("portal_email_credentials").upsert(
-        {
-          credential_key: "gmail_refresh_token",
-          credential_value: effectiveRefreshToken,
-          updated_at: now.toISOString(),
-        },
-        { onConflict: "credential_key" }
-      );
-    } catch {
-      // portal_email_credentials table may not be migrated yet
+    if (effectiveRefreshToken) {
+      try {
+        const adminClient = createAdminClient();
+        await (adminClient as any).from("portal_email_credentials").upsert(
+          {
+            credential_key: "gmail_refresh_token",
+            credential_value: effectiveRefreshToken,
+            updated_at: now.toISOString(),
+          },
+          { onConflict: "credential_key" }
+        );
+      } catch {
+        // portal_email_credentials table may not be migrated yet
+      }
     }
 
     // 4. Save sanitized, non-secret metadata to cms_content if table is writable
@@ -490,12 +492,23 @@ async function getFreshGmailAccessToken(): Promise<{ token?: string; error?: str
       const errCode = (data.error || "").toString();
       const errDesc = (data.error_description || "").toString();
       if (
+        errCode === "invalid_client" ||
+        errDesc.toLowerCase().includes("client secret") ||
+        errDesc.toLowerCase().includes("invalid client")
+      ) {
+        return {
+          error:
+            "Google OAuth Client Secret or Client ID is invalid or mismatched. Please verify GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in server environment variables.",
+        };
+      }
+      if (
         errCode === "invalid_grant" ||
         errDesc.toLowerCase().includes("revoked") ||
         errDesc.toLowerCase().includes("expired")
       ) {
         return {
-          error: "Google authorization has expired or was revoked. Please reconnect your account at /admin/portal-email.",
+          error:
+            "Google OAuth authorization has expired or was revoked (Google Cloud 'Testing' mode tokens expire after 7 days). Please reconnect your Google account at /api/auth/google/connect or configure a permanent GMAIL_REFRESH_TOKEN in server environment variables.",
         };
       }
       return { error: errDesc || errCode || "Failed to refresh Google access token." };

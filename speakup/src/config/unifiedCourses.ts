@@ -481,7 +481,15 @@ export function getUnifiedCourses(): UnifiedCourseRecord[] {
 export function getUnifiedCourseById(idOrSlug: string): UnifiedCourseRecord | undefined {
   const norm = idOrSlug.toLowerCase().trim();
   const all = getUnifiedCourses();
-  return all.find(
+  const existing = all.find(
+    (c) => c.id.toLowerCase() === norm || c.slug.toLowerCase() === norm
+  );
+  if (existing) {
+    return existing;
+  }
+
+  // Fallback to CANONICAL_COURSES if not found in active central catalog
+  return CANONICAL_COURSES.find(
     (c) => c.id.toLowerCase() === norm || c.slug.toLowerCase() === norm
   );
 }

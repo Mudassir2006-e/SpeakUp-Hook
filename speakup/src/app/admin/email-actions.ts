@@ -869,20 +869,30 @@ export async function uploadEmailAssetAction(
 
     if (uploadError) {
       console.warn("Storage upload warning, using local public fallback:", uploadError.message);
-      const publicUploadsDir = path.join(process.cwd(), "public", "uploads");
-      if (!fs.existsSync(publicUploadsDir)) {
-        fs.mkdirSync(publicUploadsDir, { recursive: true });
+      if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
+        try {
+          const publicUploadsDir = path.join(process.cwd(), "public", "uploads");
+          if (!fs.existsSync(publicUploadsDir)) {
+            fs.mkdirSync(publicUploadsDir, { recursive: true });
+          }
+          const localFileName = `email_${Date.now()}_${sanitizedName}`;
+          fs.writeFileSync(path.join(publicUploadsDir, localFileName), buffer);
+          return {
+            success: true,
+            data: {
+              url: `/uploads/${localFileName}`,
+              fileName: file.name,
+              size: file.size,
+              base64: base64Data,
+            },
+          };
+        } catch (fsErr) {
+          console.warn("Local email asset fallback skipped:", fsErr);
+        }
       }
-      const localFileName = `email_${Date.now()}_${sanitizedName}`;
-      fs.writeFileSync(path.join(publicUploadsDir, localFileName), buffer);
       return {
-        success: true,
-        data: {
-          url: `/uploads/${localFileName}`,
-          fileName: file.name,
-          size: file.size,
-          base64: base64Data,
-        },
+        success: false,
+        error: "Upload failed: durable cloud storage is unavailable in this environment.",
       };
     }
 

@@ -121,6 +121,52 @@ export async function getLessonAssignmentAction(
       return { success: true, data: null, message: "Assignments are currently disabled by the instructor." };
     }
 
+    // 1. Authoritative check: retrieve assignment from Supabase public.assignments first
+    try {
+      const adminClient = createAdminClient();
+      const { data: dbRows, error: dbErr } = await (adminClient as any)
+        .from("assignments")
+        .select("*")
+        .eq("course_id", courseId)
+        .eq("module_id", moduleId)
+        .eq("lesson_id", lessonId)
+        .eq("practice_type", practiceType)
+        .eq("is_active", true)
+        .limit(1);
+
+      if (!dbErr && dbRows && dbRows.length > 0) {
+        const row = dbRows[0];
+        const dbAssignment: Assignment = {
+          id: row.id,
+          courseId: row.course_id,
+          moduleId: row.module_id,
+          lessonId: row.lesson_id,
+          practiceType: row.practice_type,
+          title: row.title,
+          contextText: row.context_text || undefined,
+          instructions: row.instructions,
+          questionTask: row.question_task || undefined,
+          writingRequirements: row.writing_requirements || undefined,
+          exampleReference: row.example_reference || undefined,
+          referenceFileUrl: row.reference_file_url || undefined,
+          maxMarks: row.max_marks,
+          rubric: row.rubric,
+          timeGuidance: row.time_guidance || undefined,
+          wordCountGuidance: row.word_count_guidance || undefined,
+          language: row.language,
+          courseLevel: row.course_level,
+          resubmissionAllowed: row.resubmission_allowed,
+          isLocked: row.is_locked,
+          isActive: row.is_active,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+        };
+        return { success: true, data: dbAssignment };
+      }
+    } catch (dbErr) {
+      console.warn("DB assignment lookup notice in getLessonAssignmentAction:", dbErr);
+    }
+
     const assignments = readJsonFile<Assignment[]>(ASSIGNMENTS_FILE, []);
 
     // Exact match: Course -> Module -> Lesson -> Reading/Writing
@@ -420,6 +466,7 @@ export async function submitStudentAssignmentAction(input: {
       };
     }
 
+
     let studentId = "";
     let studentEmail = "";
     let studentName = "";
@@ -443,8 +490,52 @@ export async function submitStudentAssignmentAction(input: {
       };
     }
 
-    const assignments = readJsonFile<Assignment[]>(ASSIGNMENTS_FILE, []);
-    const assignment = assignments.find((a) => a.id === input.assignmentId);
+    // 1. Authoritative assignment check from Supabase database first
+    let assignment: Assignment | null = null;
+    try {
+      const adminClient = createAdminClient();
+      const { data: dbAsgn, error: dbAsgnErr } = await (adminClient as any)
+        .from("assignments")
+        .select("*")
+        .eq("id", input.assignmentId)
+        .maybeSingle();
+
+      if (!dbAsgnErr && dbAsgn) {
+        assignment = {
+          id: dbAsgn.id,
+          courseId: dbAsgn.course_id,
+          moduleId: dbAsgn.module_id,
+          lessonId: dbAsgn.lesson_id,
+          practiceType: dbAsgn.practice_type,
+          title: dbAsgn.title,
+          contextText: dbAsgn.context_text || undefined,
+          instructions: dbAsgn.instructions,
+          questionTask: dbAsgn.question_task || undefined,
+          writingRequirements: dbAsgn.writing_requirements || undefined,
+          exampleReference: dbAsgn.example_reference || undefined,
+          referenceFileUrl: dbAsgn.reference_file_url || undefined,
+          maxMarks: dbAsgn.max_marks,
+          rubric: dbAsgn.rubric,
+          timeGuidance: dbAsgn.time_guidance || undefined,
+          wordCountGuidance: dbAsgn.word_count_guidance || undefined,
+          language: dbAsgn.language,
+          courseLevel: dbAsgn.course_level,
+          resubmissionAllowed: dbAsgn.resubmission_allowed,
+          isLocked: dbAsgn.is_locked,
+          isActive: dbAsgn.is_active,
+          createdAt: dbAsgn.created_at,
+          updatedAt: dbAsgn.updated_at,
+        };
+      }
+    } catch (dbErr) {
+      console.warn("DB assignment query notice in submitStudentAssignmentAction:", dbErr);
+    }
+
+    if (!assignment) {
+      const assignments = readJsonFile<Assignment[]>(ASSIGNMENTS_FILE, []);
+      assignment = assignments.find((a) => a.id === input.assignmentId) || null;
+    }
+
     if (!assignment) {
       return { success: false, error: "Assignment not found." };
     }
@@ -574,11 +665,14 @@ export async function submitStudentAssignmentAction(input: {
       pageNumber: idx + 1,
     }));
 
+    const studentTextAnswer = input.studentTextAnswer?.trim() || "";
+
     // AI Evaluation: returns real evaluation if API configured, or null if unconfigured
     const aiResult = await gradeAssignmentSubmission({
       assignment,
       pages: orderedPages,
       studentName,
+      studentTextAnswer,
       courseTitle: course?.title,
       lessonTitle: input.lessonId,
     });

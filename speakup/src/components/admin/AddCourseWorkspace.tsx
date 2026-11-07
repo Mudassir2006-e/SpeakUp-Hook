@@ -580,6 +580,8 @@ export default function AddCourseWorkspace() {
         const newItem: LearningMaterialItem = {
           id: `mat_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
           url: res.data.url,
+          storagePath: res.data.storagePath,
+          bucket: res.data.bucket,
           name: res.data.fileName || "Lecture Material",
           type: res.data.fileType,
           size: res.data.size,
@@ -714,6 +716,8 @@ export default function AddCourseWorkspace() {
         const newItem: LearningMaterialItem = {
           id: `read_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
           url: res.data.url,
+          storagePath: res.data.storagePath,
+          bucket: res.data.bucket,
           name: res.data.fileName || "Reading Material",
           type: res.data.fileType,
           size: res.data.size,

@@ -13,6 +13,7 @@ import {
 } from "@/app/lms/actions";
 import StudentAssignmentModal from "@/components/lms/StudentAssignmentModal";
 import A4NotesViewer from "@/components/A4NotesViewer";
+import A4MaterialPreview, { type LearningMaterialItem } from "@/components/A4MaterialPreview";
 import type { Assignment, AssignmentSubmission } from "@/types/assignment";
 import type { LessonLinkButton } from "@/types/linkButton";
 import {
@@ -294,6 +295,7 @@ function CoursePlayerContent() {
   const [notesContent, setNotesContent] = useState<string>("");
   const [notesImage, setNotesImage] = useState<string>("");
   const [notesPages, setNotesPages] = useState<string[]>([]);
+  const [notesMaterials, setNotesMaterials] = useState<LearningMaterialItem[]>([]);
   const [practiceContent, setPracticeContent] = useState<string>("");
 
   // Authorized lesson video & sources
@@ -433,6 +435,7 @@ function CoursePlayerContent() {
         setNotesImage(response.data.notesImage || "");
         const loadedPages = (response.data as any).notesPages || (response.data.notesImage ? [response.data.notesImage] : []);
         setNotesPages(loadedPages);
+        setNotesMaterials(response.data.notesMaterials || []);
         setPracticeContent(response.data.practice || currentLesson?.defaultPractice || "");
 
         // Set configured lesson link button (if enabled and valid)
@@ -1167,8 +1170,16 @@ function CoursePlayerContent() {
                       </div>
                     </div>
 
-                    {/* Dedicated Portrait A4-style Notes Viewer (Phase 9) */}
-                    {notesPages.length > 0 && (
+                    {/* Dedicated Portrait A4-style Material & Notes Viewer */}
+                    {notesMaterials.length > 0 ? (
+                      <div className="pt-2 pb-2">
+                        <A4MaterialPreview
+                          materials={notesMaterials}
+                          title={currentLesson?.title || "Lesson Study Materials"}
+                          watermarkText={watermark?.licenseText}
+                        />
+                      </div>
+                    ) : notesPages.length > 0 ? (
                       <div className="pt-2 pb-2">
                         <A4NotesViewer
                           pages={notesPages}
@@ -1176,7 +1187,7 @@ function CoursePlayerContent() {
                           watermarkText={watermark?.licenseText}
                         />
                       </div>
-                    )}
+                    ) : null}
 
                     {/* Formatted Read-Only Lecture Notes Container */}
                     <div className="rounded-2xl bg-white dark:bg-[#141418]/50 border border-[var(--surface-border)] p-6 sm:p-9 shadow-xs space-y-6">

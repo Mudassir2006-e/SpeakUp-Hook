@@ -235,7 +235,7 @@ export default function LMSLayout({ children }: { children: React.ReactNode }) {
         }`}
       >
         {/* Tablet & Mobile Header Bar (< 1024px) */}
-        <header className="lg:hidden sticky top-0 z-20 h-20 bg-white/95 dark:bg-[var(--bg-main)]/95 backdrop-blur-md border-b border-[var(--surface-border)] px-4 sm:px-6 flex items-center justify-between gap-4">
+        <header className="lg:hidden sticky top-0 z-20 h-16 sm:h-20 bg-white/95 dark:bg-[var(--bg-main)]/95 backdrop-blur-md border-b border-[var(--surface-border)] px-3.5 sm:px-6 flex items-center justify-between gap-3 sm:gap-4">
           {/* Logo on Left - exact same visual presentation as main website */}
           <div className="flex items-center shrink-0">
             <Logo size="md" href="/lms/dashboard" brandText="SpeakUp" />

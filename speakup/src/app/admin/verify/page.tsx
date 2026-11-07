@@ -79,13 +79,17 @@ export default function AdminVerifyPage() {
         setDeliveryStatus("delivered");
         setCodeExpired(false);
         if (res.maskedEmail) setMaskedEmail(res.maskedEmail);
-        if (res.resendCooldown) setCooldown(res.resendCooldown);
+        if (res.resendCooldown !== undefined) setCooldown(res.resendCooldown);
         if (res.expiresInSeconds) setExpiresIn(res.expiresInSeconds);
         setSuccessMessage(
-          isJustConnected
+          res.alreadySent
+            ? "A security verification code was recently dispatched to your administrator email (valid for 3 minutes)."
+            : isJustConnected
             ? "Portal Gmail account connected successfully! Security verification code dispatched to your administrator email (valid for 3 minutes)."
             : res.provider === "gmail"
             ? "Security verification code dispatched via Portal Email (Gmail) to authorized administrator email (valid for 3 minutes)."
+            : res.provider === "resend"
+            ? "Security verification code dispatched via Resend to authorized administrator email (valid for 3 minutes)."
             : "Security verification code sent to authorized administrator email (valid for 3 minutes)."
         );
       } else {
@@ -166,7 +170,7 @@ export default function AdminVerifyPage() {
     setCode("");
 
     startTransition(async () => {
-      const res = await sendAdminVerificationCodeAction();
+      const res = await sendAdminVerificationCodeAction({ forceResend: true });
       if (res.success) {
         setDeliveryStatus("delivered");
         setCodeExpired(false);
@@ -176,6 +180,8 @@ export default function AdminVerifyPage() {
         setSuccessMessage(
           res.provider === "gmail"
             ? "New verification code dispatched via Portal Email (Gmail) (valid for 3 minutes)."
+            : res.provider === "resend"
+            ? "New verification code dispatched via Resend (valid for 3 minutes)."
             : "New verification code dispatched (valid for 3 minutes)."
         );
       } else {
@@ -244,7 +250,10 @@ export default function AdminVerifyPage() {
                 <span className="material-symbols-outlined text-[18px] shrink-0 mt-0.5">error</span>
                 <span>{errorMessage}</span>
               </div>
-              {errorMessage.includes("Portal Email") && (
+              {(errorMessage.includes("Portal Email") ||
+                errorMessage.includes("Google") ||
+                errorMessage.includes("Gmail") ||
+                errorMessage.includes("OAuth")) && (
                 <div className="pt-3 border-t border-rose-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                   <span className="text-[11px] font-display uppercase tracking-wider text-[var(--text-muted)]">
                     OAuth Setup:

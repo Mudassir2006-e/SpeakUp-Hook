@@ -18,6 +18,70 @@ export interface LearningMaterialItem {
   name: string;
   type: "image" | "pdf" | "video" | "document" | "url";
   size?: number;
+  storagePath?: string;
+  bucket?: string;
+}
+
+/**
+ * Server-side signed URL refresher for private course materials stored in Supabase Storage.
+ * Generates temporary (4 hour) signed URLs for objects in the private 'course_materials' bucket.
+ * Preserves legacy public URLs (avatars, uploads, external links).
+ */
+export async function refreshLearningMaterialsSignedUrls(
+  materials: LearningMaterialItem[]
+): Promise<LearningMaterialItem[]> {
+  if (!materials || !Array.isArray(materials) || materials.length === 0) return materials;
+
+  try {
+    const adminClient = createAdminClient();
+    return await Promise.all(
+      materials.map(async (mat) => {
+        if (!mat) return mat;
+
+        // Check if item has an explicit storagePath and is in course_materials (or has path indicating storage)
+        const isCourseMaterials =
+          mat.bucket === "course_materials" ||
+          (!mat.bucket && mat.storagePath?.startsWith("learning_materials/")) ||
+          (mat.url && mat.url.includes("/course_materials/"));
+
+        let objectPath = mat.storagePath;
+
+        if (!objectPath && mat.url && mat.url.includes("/course_materials/")) {
+          // Extract object path from Supabase storage URL if possible
+          const match = mat.url.match(/course_materials\/(.+?)(\?.*)?$/);
+          if (match) {
+            objectPath = decodeURIComponent(match[1]);
+          }
+        }
+
+        if (isCourseMaterials && objectPath) {
+          try {
+            // Generate a fresh signed URL with 4 hours (14400s) sensible expiration
+            const { data, error } = await adminClient.storage
+              .from("course_materials")
+              .createSignedUrl(objectPath, 3600 * 4);
+
+            if (data?.signedUrl && !error) {
+              return {
+                ...mat,
+                url: data.signedUrl,
+                storagePath: objectPath,
+                bucket: "course_materials",
+              };
+            }
+          } catch (signErr) {
+            console.warn("Failed to generate signed URL for learning material:", signErr);
+          }
+        }
+
+        // Return unchanged if legacy, public, external, or signing failed
+        return mat;
+      })
+    );
+  } catch (err) {
+    console.warn("Error refreshing learning materials signed URLs:", err);
+    return materials;
+  }
 }
 
 export interface ProtectedLessonData {
@@ -510,6 +574,24 @@ export async function getProtectedLesson(
                   };
                 }
 
+                const resolvedNotesMaterials = await refreshLearningMaterialsSignedUrls(
+                  matchedLesson.notes_materials ||
+                    (matchedLesson.notes_image
+                      ? [{ id: "mat_1", url: matchedLesson.notes_image, name: "Lecture Notes Document", type: "image" }]
+                      : [])
+                );
+
+                const resolvedReadingMaterials = await refreshLearningMaterialsSignedUrls(
+                  matchedLesson.reading_materials || []
+                );
+
+                const resolvedNotesImage =
+                  resolvedNotesMaterials[0]?.url || matchedLesson.notes_image || "";
+                const resolvedNotesPages =
+                  resolvedNotesMaterials.filter((x) => x.type === "image").map((x) => x.url).length > 0
+                    ? resolvedNotesMaterials.filter((x) => x.type === "image").map((x) => x.url)
+                    : matchedLesson.notes_pages || (matchedLesson.notes_image ? [matchedLesson.notes_image] : []);
+
                 return {
                   success: true,
                   data: {
@@ -525,14 +607,14 @@ export async function getProtectedLesson(
                     videoUrl: matchedLesson.video_url || "",
                     videoSource: matchedLesson.video_source || "youtube",
                     notes: matchedLesson.notes || "",
-                    notesImage: matchedLesson.notes_image || "",
-                    notesPages: matchedLesson.notes_pages || (matchedLesson.notes_image ? [matchedLesson.notes_image] : []),
-                    notesMaterials: matchedLesson.notes_materials || (matchedLesson.notes_image ? [{ id: "mat_1", url: matchedLesson.notes_image, name: "Lecture Notes Document", type: "image" }] : []),
+                    notesImage: resolvedNotesImage,
+                    notesPages: resolvedNotesPages,
+                    notesMaterials: resolvedNotesMaterials,
                     practice: matchedLesson.practice || "",
                     practiceImage: matchedLesson.practice_image || "",
                     readingTitle: matchedLesson.reading_title || "",
                     readingContent: matchedLesson.reading_content || "",
-                    readingMaterials: matchedLesson.reading_materials || [],
+                    readingMaterials: resolvedReadingMaterials,
                     linkButton: resolvedLinkButton,
                     watermark: {
                       studentName,
@@ -730,6 +812,16 @@ export async function getCourseLessonsForPlayerAction(courseId: string): Promise
                     ytId = l.video_url.trim();
                   }
                 }
+                const refreshedNotes = await refreshLearningMaterialsSignedUrls(
+                  l.notes_materials ||
+                    (l.notes_image
+                      ? [{ id: "mat_1", url: l.notes_image, name: "Lecture Notes Document", type: "image" }]
+                      : [])
+                );
+                const refreshedReading = await refreshLearningMaterialsSignedUrls(
+                  l.reading_materials || []
+                );
+
                 result.push({
                   id: l.id,
                   moduleId: m.id,
@@ -742,12 +834,12 @@ export async function getCourseLessonsForPlayerAction(courseId: string): Promise
                   videoSource: l.video_source || "youtube",
                   defaultNotes: l.notes || "No notes provided for this lesson.",
                   notesImage: l.notes_image || "",
-                  notesMaterials: l.notes_materials || (l.notes_image ? [{ id: "mat_1", url: l.notes_image, name: "Lecture Notes Document", type: "image" }] : []),
+                  notesMaterials: refreshedNotes,
                   defaultPractice: l.practice || "No practice directives provided.",
                   practiceImage: l.practice_image || "",
                   readingTitle: l.reading_title || "",
                   readingContent: l.reading_content || "",
-                  readingMaterials: l.reading_materials || [],
+                  readingMaterials: refreshedReading,
                 });
                 lessonIdx++;
               }
@@ -1082,10 +1174,10 @@ export async function uploadStudentAvatarAction(
       };
     }
 
-    if (file.size > 8 * 1024 * 1024) {
+    if (file.size > 5 * 1024 * 1024) {
       return {
         success: false,
-        error: "Image exceeds the maximum allowed size of 8MB.",
+        error: "Image exceeds the maximum allowed size of 5MB.",
       };
     }
 
@@ -1099,6 +1191,13 @@ export async function uploadStudentAvatarAction(
         .toBuffer();
     } catch {
       optimizedBuffer = rawBuffer;
+    }
+
+    if (optimizedBuffer.length > 5 * 1024 * 1024) {
+      return {
+        success: false,
+        error: "Optimized image buffer exceeds the 5MB storage limit.",
+      };
     }
 
     const adminClient = createAdminClient();
@@ -1707,19 +1806,10 @@ export async function getStudentAccountInfoForRequestAction(): Promise<{
     }
     const unified = getUnifiedCourses();
 
-    // Read Existing Course Requests to determine status per course
-    const requestsPath = path.join(process.cwd(), "src", "config", "central-course-requests.json");
-    let allRequests: any[] = [];
-    if (fs.existsSync(requestsPath)) {
-      try {
-        allRequests = JSON.parse(fs.readFileSync(requestsPath, "utf-8") || "[]");
-      } catch {}
-    }
-
-    // Read DB Enrollments with duration and expiry
+    // Read DB Enrollments with duration, expiry, and course metadata from Supabase
     const { data: dbEnrollments } = await (supabase as any)
       .from("course_enrollments")
-      .select("course_id, status, requested_at, approved_at, duration_months, expires_at")
+      .select("course_id, status, requested_at, approved_at, duration_months, expires_at, courses:course_id(id, slug, title)")
       .eq("user_id", user.id);
 
     const enrollmentStatusMap = new Map<
@@ -1759,55 +1849,23 @@ export async function getStudentAccountInfoForRequestAction(): Promise<{
             durationMonths = calc.durationMonths;
           }
 
-          enrollmentStatusMap.set(e.course_id.toLowerCase(), {
+          const statusObj = {
             status: resolvedStatus,
             requestedAt: e.requested_at,
             approvedAt: e.approved_at,
             expiresAt: expiresAtIso,
             daysRemaining,
             durationMonths,
-          });
+          };
+
+          enrollmentStatusMap.set(e.course_id.toLowerCase(), statusObj);
+          const c = Array.isArray(e.courses) ? e.courses[0] : e.courses;
+          if (c?.id) enrollmentStatusMap.set(c.id.toLowerCase(), statusObj);
+          if (c?.slug) enrollmentStatusMap.set(c.slug.toLowerCase(), statusObj);
+          if (c?.title) enrollmentStatusMap.set(c.title.toLowerCase(), statusObj);
         }
       });
     }
-
-    // Central requests cache overlay
-    allRequests.forEach((r: any) => {
-      if (r.userId === user.id || (r.studentEmail && r.studentEmail.toLowerCase() === studentEmail.toLowerCase())) {
-        if (r.courseId) {
-          let resolvedStatus: "pending" | "approved" | "rejected" | "expired" = r.status || "pending";
-          let daysRemaining: number | null = null;
-          let expiresAtIso: string | undefined = r.expiresAt;
-          let durationMonths = r.durationMonths;
-
-          if (r.status === "approved") {
-            const calc = calculateEnrollmentExpiry({
-              approvedAt: r.approvedAt || r.requestedAt,
-              requestedAt: r.requestedAt,
-              durationMonths: r.durationMonths,
-              explicitExpiresAt: r.expiresAt,
-              rawStatus: r.status,
-              courseId: r.courseId,
-            });
-            if (calc.isExpired) {
-              resolvedStatus = "expired";
-            }
-            daysRemaining = calc.daysRemaining;
-            expiresAtIso = calc.expiresAtIso || undefined;
-            durationMonths = calc.durationMonths;
-          }
-
-          enrollmentStatusMap.set(r.courseId.toLowerCase(), {
-            status: resolvedStatus,
-            requestedAt: r.requestedAt,
-            approvedAt: r.approvedAt,
-            expiresAt: expiresAtIso,
-            daysRemaining,
-            durationMonths,
-          });
-        }
-      }
-    });
 
     // Determine student's registered/associated course identifiers
     const registeredTokens: string[] = [];
@@ -1981,66 +2039,141 @@ export async function submitStudentCourseRequestAction(payload: {
       } catch {}
     }
 
-    // Read current central requests store
-    const requestsPath = path.join(process.cwd(), "src", "config", "central-course-requests.json");
-    let allRequests: any[] = [];
-    if (fs.existsSync(requestsPath)) {
-      try {
-        allRequests = JSON.parse(fs.readFileSync(requestsPath, "utf-8") || "[]");
-      } catch {}
-    }
-
     const createdRecords: any[] = [];
     const now = new Date().toISOString();
+
+    // Privileged client for constrained course_enrollments persistence (fail closed)
+    let dbClient: any;
+    try {
+      dbClient = createAdminClient();
+    } catch (clientErr) {
+      console.error("[submitStudentCourseRequestAction] Service-role client initialization failed:", clientErr);
+      return {
+        success: false,
+        error: "Enrollment service is temporarily unavailable. Please try again or contact support.",
+      };
+    }
+
+    const studentUserId = user.id; // Derived strictly and exclusively from verified Supabase session
 
     for (const item of itemsToRequest) {
       const cId = item.courseId.trim();
       const matched = centralList.find(
-        (c) => c.id?.toLowerCase() === cId.toLowerCase() || c.slug?.toLowerCase() === cId.toLowerCase()
+        (c: any) => c.id?.toLowerCase() === cId.toLowerCase() || c.slug?.toLowerCase() === cId.toLowerCase()
       );
-      const resolvedTitle = item.courseTitle || matched?.title || cId;
-      const resolvedLevel = item.level || matched?.level || "Executive Series";
+      const unifiedCourse = getUnifiedCourseById(cId);
+      const resolvedTitle = item.courseTitle || matched?.title || unifiedCourse?.title || cId;
+      const resolvedLevel = item.level || matched?.level || unifiedCourse?.level || "Executive Series";
 
-      // Individual unique request ID for each course
-      const requestId = `req_${Date.now()}_${Math.random().toString(36).substring(2, 7)}_${cId.toLowerCase().replace(/[^a-z0-9]/g, "")}`;
+      // 1. Safely resolve course UUID from public.courses (Requirement 3 & 4)
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cId);
+      let dbCourse: { id: string; title?: string; level?: string; slug?: string } | null = null;
 
-      const metaPayload = {
-        courseTitle: resolvedTitle,
-        level: resolvedLevel,
-        studentPhone,
-        studentName,
-        studentEmail,
-      };
-
-      // Check existing status to prevent duplicate requests or demoting approved enrollments
-      let existingDbStatus: string | null = null;
-      let dbCourseId = cId;
       try {
-        const { data: matchedDbCourse } = await (supabase as any)
-          .from("courses")
-          .select("id")
-          .or(`id.eq.${cId},slug.eq.${cId.toLowerCase()}`)
-          .maybeSingle();
-
-        if (matchedDbCourse) {
-          dbCourseId = matchedDbCourse.id;
+        if (isUuid) {
+          const { data } = await dbClient
+            .from("courses")
+            .select("id, title, level, slug")
+            .eq("id", cId)
+            .maybeSingle();
+          dbCourse = data;
         }
 
-        const { data: existingDbEnrollment } = await (supabase as any)
+        if (!dbCourse) {
+          const { data } = await dbClient
+            .from("courses")
+            .select("id, title, level, slug")
+            .eq("slug", cId.toLowerCase())
+            .maybeSingle();
+          dbCourse = data;
+        }
+
+        if (!dbCourse && matched?.slug) {
+          const { data } = await dbClient
+            .from("courses")
+            .select("id, title, level, slug")
+            .eq("slug", matched.slug.toLowerCase())
+            .maybeSingle();
+          dbCourse = data;
+        }
+
+        if (!dbCourse && unifiedCourse?.slug) {
+          const { data } = await dbClient
+            .from("courses")
+            .select("id, title, level, slug")
+            .eq("slug", unifiedCourse.slug.toLowerCase())
+            .maybeSingle();
+          dbCourse = data;
+        }
+      } catch (courseLookupErr) {
+        console.warn("Course lookup notice for", cId, courseLookupErr);
+      }
+
+      // If database lookup returned no match, sync the authoritative course from unifiedCourses / centralList
+      if (!dbCourse?.id && (matched || unifiedCourse)) {
+        const authSlug = (matched?.slug || unifiedCourse?.slug || cId).toLowerCase();
+        const authTitle = matched?.title || unifiedCourse?.title || resolvedTitle;
+        const authDesc = matched?.description || unifiedCourse?.description || "Curated academic training program.";
+        const authLevel = matched?.level || unifiedCourse?.level || resolvedLevel;
+        const authImg = matched?.image || unifiedCourse?.image || null;
+
+        try {
+          const { data: upsertedCourse, error: syncErr } = await dbClient
+            .from("courses")
+            .upsert(
+              {
+                slug: authSlug,
+                title: authTitle,
+                description: authDesc,
+                level: authLevel,
+                thumbnail_url: authImg,
+                is_published: true,
+              },
+              { onConflict: "slug" }
+            )
+            .select("id, title, level, slug")
+            .maybeSingle();
+
+          if (!syncErr && upsertedCourse?.id) {
+            dbCourse = upsertedCourse;
+          }
+        } catch (autoSyncErr) {
+          console.warn("Authoritative course auto-sync notice for", authSlug, autoSyncErr);
+        }
+      }
+
+      if (!dbCourse?.id) {
+        if (itemsToRequest.length === 1) {
+          return {
+            success: false,
+            error: `The requested course "${resolvedTitle}" is not currently available for online enrollment in the course database.`,
+          };
+        }
+        continue;
+      }
+
+      const dbCourseId = dbCourse.id;
+
+      // 2. Check existing enrollment status in public.course_enrollments (Requirement 4)
+      let existingDbStatus: string | null = null;
+      let existingDbEnrollment: any = null;
+      try {
+        const { data: existingRecord } = await dbClient
           .from("course_enrollments")
-          .select("status, approved_at, requested_at, duration_months, expires_at")
-          .eq("user_id", user.id)
+          .select("id, user_id, course_id, status, approved_at, requested_at, duration_months, expires_at")
+          .eq("user_id", studentUserId)
           .eq("course_id", dbCourseId)
           .maybeSingle();
 
-        if (existingDbEnrollment) {
-          existingDbStatus = existingDbEnrollment.status;
+        if (existingRecord) {
+          existingDbEnrollment = existingRecord;
+          existingDbStatus = existingRecord.status;
           const active = isEnrollmentActive({
-            status: existingDbEnrollment.status,
-            approvedAt: existingDbEnrollment.approved_at,
-            requestedAt: existingDbEnrollment.requested_at,
-            durationMonths: existingDbEnrollment.duration_months,
-            explicitExpiresAt: existingDbEnrollment.expires_at,
+            status: existingRecord.status,
+            approvedAt: existingRecord.approved_at,
+            requestedAt: existingRecord.requested_at,
+            durationMonths: existingRecord.duration_months,
+            explicitExpiresAt: existingRecord.expires_at,
             courseId: cId,
           });
           if (existingDbStatus === "approved" && !active) {
@@ -2051,30 +2184,8 @@ export async function submitStudentCourseRequestAction(payload: {
         console.warn("DB check course_enrollments notice for", cId, dbErr);
       }
 
-      const existingIdx = allRequests.findIndex(
-        (r: any) =>
-          (r.userId === user.id || (r.studentEmail && r.studentEmail.toLowerCase() === studentEmail.toLowerCase())) &&
-          r.courseId?.toLowerCase() === cId.toLowerCase()
-      );
-      let existingFileStatus = existingIdx !== -1 ? allRequests[existingIdx].status : null;
-      if (existingFileStatus === "approved" && existingIdx !== -1) {
-        const fileReq = allRequests[existingIdx];
-        const active = isEnrollmentActive({
-          status: fileReq.status,
-          approvedAt: fileReq.approvedAt,
-          requestedAt: fileReq.requestedAt,
-          durationMonths: fileReq.durationMonths,
-          explicitExpiresAt: fileReq.expiresAt,
-          courseId: cId,
-        });
-        if (!active) {
-          existingFileStatus = "expired";
-        }
-      }
-      const currentStatus = existingDbStatus || existingFileStatus;
-
       // Safeguard: do not allow overwriting an actively approved enrollment
-      if (currentStatus === "approved") {
+      if (existingDbStatus === "approved") {
         if (itemsToRequest.length === 1) {
           return {
             success: false,
@@ -2085,7 +2196,7 @@ export async function submitStudentCourseRequestAction(payload: {
       }
 
       // Safeguard: do not allow duplicate submissions while an earlier request is pending
-      if (currentStatus === "pending") {
+      if (existingDbStatus === "pending") {
         if (itemsToRequest.length === 1) {
           return {
             success: false,
@@ -2095,26 +2206,91 @@ export async function submitStudentCourseRequestAction(payload: {
         continue;
       }
 
-      // 1. Record individual course request in Supabase course_enrollments
+      // 3. Persist course request in Supabase public.course_enrollments (Requirements 2, 3 & 5)
+      const metaPayload = {
+        courseTitle: resolvedTitle,
+        level: resolvedLevel,
+        studentPhone,
+        studentName,
+        studentEmail,
+      };
+
+      let saveError: any = null;
+      let enrollmentRecordId = existingDbEnrollment?.id || null;
+
       try {
-        await (supabase as any).from("course_enrollments").upsert(
-          {
-            user_id: user.id,
-            course_id: dbCourseId,
-            status: "pending",
-            receipt_tid: JSON.stringify(metaPayload),
-            requested_at: now,
-          },
-          { onConflict: "user_id,course_id" }
-        );
-      } catch (dbErr) {
-        console.warn("DB course_enrollments upsert notice for", cId, dbErr);
+        if (existingDbEnrollment?.id) {
+          // Re-requesting an expired or rejected enrollment: reset status to pending with strict user_id ownership guard
+          const { error: updErr } = await dbClient
+            .from("course_enrollments")
+            .update({
+              status: "pending",
+              receipt_tid: JSON.stringify(metaPayload),
+              requested_at: now,
+              approved_at: null,
+              approved_by: null,
+              rejected_at: null,
+              rejected_by: null,
+              duration_months: null,
+              expires_at: null,
+            })
+            .eq("id", existingDbEnrollment.id)
+            .eq("user_id", studentUserId);
+          saveError = updErr;
+        } else {
+          // New request: insert with user_id derived strictly from verified session
+          const { data: insData, error: insErr } = await dbClient
+            .from("course_enrollments")
+            .insert({
+              user_id: studentUserId,
+              course_id: dbCourseId,
+              status: "pending",
+              receipt_tid: JSON.stringify(metaPayload),
+              requested_at: now,
+            })
+            .select("id")
+            .maybeSingle();
+
+          if (insErr) {
+            // Handle concurrent duplicate request gracefully
+            if (insErr.code === "23505" || insErr.message?.includes("unique")) {
+              const { data: raceRecord } = await dbClient
+                .from("course_enrollments")
+                .select("id, status")
+                .eq("user_id", studentUserId)
+                .eq("course_id", dbCourseId)
+                .maybeSingle();
+              if (raceRecord?.status === "pending") {
+                enrollmentRecordId = raceRecord.id;
+                saveError = null;
+              } else {
+                saveError = insErr;
+              }
+            } else {
+              saveError = insErr;
+            }
+          } else {
+            enrollmentRecordId = insData?.id || null;
+          }
+        }
+      } catch (writeErr) {
+        saveError = writeErr;
       }
 
-      // 2. Persist as a distinct record in central-course-requests file store
-      const record = {
-        id: existingIdx !== -1 ? allRequests[existingIdx].id : requestId,
-        userId: user.id,
+      if (saveError) {
+        console.error("DB course_enrollments save error for", cId, saveError);
+        if (itemsToRequest.length === 1) {
+          return {
+            success: false,
+            error: "Failed to submit course request to database. Please check your network and try again.",
+          };
+        }
+        continue;
+      }
+
+      createdRecords.push({
+        id: enrollmentRecordId || `req_${Date.now()}_${cId}`,
+        userId: studentUserId,
         studentName,
         studentEmail,
         studentPhone,
@@ -2123,15 +2299,7 @@ export async function submitStudentCourseRequestAction(payload: {
         level: resolvedLevel,
         status: "pending",
         requestedAt: now,
-      };
-
-      if (existingIdx !== -1) {
-        allRequests[existingIdx] = record;
-      } else {
-        allRequests.unshift(record);
-      }
-
-      createdRecords.push(record);
+      });
     }
 
     if (createdRecords.length === 0) {
@@ -2141,9 +2309,7 @@ export async function submitStudentCourseRequestAction(payload: {
       };
     }
 
-    fs.writeFileSync(requestsPath, JSON.stringify(allRequests, null, 2), "utf-8");
-
-    // 3. Dispatch non-blocking notification to authoritative administrator email
+    // 4. Dispatch non-blocking notification to authoritative administrator email
     try {
       const { sendAdminNotificationEmail } = await import("@/lib/email");
       const courseTitles = createdRecords.map((r: any) => r.courseTitle).join(", ");

@@ -104,20 +104,45 @@ export async function uploadLogoImageAction(
     const fileName = `logo_${themeMode}_${Date.now()}.${ext}`;
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    const { error: uploadError } = await adminClient.storage
-      .from("avatars")
-      .upload(fileName, buffer, {
-        contentType: file.type,
-        upsert: true,
-      });
+    let logoUrl = "";
 
-    if (uploadError) {
-      console.error("Logo upload error:", uploadError);
-      return { success: false, error: "Failed to upload logo to storage." };
+    if (file.type === "image/svg+xml") {
+      // The 'avatars' bucket only allows JPEG, PNG, WebP and rejects SVG MIME types.
+      // Attempt upload to 'website_assets' (which has no MIME restriction in schema).
+      const { error: svgError } = await adminClient.storage
+        .from("website_assets")
+        .upload(fileName, buffer, {
+          contentType: "image/svg+xml",
+          upsert: true,
+        });
+
+      if (!svgError) {
+        const { data: pubData } = adminClient.storage.from("website_assets").getPublicUrl(fileName);
+        logoUrl = pubData.publicUrl;
+      } else {
+        console.error("SVG logo upload to website_assets failed:", svgError);
+        return {
+          success: false,
+          error: "Failed to upload SVG logo: 'website_assets' bucket is unavailable. Please configure SVG storage in Supabase or upload a PNG, JPG, or WebP logo.",
+        };
+      }
+    } else {
+      // PNG, JPG, WebP can be safely stored in the standard avatars bucket
+      const { error: uploadError } = await adminClient.storage
+        .from("avatars")
+        .upload(fileName, buffer, {
+          contentType: file.type,
+          upsert: true,
+        });
+
+      if (uploadError) {
+        console.error("Logo upload error:", uploadError);
+        return { success: false, error: "Failed to upload logo to storage." };
+      }
+
+      const { data: pubData } = adminClient.storage.from("avatars").getPublicUrl(fileName);
+      logoUrl = pubData.publicUrl;
     }
-
-    const { data: pubData } = adminClient.storage.from("avatars").getPublicUrl(fileName);
-    const logoUrl = pubData.publicUrl;
 
     // Load current record
     const { data: existing } = await (adminClient as any)

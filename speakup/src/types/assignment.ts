@@ -66,6 +66,8 @@ export interface AiEvaluation {
   reviewReason?: string;
   checkedAt: string;
   modelUsed?: string;
+  evaluationStatus?: "success" | "provider_error" | "unconfigured" | "invalid_input" | "needs_review";
+  providerError?: string;
 }
 
 export interface SubmissionAttempt {

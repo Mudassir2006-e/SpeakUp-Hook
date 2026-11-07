@@ -2532,10 +2532,824 @@ test("Country-Aware Phone: Consistent validation across registration, admin moda
   assert.equal(formatPhoneNumberE164("+27 82 123 4567", "+27"), "+27821234567");
 });
 
+test("Admin Assignment Security: All 11 exported actions in assignment-actions.ts enforce verifyAdminCaller", () => {
+  const filePath = path.join(process.cwd(), "src", "app", "admin", "assignment-actions.ts");
+  const content = fs.readFileSync(filePath, "utf-8");
 
+  const requiredActions = [
+    "getAssignmentsListAction",
+    "getAssignmentByIdAction",
+    "saveAssignmentAction",
+    "deleteAssignmentAction",
+    "toggleAssignmentLockAction",
+    "getAdminSubmissionsListAction",
+    "getSubmissionByIdAction",
+    "gradeSubmissionAction",
+    "recheckSubmissionWithAiAction",
+    "getAssignmentAccessSettingAction",
+    "setAssignmentAccessSettingAction",
+  ];
 
+  for (const actionName of requiredActions) {
+    const actionIndex = content.indexOf(`export async function ${actionName}`);
+    assert.ok(actionIndex !== -1, `Action ${actionName} must exist in admin/assignment-actions.ts`);
 
+    const bodyBraceIndex = content.indexOf("): Promise", actionIndex);
+    assert.ok(bodyBraceIndex !== -1, `Action ${actionName} must have a return type signature`);
+    const openingBraceIndex = content.indexOf("{", bodyBraceIndex);
+    assert.ok(openingBraceIndex !== -1, `Action ${actionName} must have a function body`);
 
+    const bodySnippet = content.slice(openingBraceIndex, openingBraceIndex + 250);
+    assert.ok(
+      bodySnippet.includes("verifyAdminCaller()"),
+      `Action ${actionName} must call verifyAdminCaller() at the top of its body`
+    );
+    assert.ok(
+      bodySnippet.includes('"error" in authCheck') || bodySnippet.includes("'error' in authCheck"),
+      `Action ${actionName} must check for error in authCheck`
+    );
+  }
+});
+
+test("AI Assignment Evaluation: typed answers, database persistence, honest failure states, and admin feedback", () => {
+  // 1. Verify assignmentChecker.ts supports studentTextAnswer and empty input guard
+  const checkerPath = path.join(process.cwd(), "src", "lib", "ai", "assignmentChecker.ts");
+  const checkerContent = fs.readFileSync(checkerPath, "utf-8");
+  assert.ok(checkerContent.includes("studentTextAnswer?: string"), "EvaluationInput must support studentTextAnswer");
+  assert.ok(checkerContent.includes("invalid_input"), "assignmentChecker must return invalid_input for empty submissions");
+  assert.ok(checkerContent.includes("provider_error"), "assignmentChecker must return provider_error when AI API throws");
+
+  // 2. Verify lms/assignment-actions.ts passes studentTextAnswer to evaluator and validates empty submissions
+  const lmsActionsPath = path.join(process.cwd(), "src", "app", "lms", "assignment-actions.ts");
+  const lmsContent = fs.readFileSync(lmsActionsPath, "utf-8");
+  assert.ok(lmsContent.includes("studentTextAnswer,"), "submitStudentAssignmentAction must pass studentTextAnswer to evaluator");
+  assert.ok(lmsContent.includes(".from(\"assignments\")"), "lms/assignment-actions.ts must query Supabase assignments table");
+
+  // 3. Verify admin/assignment-actions.ts recheckSubmissionWithAiAction uses Supabase assignment_submissions as authoritative source
+  const adminActionsPath = path.join(process.cwd(), "src", "app", "admin", "assignment-actions.ts");
+  const adminContent = fs.readFileSync(adminActionsPath, "utf-8");
+  assert.ok(adminContent.includes(".from(\"assignment_submissions\")"), "recheckSubmissionWithAiAction must use assignment_submissions table");
+  assert.ok(adminContent.includes("studentTextAnswer: submission.studentTextAnswer"), "recheckSubmissionWithAiAction must pass studentTextAnswer");
+  assert.ok(adminContent.includes("aiResult.evaluationStatus === \"provider_error\""), "recheckSubmissionWithAiAction must distinguish provider errors");
+
+  // 4. Verify admin/assignments/page.tsx surfaces recheck feedback messages
+  const adminPagePath = path.join(process.cwd(), "src", "app", "admin", "assignments", "page.tsx");
+  const adminPageContent = fs.readFileSync(adminPagePath, "utf-8");
+  assert.ok(adminPageContent.includes("recheckSuccessMsg"), "admin/assignments/page.tsx must have recheckSuccessMsg");
+  assert.ok(adminPageContent.includes("recheckErrorMsg"), "admin/assignments/page.tsx must have recheckErrorMsg");
+});
+
+// ==============================================================================
+// SUITE: STEP 2D.1 — UPLOAD STORAGE & PERSISTENCE REPAIR VERIFICATION
+// ==============================================================================
+
+test("Step 2D.1 Storage: Admin Learning Materials avoids image-only avatars bucket and guards Vercel disk writes", () => {
+  const cmsActionsPath = path.join(process.cwd(), "src", "app", "admin", "cms-actions.ts");
+  const content = fs.readFileSync(cmsActionsPath, "utf-8");
+
+  // Verify uploadLearningMaterialAction enforces verifyAdminCaller
+  assert.ok(content.includes("export async function uploadLearningMaterialAction"), "uploadLearningMaterialAction must exist");
+  const funcIdx = content.indexOf("export async function uploadLearningMaterialAction");
+  const body = content.slice(funcIdx, funcIdx + 7000);
+
+  assert.ok(body.includes("verifyAdminCaller()"), "uploadLearningMaterialAction must enforce admin auth & MFA");
+  assert.ok(body.includes("isAvatarsCompatible"), "uploadLearningMaterialAction must check avatars bucket compatibility");
+  assert.ok(body.includes("5 * 1024 * 1024"), "uploadLearningMaterialAction must enforce 5MB limit for avatars compatibility");
+  assert.ok(
+    body.includes("!process.env.VERCEL") && body.includes('process.env.NODE_ENV !== "production"'),
+    "uploadLearningMaterialAction must guard local disk fallback against Vercel and production"
+  );
+  assert.ok(
+    body.includes("Cloud storage bucket for non-image or large learning materials"),
+    "uploadLearningMaterialAction must return an honest error when cloud storage for documents/videos is unprovisioned"
+  );
+});
+
+test("Step 2D.1 Storage: SVG Logo Upload routes to website_assets and avoids avatars bucket", () => {
+  const logoActionsPath = path.join(process.cwd(), "src", "app", "admin", "logo-actions.ts");
+  const content = fs.readFileSync(logoActionsPath, "utf-8");
+
+  assert.ok(content.includes("export async function uploadLogoImageAction"), "uploadLogoImageAction must exist");
+  const funcIdx = content.indexOf("export async function uploadLogoImageAction");
+  const body = content.slice(funcIdx, funcIdx + 4000);
+
+  assert.ok(body.includes("verifyAdminCaller()"), "uploadLogoImageAction must enforce admin auth & MFA");
+  assert.ok(body.includes('file.type === "image/svg+xml"'), "uploadLogoImageAction must branch for SVG uploads");
+  assert.ok(
+    body.includes('.from("website_assets")'),
+    "uploadLogoImageAction must route SVG uploads to website_assets bucket"
+  );
+  assert.ok(
+    body.includes("Failed to upload SVG logo: 'website_assets' bucket is unavailable"),
+    "uploadLogoImageAction must return clear error if website_assets bucket is unavailable"
+  );
+});
+
+test("Step 2D.1 Storage: Vercel Filesystem Fallbacks in Email and Methodology are strictly guarded", () => {
+  const emailActionsPath = path.join(process.cwd(), "src", "app", "admin", "email-actions.ts");
+  const emailContent = fs.readFileSync(emailActionsPath, "utf-8");
+  const emailFuncIdx = emailContent.indexOf("export async function uploadEmailAssetAction");
+  const emailBody = emailContent.slice(emailFuncIdx, emailFuncIdx + 6000);
+
+  assert.ok(
+    emailBody.includes("!process.env.VERCEL") && emailBody.includes('process.env.NODE_ENV !== "production"'),
+    "uploadEmailAssetAction must guard local filesystem fallback against Vercel and production"
+  );
+  assert.ok(
+    emailBody.includes("Upload failed: durable cloud storage is unavailable"),
+    "uploadEmailAssetAction must return clean error in production when cloud storage fails"
+  );
+
+  const methActionsPath = path.join(process.cwd(), "src", "app", "admin", "methodology-actions.ts");
+  const methContent = fs.readFileSync(methActionsPath, "utf-8");
+  const methFuncIdx = methContent.indexOf("export async function uploadMethodologyMediaImageAction");
+  const methBody = methContent.slice(methFuncIdx, methFuncIdx + 6000);
+
+  assert.ok(
+    methBody.includes("!process.env.VERCEL") && methBody.includes('process.env.NODE_ENV !== "production"'),
+    "uploadMethodologyMediaImageAction must guard local filesystem fallback against Vercel and production"
+  );
+  assert.ok(
+    methBody.includes("Upload failed: durable cloud storage is unavailable"),
+    "uploadMethodologyMediaImageAction must return clean error in production when cloud storage fails"
+  );
+});
+
+test("Step 2D.1 Storage: Admin student avatar editing uploads to storage and saves only clean URL, rejecting raw Base64", () => {
+  const adminActionsPath = path.join(process.cwd(), "src", "app", "admin", "actions.ts");
+  const adminContent = fs.readFileSync(adminActionsPath, "utf-8");
+
+  assert.ok(adminContent.includes("export async function updateStudentAvatarAdmin"), "updateStudentAvatarAdmin must exist");
+  const funcIdx = adminContent.indexOf("export async function updateStudentAvatarAdmin");
+  const body = adminContent.slice(funcIdx, funcIdx + 7000);
+
+  assert.ok(body.includes("verifyAdminCaller()"), "updateStudentAvatarAdmin must enforce admin auth & MFA");
+  assert.ok(body.includes("avatarUrlOrData.startsWith(\"data:\")"), "updateStudentAvatarAdmin must detect base64 data URLs");
+  assert.ok(body.includes(".from(\"avatars\")"), "updateStudentAvatarAdmin must upload decoded image to avatars bucket");
+  assert.ok(body.includes("durableUrl = pubData.publicUrl"), "updateStudentAvatarAdmin must obtain public storage URL");
+  assert.ok(
+    body.includes(".update({ avatar_url: durableUrl })"),
+    "updateStudentAvatarAdmin must store only the durable URL in profiles table"
+  );
+  assert.ok(
+    body.includes("user_metadata: { avatar_url: durableUrl }"),
+    "updateStudentAvatarAdmin must store only the durable URL in user_metadata"
+  );
+  assert.ok(
+    !body.includes(".update({ avatar_url: avatarUrlOrData })"),
+    "updateStudentAvatarAdmin must never save raw input avatarUrlOrData directly to profiles"
+  );
+
+  const modalPath = path.join(process.cwd(), "src", "components", "admin", "StudentProfilePictureModal.tsx");
+  const modalContent = fs.readFileSync(modalPath, "utf-8");
+  assert.ok(
+    modalContent.includes("onSaved(res.data?.avatarUrl || finalUrl)"),
+    "StudentProfilePictureModal must pass durable storage URL from action response to onSaved"
+  );
+});
+
+test("Step 2D.1 Storage: Avatar file size boundaries, MIME types, and post-optimization buffer validation", () => {
+  // Student avatar action
+  const lmsActionsPath = path.join(process.cwd(), "src", "app", "lms", "actions.ts");
+  const lmsContent = fs.readFileSync(lmsActionsPath, "utf-8");
+  const studentAvatarIdx = lmsContent.indexOf("export async function uploadStudentAvatarAction");
+  const studentAvatarBody = lmsContent.slice(studentAvatarIdx, studentAvatarIdx + 2000);
+
+  assert.ok(
+    studentAvatarBody.includes("file.size > 5 * 1024 * 1024"),
+    "uploadStudentAvatarAction must enforce 5MB file size limit matching avatars bucket"
+  );
+  assert.ok(
+    studentAvatarBody.includes("optimizedBuffer.length > 5 * 1024 * 1024"),
+    "uploadStudentAvatarAction must validate post-optimization buffer size does not exceed 5MB"
+  );
+
+  // Student avatar modal
+  const lmsModalPath = path.join(process.cwd(), "src", "app", "lms", "ProfilePictureModal.tsx");
+  const lmsModalContent = fs.readFileSync(lmsModalPath, "utf-8");
+  assert.ok(
+    lmsModalContent.includes("file.size > 5 * 1024 * 1024"),
+    "ProfilePictureModal.tsx must validate 5MB max file size on client"
+  );
+
+  // Teacher avatar action
+  const teacherActionsPath = path.join(process.cwd(), "src", "app", "admin", "teachers-actions.ts");
+  const teacherContent = fs.readFileSync(teacherActionsPath, "utf-8");
+  const teacherAvatarIdx = teacherContent.indexOf("export async function uploadTeacherAvatarAction");
+  const teacherAvatarBody = teacherContent.slice(teacherAvatarIdx, teacherAvatarIdx + 2500);
+
+  assert.ok(
+    teacherAvatarBody.includes("file.size > 5 * 1024 * 1024"),
+    "uploadTeacherAvatarAction must enforce 5MB file size limit matching avatars bucket"
+  );
+  assert.ok(
+    teacherAvatarBody.includes("buffer.length > 5 * 1024 * 1024"),
+    "uploadTeacherAvatarAction must validate raw buffer size does not exceed 5MB"
+  );
+  assert.ok(
+    teacherAvatarBody.includes('.from("avatars")'),
+    "uploadTeacherAvatarAction must use avatars bucket as primary public avatar store"
+  );
+});
+
+// ==============================================================================
+// SUITE 10: STEP 2D.4 COURSE_MATERIALS BUCKET INTEGRATION TESTS
+// ==============================================================================
+
+test("Step 2D.4 Storage: uploadLearningMaterialAction routes to private course_materials with signed URLs and MIME/size limits", () => {
+  const cmsActionsPath = path.join(process.cwd(), "src", "app", "admin", "cms-actions.ts");
+  const cmsContent = fs.readFileSync(cmsActionsPath, "utf-8");
+
+  const funcIdx = cmsContent.indexOf("export async function uploadLearningMaterialAction");
+  assert.ok(funcIdx !== -1, "uploadLearningMaterialAction must exist in cms-actions.ts");
+  const funcBody = cmsContent.slice(funcIdx, funcIdx + 6000);
+
+  // 1. Admin auth & MFA
+  assert.ok(
+    funcBody.includes("verifyAdminCaller()"),
+    "uploadLearningMaterialAction must enforce admin caller and MFA verification"
+  );
+
+  // 2. Max size 50 MB
+  assert.ok(
+    funcBody.includes("file.size > 50 * 1024 * 1024"),
+    "uploadLearningMaterialAction must enforce 50 MB max file size limit"
+  );
+
+  // 3. MIME and extension allowlist validation
+  assert.ok(
+    funcBody.includes("isAllowedExt") && funcBody.includes("isAllowedMime"),
+    "uploadLearningMaterialAction must validate file extension and MIME type allowlist"
+  );
+  assert.ok(
+    funcBody.includes("File type not supported for course materials"),
+    "uploadLearningMaterialAction must reject unsupported file types with descriptive error"
+  );
+
+  // 4. Primary storage: private course_materials bucket
+  assert.ok(
+    funcBody.includes('.from("course_materials")'),
+    "uploadLearningMaterialAction must route course materials to course_materials bucket"
+  );
+  assert.ok(
+    funcBody.includes('.from("course_materials")') && funcBody.includes(".upload("),
+    "uploadLearningMaterialAction must upload to course_materials bucket"
+  );
+
+  // 5. Private bucket: signed URL generation (no getPublicUrl on course_materials)
+  assert.ok(
+    funcBody.includes('.from("course_materials")') &&
+    funcBody.includes(".createSignedUrl("),
+    "uploadLearningMaterialAction must generate signed URLs for private course_materials objects"
+  );
+  assert.ok(
+    !funcBody.includes('.from("course_materials").getPublicUrl('),
+    "uploadLearningMaterialAction must NEVER call getPublicUrl on private course_materials bucket"
+  );
+
+  // 6. Metadata return: storagePath and bucket
+  assert.ok(
+    funcBody.includes('bucket: "course_materials"') && funcBody.includes("storagePath"),
+    "uploadLearningMaterialAction must return storagePath and bucket: 'course_materials'"
+  );
+
+  // 7. Small image secondary fallback & local dev disk guard
+  assert.ok(
+    funcBody.includes("isAvatarsCompatible"),
+    "uploadLearningMaterialAction must preserve avatars fallback only for compatible images"
+  );
+  assert.ok(
+    funcBody.includes('process.env.NODE_ENV !== "production" && !process.env.VERCEL'),
+    "uploadLearningMaterialAction must guard local filesystem fallbacks outside Vercel"
+  );
+});
+
+test("Step 2D.4 Storage: AddCourseWorkspace and saveCourseLessonAction persist storagePath and bucket metadata", () => {
+  // Check AddCourseWorkspace
+  const workspacePath = path.join(process.cwd(), "src", "components", "admin", "AddCourseWorkspace.tsx");
+  const workspaceContent = fs.readFileSync(workspacePath, "utf-8");
+
+  assert.ok(
+    workspaceContent.includes("storagePath: res.data.storagePath") &&
+    workspaceContent.includes("bucket: res.data.bucket"),
+    "AddCourseWorkspace must persist storagePath and bucket when uploading notes and reading materials"
+  );
+
+  // Check saveCourseLessonAction
+  const cmsActionsPath = path.join(process.cwd(), "src", "app", "admin", "cms-actions.ts");
+  const cmsContent = fs.readFileSync(cmsActionsPath, "utf-8");
+
+  const saveLessonIdx = cmsContent.indexOf("export async function saveCourseLessonAction");
+  assert.ok(saveLessonIdx !== -1, "saveCourseLessonAction must exist in cms-actions.ts");
+  const saveLessonBody = cmsContent.slice(saveLessonIdx, saveLessonIdx + 6000);
+
+  assert.ok(
+    saveLessonBody.includes("verifyAdminCaller()"),
+    "saveCourseLessonAction must enforce admin caller and MFA verification"
+  );
+  assert.ok(
+    saveLessonBody.includes("storagePath?: string") && saveLessonBody.includes("bucket?: string"),
+    "saveCourseLessonAction must declare storagePath and bucket on material item types"
+  );
+  assert.ok(
+    saveLessonBody.includes("writeCentralCurriculumStore(curriculumStore)"),
+    "saveCourseLessonAction must persist materials to central-curriculum store without schema mutations"
+  );
+});
+
+test("Step 2D.4 Storage: refreshLearningMaterialsSignedUrls generates private signed URLs with sensible expiration and backward compatibility", () => {
+  const lmsActionsPath = path.join(process.cwd(), "src", "app", "lms", "actions.ts");
+  const lmsContent = fs.readFileSync(lmsActionsPath, "utf-8");
+
+  // Check function presence
+  assert.ok(
+    lmsContent.includes("export async function refreshLearningMaterialsSignedUrls"),
+    "refreshLearningMaterialsSignedUrls must be exported from lms/actions.ts"
+  );
+
+  const refreshIdx = lmsContent.indexOf("export async function refreshLearningMaterialsSignedUrls");
+  const refreshBody = lmsContent.slice(refreshIdx, refreshIdx + 3000);
+
+  // Signing parameters
+  assert.ok(
+    refreshBody.includes('.from("course_materials")') && refreshBody.includes(".createSignedUrl("),
+    "refreshLearningMaterialsSignedUrls must create signed URLs against course_materials bucket"
+  );
+  assert.ok(
+    refreshBody.includes("3600 * 4"),
+    "refreshLearningMaterialsSignedUrls must use sensible 4-hour expiration duration"
+  );
+  assert.ok(
+    refreshBody.includes("return mat"),
+    "refreshLearningMaterialsSignedUrls must preserve legacy and external URLs untouched"
+  );
+
+  // getProtectedLesson integration
+  const protectedLessonIdx = lmsContent.indexOf("export async function getProtectedLesson");
+  assert.ok(protectedLessonIdx !== -1, "getProtectedLesson must exist in lms/actions.ts");
+  const protectedLessonBody = lmsContent.slice(protectedLessonIdx, protectedLessonIdx + 9000);
+
+  assert.ok(
+    protectedLessonBody.includes("await refreshLearningMaterialsSignedUrls("),
+    "getProtectedLesson must refresh signed URLs for lesson materials"
+  );
+  assert.ok(
+    protectedLessonBody.includes("notesMaterials: resolvedNotesMaterials"),
+    "getProtectedLesson must return resolved signed notesMaterials"
+  );
+  assert.ok(
+    protectedLessonBody.includes("readingMaterials: resolvedReadingMaterials"),
+    "getProtectedLesson must return resolved signed readingMaterials"
+  );
+
+  // getCourseLessonsForPlayerAction integration
+  const playerLessonsIdx = lmsContent.indexOf("export async function getCourseLessonsForPlayerAction");
+  assert.ok(playerLessonsIdx !== -1, "getCourseLessonsForPlayerAction must exist in lms/actions.ts");
+  const playerLessonsBody = lmsContent.slice(playerLessonsIdx, playerLessonsIdx + 4000);
+
+  assert.ok(
+    playerLessonsBody.includes("await refreshLearningMaterialsSignedUrls("),
+    "getCourseLessonsForPlayerAction must refresh signed URLs for player lesson materials"
+  );
+});
+
+test("Step 2D.4 Storage: Student authorization and viewer integration with A4MaterialPreview", () => {
+  // Check authorization in getProtectedLesson
+  const lmsActionsPath = path.join(process.cwd(), "src", "app", "lms", "actions.ts");
+  const lmsContent = fs.readFileSync(lmsActionsPath, "utf-8");
+  const protectedLessonIdx = lmsContent.indexOf("export async function getProtectedLesson");
+  const protectedLessonBody = lmsContent.slice(protectedLessonIdx, protectedLessonIdx + 2500);
+
+  assert.ok(
+    protectedLessonBody.includes("supabase.auth.getUser()"),
+    "getProtectedLesson must authenticate user session"
+  );
+  assert.ok(
+    protectedLessonBody.includes("isSuspended") || protectedLessonBody.includes("user.app_metadata?.status === \"suspended\""),
+    "getProtectedLesson must restrict suspended student accounts"
+  );
+  assert.ok(
+    protectedLessonBody.includes("checkUserCourseAccess(user.id, user.email"),
+    "getProtectedLesson must enforce active enrolled course authorization"
+  );
+
+  // Check viewer integration in learn/page.tsx
+  const learnPagePath = path.join(process.cwd(), "src", "app", "lms", "learn", "page.tsx");
+  const learnPageContent = fs.readFileSync(learnPagePath, "utf-8");
+
+  assert.ok(
+    learnPageContent.includes("import A4MaterialPreview"),
+    "learn/page.tsx must import A4MaterialPreview component"
+  );
+  assert.ok(
+    learnPageContent.includes("setNotesMaterials(response.data.notesMaterials"),
+    "learn/page.tsx must load notesMaterials from getProtectedLesson response"
+  );
+  assert.ok(
+    learnPageContent.includes("<A4MaterialPreview") && learnPageContent.includes("materials={notesMaterials}"),
+    "learn/page.tsx must render A4MaterialPreview with authorized notesMaterials"
+  );
+  assert.ok(
+    learnPageContent.includes("<A4NotesViewer"),
+    "learn/page.tsx must preserve A4NotesViewer fallback for legacy notesPages"
+  );
+
+  // Check A4MaterialPreview interface
+  const previewPath = path.join(process.cwd(), "src", "components", "A4MaterialPreview.tsx");
+  const previewContent = fs.readFileSync(previewPath, "utf-8");
+
+  assert.ok(
+    previewContent.includes("storagePath?: string") && previewContent.includes("bucket?: string"),
+    "A4MaterialPreview must support storagePath and bucket on LearningMaterialItem"
+  );
+  assert.ok(
+    previewContent.includes("activeItem.url"),
+    "A4MaterialPreview must render activeItem.url for documents, PDFs, images, and videos"
+  );
+});
+
+// ==============================================================================
+// SUITE 11: STEP 2D.5 PRODUCTION AUDIT, LOGO REFINEMENT & RESPONSIVE UI TESTS
+// ==============================================================================
+
+test("Step 2D.5 Logo Refinement: Aspect ratio, min-dimensions, object-fit, and proportional spacing", () => {
+  const logoPath = path.join(process.cwd(), "src", "components", "Logo.tsx");
+  const logoContent = fs.readFileSync(logoPath, "utf-8");
+
+  // 1. SpeakUpSymbol aspect ratio and scaling
+  assert.ok(
+    logoContent.includes("preserveAspectRatio=\"xMidYMid meet\""),
+    "SpeakUpSymbol SVG must preserve aspect ratio with xMidYMid meet"
+  );
+  assert.ok(
+    logoContent.includes("object-contain shrink-0 aspect-square"),
+    "SpeakUpSymbol SVG must enforce object-contain and shrink-0 aspect-square"
+  );
+  assert.ok(
+    logoContent.includes("max-w-full max-h-full w-auto h-auto object-contain"),
+    "SpeakUpSymbol custom image must maintain natural aspect ratio with max bounds and object-contain"
+  );
+
+  // 2. sizeMap responsive definitions with min-dimensions
+  assert.ok(
+    logoContent.includes("min-w-9 min-h-9 sm:w-11 sm:h-11 sm:min-w-11 sm:min-h-11"),
+    "Logo sizeMap md must include explicit min-w-9 min-h-9 to prevent flexbox distortion on 360px viewports"
+  );
+  assert.ok(
+    logoContent.includes("min-w-7 min-h-7 sm:w-8 sm:h-8 sm:min-w-8 sm:min-h-8"),
+    "Logo sizeMap sm must include explicit min-dimensions"
+  );
+
+  // 3. Proportional spacing between symbol and brand text
+  assert.ok(
+    logoContent.includes("gap-2 sm:gap-2.5 md:gap-3"),
+    "Logo container must enforce proportional responsive gap between graphic icon and brand text"
+  );
+  assert.ok(
+    logoContent.includes("whitespace-nowrap select-none"),
+    "Logo brand text must prevent unintended wrapping on compressed headers"
+  );
+});
+
+test("Step 2D.5 Responsive Layout: Header padding and flex containment on 360px mobile viewports", () => {
+  // 1. Public Navbar
+  const navbarPath = path.join(process.cwd(), "src", "components", "Navbar.tsx");
+  const navbarContent = fs.readFileSync(navbarPath, "utf-8");
+
+  assert.ok(
+    navbarContent.includes("px-3.5 sm:px-6 md:px-12"),
+    "Navbar must use px-3.5 on narrow mobile to provide breathing room on 360px viewports"
+  );
+  assert.ok(
+    navbarContent.includes("gap-2 sm:gap-3"),
+    "Navbar controls container must use responsive gap to prevent header overflow"
+  );
+
+  // 2. Admin Header
+  const adminLayoutPath = path.join(process.cwd(), "src", "app", "admin", "layout.tsx");
+  const adminLayoutContent = fs.readFileSync(adminLayoutPath, "utf-8");
+
+  assert.ok(
+    adminLayoutContent.includes("px-3.5 sm:px-6"),
+    "Admin mobile header must use px-3.5 to fit on 360px mobile viewports"
+  );
+
+  // 3. Student LMS Header
+  const lmsLayoutPath = path.join(process.cwd(), "src", "app", "lms", "layout.tsx");
+  const lmsLayoutContent = fs.readFileSync(lmsLayoutPath, "utf-8");
+
+  assert.ok(
+    lmsLayoutContent.includes("px-3.5 sm:px-6"),
+    "LMS mobile header must use px-3.5 to fit on 360px mobile viewports"
+  );
+  assert.ok(
+    lmsLayoutContent.includes("h-16 sm:h-20"),
+    "LMS mobile header must use compact height on mobile screens"
+  );
+});
+
+test("Step 2D.5 Serverless Persistence: Vercel EROFS disk write safety across admin actions", () => {
+  // 1. LMS Working Video
+  const lmsVideoPath = path.join(process.cwd(), "src", "app", "admin", "lms-working-video-actions.ts");
+  const lmsVideoContent = fs.readFileSync(lmsVideoPath, "utf-8");
+  assert.ok(
+    lmsVideoContent.includes("if (process.env.VERCEL || process.env.NODE_ENV === \"production\") return;"),
+    "lms-working-video-actions.ts must guard local file writes in Vercel/production"
+  );
+
+  // 2. Methodology Video
+  const methodVideoPath = path.join(process.cwd(), "src", "app", "admin", "methodology-video-actions.ts");
+  const methodVideoContent = fs.readFileSync(methodVideoPath, "utf-8");
+  assert.ok(
+    methodVideoContent.includes("if (process.env.VERCEL || process.env.NODE_ENV === \"production\") return;"),
+    "methodology-video-actions.ts must guard local file writes in Vercel/production"
+  );
+
+  // 3. Integrations
+  const integrationsPath = path.join(process.cwd(), "src", "app", "admin", "integration-actions.ts");
+  const integrationsContent = fs.readFileSync(integrationsPath, "utf-8");
+  assert.ok(
+    integrationsContent.includes("if (process.env.VERCEL || process.env.NODE_ENV === \"production\") return;"),
+    "integration-actions.ts must guard local file writes in Vercel/production"
+  );
+
+  // 4. Session Security
+  const sessionPath = path.join(process.cwd(), "src", "lib", "auth", "sessionSecurity.ts");
+  const sessionContent = fs.readFileSync(sessionPath, "utf-8");
+  assert.ok(
+    sessionContent.includes("if (process.env.VERCEL || process.env.NODE_ENV === \"production\") return;"),
+    "sessionSecurity.ts must guard local file writes in Vercel/production"
+  );
+});
+
+// ==============================================================================
+// SUITE 12: STEP 2E.1 ADMIN LOGIN MFA & PROVIDER REPAIR TESTS
+// ==============================================================================
+
+test("Step 2E.1 Security Constants: 3-minute code expiry, 60s cooldown, 5 attempts max", () => {
+  assert.equal(CODE_EXPIRY_MS, 3 * 60 * 1000, "Code expiry must strictly be 3 minutes (180,000 ms)");
+  assert.equal(RESEND_COOLDOWN_MS, 60 * 1000, "Resend cooldown must strictly be 60 seconds (60,000 ms)");
+  assert.equal(MAX_VERIFY_ATTEMPTS, 5, "Maximum verification attempts per challenge must strictly be 5");
+});
+
+test("Step 2E.1 Verification Cryptography: Code generation, salting, hashing, and timing-safe verification", () => {
+  const code = generateVerificationCode();
+  assert.match(code, /^\d{6}$/, "Generated code must be a 6-digit numeric string");
+
+  const salt = crypto.randomBytes(16).toString("hex");
+  const hashed = hashVerificationCode(code, salt);
+  assert.ok(hashed && hashed.length === 64, "Hashed code must be a 64-char hex SHA-256 digest");
+
+  // Correct code matches
+  assert.equal(verifyCodeHash(code, salt, hashed), true, "Valid code must verify successfully");
+
+  // Wrong code fails
+  const wrongCode = code === "123456" ? "654321" : "123456";
+  assert.equal(verifyCodeHash(wrongCode, salt, hashed), false, "Incorrect code must fail verification");
+
+  // Tampered salt fails
+  const badSalt = crypto.randomBytes(16).toString("hex");
+  assert.equal(verifyCodeHash(code, badSalt, hashed), false, "Tampered salt must fail verification");
+
+  // Empty code fails
+  assert.equal(verifyCodeHash("", salt, hashed), false, "Empty input must fail verification");
+});
+
+test("Step 2E.1 Session Token: Bound to user ID, last sign-in timestamp, and sliding trust window", () => {
+  const userId = "admin-uuid-1234-5678";
+  const sessionStamp = "2026-10-24T12:00:00Z";
+  const token = generateAdminVerificationToken(userId, sessionStamp);
+
+  assert.ok(token && token.includes("|"), "Token must be formatted with delimiters");
+  assert.equal(verifyAdminVerificationToken(token, userId, sessionStamp), true, "Valid token must verify");
+
+  // User identity mismatch fails
+  assert.equal(verifyAdminVerificationToken(token, "other-user-uuid", sessionStamp), false, "Different user must be rejected");
+
+  // Changed session stamp fails
+  assert.equal(verifyAdminVerificationToken(token, userId, "2026-10-24T13:00:00Z"), false, "Different session stamp must invalidate token");
+
+  // Tampered token fails (tampered payload or signature)
+  const tamperedSig = token.slice(0, -4) + "ffff";
+  assert.equal(verifyAdminVerificationToken(tamperedSig, userId, sessionStamp), false, "Tampered signature must fail signature check");
+  const tamperedPayload = "tampered|" + token;
+  assert.equal(verifyAdminVerificationToken(tamperedPayload, userId, sessionStamp), false, "Tampered payload must fail token check");
+});
+
+test("Step 2E.1 OAuth State: Cryptographically bound to initiating admin user with expiry", () => {
+  const adminId = "admin-oauth-user-999";
+  const state = generateOAuthState(adminId);
+
+  assert.ok(state.startsWith("oauth|"), "OAuth state must start with oauth prefix");
+  assert.equal(verifyOAuthState(state, adminId), true, "Matching admin user must verify state");
+  assert.equal(verifyOAuthState(state, "imposter-admin-id"), false, "Mismatched admin user must be rejected");
+  assert.equal(verifyOAuthState("invalid-state-param", adminId), false, "Malformed state must be rejected");
+});
+
+test("Step 2E.1 Admin Verification Source Code: Dual-provider failover, alreadySent handling, and safe error reporting", () => {
+  const adminVerifyPath = path.join(process.cwd(), "src", "lib", "auth", "adminVerification.ts");
+  const adminVerifyContent = fs.readFileSync(adminVerifyPath, "utf-8");
+
+  // 1. Dual-provider failover logic exists in sendAdminVerificationCodeAction
+  assert.ok(
+    adminVerifyContent.includes("sendBrandedEmail({") && adminVerifyContent.includes("provider: \"resend\""),
+    "sendAdminVerificationCodeAction must support fallback dispatch via Resend"
+  );
+  assert.ok(
+    adminVerifyContent.includes("sendBrandedEmail({") && adminVerifyContent.includes("provider: \"gmail\""),
+    "sendAdminVerificationCodeAction must support fallback dispatch via Gmail"
+  );
+
+  // 2. Undelivered challenge deletion
+  assert.ok(
+    adminVerifyContent.includes("deleteStoredChallenge(user.id)"),
+    "Undelivered challenges must be deleted from database storage when delivery fails"
+  );
+
+  // 3. Stale-code prevention / alreadySent support
+  assert.ok(
+    adminVerifyContent.includes("alreadySent: true"),
+    "sendAdminVerificationCodeAction must prevent duplicate code generation when challenge is in-flight"
+  );
+  assert.ok(
+    adminVerifyContent.includes("options?: {") && adminVerifyContent.includes("forceResend?: boolean"),
+    "sendAdminVerificationCodeAction must support options.forceResend"
+  );
+
+  // 4. Destination email strictly bound to admin account
+  assert.ok(
+    adminVerifyContent.includes("resolveAdminVerificationEmail(user)"),
+    "Verification codes must be strictly bound to authenticated admin login email"
+  );
+});
+
+test("Step 2E.1 Gmail Error Diagnostics & Token Safety: Differentiates invalid_client and invalid_grant", () => {
+  const gmailPath = path.join(process.cwd(), "src", "lib", "email", "gmail.ts");
+  const gmailContent = fs.readFileSync(gmailPath, "utf-8");
+
+  // 1. invalid_client diagnosis
+  assert.ok(
+    gmailContent.includes("invalid_client") && gmailContent.includes("Google OAuth Client Secret or Client ID is invalid or mismatched"),
+    "gmail.ts must explicitly diagnose invalid_client errors"
+  );
+
+  // 2. invalid_grant diagnosis
+  assert.ok(
+    gmailContent.includes("invalid_grant") && gmailContent.includes("Testing"),
+    "gmail.ts must explicitly diagnose 7-day token expiration from Google Cloud Testing consent mode"
+  );
+
+  // 3. Prevent empty string overwrite in saveConnectedGmailAccount
+  assert.ok(
+    gmailContent.includes("if (effectiveRefreshToken)") && gmailContent.includes("portal_email_credentials"),
+    "saveConnectedGmailAccount must not overwrite existing valid refresh tokens with empty strings"
+  );
+});
+
+test("Step 2E.1 OAuth Callback Redirect Safety: Redirects unverified admin callers to /admin/verify", () => {
+  const callbackPath = path.join(process.cwd(), "src", "app", "api", "auth", "google", "callback", "route.ts");
+  const callbackContent = fs.readFileSync(callbackPath, "utf-8");
+
+  assert.ok(
+    callbackContent.includes("const errorTarget = isMfaVerified ? \"/admin/portal-email\" : \"/admin/verify\";"),
+    "callback route must route errors to /admin/verify when admin session is not yet MFA-verified"
+  );
+  assert.ok(
+    callbackContent.includes("${errorTarget}?oauth_error="),
+    "callback route must preserve error params when redirecting unverified callers"
+  );
+});
+
+// ==============================================================================
+// SUITE 13: Phase 2E.5 — Advisory Bookings & Course Request Catalog Repairs
+// ==============================================================================
+
+test("Step 2E.5 Advisory Bookings Server Actions: Requires verifyAdminCaller and soft-archive", () => {
+  const actionsPath = path.join(process.cwd(), "src", "app", "admin", "booking-actions.ts");
+  assert.ok(fs.existsSync(actionsPath), "src/app/admin/booking-actions.ts must exist");
+  const content = fs.readFileSync(actionsPath, "utf-8");
+
+  // 1. Mandatory admin MFA check
+  assert.ok(
+    content.includes("verifyAdminCaller"),
+    "booking-actions.ts must import and enforce verifyAdminCaller"
+  );
+  assert.ok(
+    content.includes("const authCheck = await verifyAdminCaller();"),
+    "getAdminBookingsAction and updateBookingStatusAction must check verifyAdminCaller"
+  );
+
+  // 2. Soft-archive preservation (Do not permanently delete records)
+  assert.ok(
+    content.includes("archiveBookingAction"),
+    "booking-actions.ts must provide an archiveBookingAction"
+  );
+  assert.ok(
+    content.includes("updateBookingStatusAction(bookingId, \"archived\")"),
+    "archiveBookingAction must perform a soft-archive by updating status to 'archived'"
+  );
+  assert.ok(
+    !content.includes(".delete()"),
+    "booking-actions.ts must not issue DELETE queries; booking records must be preserved"
+  );
+
+  // 3. Status life-cycle validation
+  assert.ok(
+    content.includes("pending") && content.includes("contacted") && content.includes("scheduled") && content.includes("completed"),
+    "booking-actions.ts must support the standard lifecycle statuses"
+  );
+});
+
+test("Step 2E.5 Public Booking Submission Safety: Decoupled from filesystem and rate-limited", () => {
+  const bookingPath = path.join(process.cwd(), "src", "app", "book-session", "booking-actions.ts");
+  const content = fs.readFileSync(bookingPath, "utf-8");
+
+  // 1. No fs or path writes (Vercel Serverless EROFS immunity)
+  assert.ok(!content.includes("fs.writeFileSync"), "booking-actions.ts must not call fs.writeFileSync on Vercel");
+  assert.ok(!content.includes("central-bookings.json"), "booking-actions.ts must not depend on local central-bookings.json");
+
+  // 2. 15-minute duplicate rate limiting
+  assert.ok(
+    content.includes("fifteenMinutesAgo") || content.includes("15 * 60 * 1000"),
+    "submitBookingRequestAction must include duplicate submission check within 15 minutes"
+  );
+  assert.ok(
+    content.includes("booking_requests"),
+    "submitBookingRequestAction must persist directly to Supabase public.booking_requests"
+  );
+});
+
+test("Step 2E.5 Admin Bookings Page & Navigation: Sidebar link and responsive review page exist", () => {
+  // 1. Admin Page exists
+  const pagePath = path.join(process.cwd(), "src", "app", "admin", "bookings", "page.tsx");
+  assert.ok(fs.existsSync(pagePath), "src/app/admin/bookings/page.tsx must exist");
+  const pageContent = fs.readFileSync(pagePath, "utf-8");
+
+  assert.ok(pageContent.includes("Advisory Booking Requests"), "Page must have proper title");
+  assert.ok(pageContent.includes("getAdminBookingsAction"), "Page must fetch from getAdminBookingsAction");
+  assert.ok(pageContent.includes("updateBookingStatusAction"), "Page must allow status updates");
+  assert.ok(pageContent.includes("archiveBookingAction"), "Page must allow archiving");
+  assert.ok(pageContent.includes("getCleanWhatsAppUrl") || pageContent.includes("wa.me"), "Page must include direct WhatsApp follow-up link");
+
+  // 2. Sidebar includes Advisory Bookings
+  const sidebarPath = path.join(process.cwd(), "src", "components", "admin", "AdminSidebar.tsx");
+  const sidebarContent = fs.readFileSync(sidebarPath, "utf-8");
+  assert.ok(
+    sidebarContent.includes("/admin/bookings") && sidebarContent.includes("Advisory Bookings"),
+    "AdminSidebar must include a link to /admin/bookings"
+  );
+});
+
+test("Step 2E.5 Student Course Request Catalog Auto-Sync: Synchronizes authoritative course if missing", () => {
+  const lmsActionsPath = path.join(process.cwd(), "src", "app", "lms", "actions.ts");
+  const content = fs.readFileSync(lmsActionsPath, "utf-8");
+
+  // 1. Authoritative auto-sync
+  assert.ok(
+    content.includes("authSlug") && content.includes(".upsert("),
+    "submitStudentCourseRequestAction must auto-sync missing authoritative course into public.courses"
+  );
+
+  // 2. Security invariant: student status must be 'pending'
+  assert.ok(
+    content.includes("status: \"pending\""),
+    "Course requests created by students must strictly default to 'pending'"
+  );
+});
+
+test("Step 2E.5 Migration Proposal: Grants least-privilege table access and seeds canonical catalog", () => {
+  const migrationPath = path.join(process.cwd(), "supabase", "migrations", "20261025_course_requests_and_catalog_repair.sql");
+  assert.ok(fs.existsSync(migrationPath), "Migration proposal file must exist");
+  const migrationContent = fs.readFileSync(migrationPath, "utf-8");
+
+  // 1. Least-privilege table grants
+  assert.ok(
+    migrationContent.includes("GRANT SELECT ON TABLE public.courses TO anon, authenticated;") ||
+    migrationContent.includes("GRANT SELECT ON public.courses TO anon, authenticated;"),
+    "Migration must grant SELECT on courses to anon and authenticated"
+  );
+  assert.ok(
+    migrationContent.includes("GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.courses TO service_role;") ||
+    migrationContent.includes("GRANT SELECT, INSERT, UPDATE, DELETE ON public.courses TO service_role;"),
+    "Migration must grant table management on courses to service_role"
+  );
+  assert.ok(
+    migrationContent.includes("GRANT SELECT ON TABLE public.course_enrollments TO authenticated;") ||
+    migrationContent.includes("GRANT SELECT, INSERT ON public.course_enrollments TO authenticated;"),
+    "Migration must grant SELECT on course_enrollments to authenticated"
+  );
+  assert.ok(
+    migrationContent.includes("REVOKE ALL ON TABLE public.course_enrollments FROM anon, authenticated, service_role, PUBLIC;") ||
+    migrationContent.includes("REVOKE ALL ON public.course_enrollments FROM anon, PUBLIC;"),
+    "Migration must revoke course_enrollments access from anon and PUBLIC"
+  );
+
+  // 2. Canonical catalog seeding
+  assert.ok(
+    migrationContent.includes("CANONICAL COURSE CATALOG SEEDING"),
+    "Migration must address canonical catalog seeding"
+  );
+});
 
 
 

@@ -218,6 +218,14 @@ export async function sendBrandedEmail(payload: SendEmailPayload): Promise<SendE
       });
 
       if (!gmailRes.success) {
+        // Automatic fallback to Resend if available and provider was not explicitly pinned to gmail
+        if (!payload.provider && Boolean(process.env.RESEND_API_KEY)) {
+          const resendFallback = await sendBrandedEmail({ ...payload, provider: "resend" });
+          if (resendFallback.success) {
+            return resendFallback;
+          }
+        }
+
         try {
           await supabase.from("email_logs").insert({
             recipient_email: primaryRecipient,
@@ -311,48 +319,48 @@ export async function sendBrandedEmail(payload: SendEmailPayload): Promise<SendE
       if (result.error) {
         let errMsg = result.error.message || "Resend email delivery failure";
 
-        // Check for Resend free-tier sandbox policy:
-        if (errMsg.toLowerCase().includes("own email address")) {
-          // Automatic fallback to authorized Gmail if operational and provider was not explicitly pinned to resend
-          if (!payload.provider) {
-            const gmailStatus = await isGmailOperational();
-            if (gmailStatus.operational && gmailStatus.email) {
-              try {
-                const gmailRes = await sendEmailViaGmail({
-                  fromName: effectiveFromName,
-                  fromEmail: gmailStatus.email,
-                  to: recipientList,
-                  replyTo: effectiveReplyTo,
-                  subject: payload.subject,
-                  html: payload.html,
-                  text: payload.text,
-                  attachments: payload.attachments,
-                });
-                if (gmailRes.success) {
-                  try {
-                    await supabase.from("email_logs").insert({
-                      recipient_email: primaryRecipient,
-                      subject: payload.subject,
-                      template_id: payload.templateId || null,
-                      status: "sent",
-                      resend_id: gmailRes.messageId || null,
-                      error_message: null,
-                      sent_at: new Date().toISOString(),
-                    } as any);
-                  } catch {}
-                  return {
-                    success: true,
-                    resendId: gmailRes.messageId,
-                    fromHeader: `${effectiveFromName} <${gmailStatus.email}>`,
-                    provider: "gmail",
-                  };
-                }
-              } catch {
-                // Non-blocking fallback to reporting standard error
+        // Automatic fallback to authorized Gmail if operational and provider was not explicitly pinned to resend
+        if (!payload.provider) {
+          const gmailStatus = await isGmailOperational();
+          if (gmailStatus.operational && gmailStatus.email) {
+            try {
+              const gmailRes = await sendEmailViaGmail({
+                fromName: effectiveFromName,
+                fromEmail: gmailStatus.email,
+                to: recipientList,
+                replyTo: effectiveReplyTo,
+                subject: payload.subject,
+                html: payload.html,
+                text: payload.text,
+                attachments: payload.attachments,
+              });
+              if (gmailRes.success) {
+                try {
+                  await supabase.from("email_logs").insert({
+                    recipient_email: primaryRecipient,
+                    subject: payload.subject,
+                    template_id: payload.templateId || null,
+                    status: "sent",
+                    resend_id: gmailRes.messageId || null,
+                    error_message: null,
+                    sent_at: new Date().toISOString(),
+                  } as any);
+                } catch {}
+                return {
+                  success: true,
+                  resendId: gmailRes.messageId,
+                  fromHeader: `${effectiveFromName} <${gmailStatus.email}>`,
+                  provider: "gmail",
+                };
               }
+            } catch {
+              // Non-blocking fallback to reporting standard error
             }
           }
+        }
 
+        // Check for Resend free-tier sandbox policy:
+        if (errMsg.toLowerCase().includes("own email address")) {
           errMsg = `Email delivery restriction: Domain for "${effectiveFromEmail}" is in unverified sandbox mode in your email provider (Resend). Resend sandbox mode only permits test dispatch to the Resend account owner. To send emails to recipients (${primaryRecipient}), please verify your custom domain in Resend Dashboard (resend.com/domains) or select Portal Email (Gmail).`;
         } else if (
           errMsg.toLowerCase().includes("domain") ||

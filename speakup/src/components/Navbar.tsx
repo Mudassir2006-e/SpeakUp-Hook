@@ -47,14 +47,16 @@ export const Navbar: React.FC = () => {
 
   return (
     <nav className="w-full top-0 sticky z-50 border-b border-[var(--surface-border)] shadow-[0_4px_30px_rgba(0,0,0,0.02)] transition-all duration-300 backdrop-blur-md bg-[var(--bg-main)]/90">
-      <div className="flex justify-between items-center px-6 md:px-12 max-w-[1200px] mx-auto h-[88px]">
+      <div className="flex justify-between items-center px-3.5 sm:px-6 md:px-12 max-w-[1200px] mx-auto h-20 sm:h-[88px]">
         {/* Brand Logo [SpeakUp logo] + [SpeakUp brand name] */}
-        <Logo
-          size="md"
-          brandText={cmsHeader?.logoText}
-          tagline={cmsHeader?.logoTagline}
-          customImage={cmsHeader?.logoImage}
-        />
+        <div className="flex items-center shrink-0">
+          <Logo
+            size="md"
+            brandText={cmsHeader?.logoText}
+            tagline={cmsHeader?.logoTagline}
+            customImage={cmsHeader?.logoImage}
+          />
+        </div>
 
         {/* HOMEPAGE: Desktop Nav Links (Home, Courses, Methodology, Pricing, Privacy) */}
         {isHomepage && (
@@ -80,7 +82,7 @@ export const Navbar: React.FC = () => {
 
         {/* HOMEPAGE: ThemeToggle + Round Person/Account Icon */}
         {isHomepage && (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <ThemeToggle />
 
             <Link

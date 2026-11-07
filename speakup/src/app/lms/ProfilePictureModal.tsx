@@ -89,8 +89,8 @@ export default function ProfilePictureModal({
       return;
     }
 
-    if (file.size > 8 * 1024 * 1024) {
-      setErrorMsg(`Image exceeds maximum 8MB size limit (selected: ${(file.size / (1024 * 1024)).toFixed(2)} MB).`);
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMsg(`Image exceeds maximum 5MB size limit (selected: ${(file.size / (1024 * 1024)).toFixed(2)} MB).`);
       return;
     }
 

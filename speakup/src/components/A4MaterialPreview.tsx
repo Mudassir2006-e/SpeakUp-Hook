@@ -8,6 +8,8 @@ export interface LearningMaterialItem {
   name: string;
   type: "image" | "pdf" | "video" | "document" | "url";
   size?: number;
+  storagePath?: string;
+  bucket?: string;
 }
 
 interface A4MaterialPreviewProps {

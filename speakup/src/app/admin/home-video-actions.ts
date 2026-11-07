@@ -53,11 +53,12 @@ function readLocalSettings(): HomeVideoSettings {
 
 function writeLocalSettings(settings: HomeVideoSettings): void {
   try {
+    if (process.env.VERCEL || process.env.NODE_ENV === "production") return;
     const dir = path.dirname(CONFIG_PATH);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(CONFIG_PATH, JSON.stringify(settings, null, 2), "utf-8");
   } catch (err) {
-    console.error("Error writing home-video.json:", err);
+    console.warn("Notice: Local home video config write skipped:", err);
   }
 }
 
@@ -207,23 +208,73 @@ export async function saveHomeVideoSettingsAction(
     let dbPersisted = false;
     try {
       const adminClient = createAdminClient();
-      const { error: dbErr } = await (adminClient as any).from("cms_content").upsert(
-        {
-          page_key: "home_promotional_video",
-          published_data: updated,
-          draft_data: updated,
-          updated_at: now,
-          updated_by: authCheck.adminId,
-        },
-        { onConflict: "page_key" }
-      );
-      if (!dbErr) {
-        dbPersisted = true;
+      const PAGE_KEY = "home_promotional_video";
+      const { data: existingRow, error: selectErr } = await (adminClient as any)
+        .from("cms_content")
+        .select("id")
+        .eq("page_key", PAGE_KEY)
+        .maybeSingle();
+
+      if (selectErr) {
+        console.warn("[saveHomeVideoSettings] select warning:", selectErr.message);
+      }
+
+      const payloadWithAdmin = {
+        page_key: PAGE_KEY,
+        published_data: updated,
+        draft_data: updated,
+        updated_at: now,
+        updated_by: authCheck.adminId,
+      };
+
+      const payloadWithoutAdmin = {
+        page_key: PAGE_KEY,
+        published_data: updated,
+        draft_data: updated,
+        updated_at: now,
+      };
+
+      if (existingRow?.id) {
+        let { error: updateErr } = await (adminClient as any)
+          .from("cms_content")
+          .update(payloadWithAdmin)
+          .eq("id", existingRow.id);
+
+        if (updateErr) {
+          console.warn("[saveHomeVideoSettings] update with adminId failed, retrying without updated_by:", updateErr.message);
+          const retry = await (adminClient as any)
+            .from("cms_content")
+            .update(payloadWithoutAdmin)
+            .eq("id", existingRow.id);
+          updateErr = retry.error;
+        }
+
+        if (!updateErr) {
+          dbPersisted = true;
+        } else {
+          console.error("[saveHomeVideoSettings] update failed:", updateErr.message);
+        }
       } else {
-        console.error("Database home video upsert error:", dbErr.message);
+        let { error: insertErr } = await (adminClient as any)
+          .from("cms_content")
+          .insert(payloadWithAdmin);
+
+        if (insertErr) {
+          console.warn("[saveHomeVideoSettings] insert with adminId failed, retrying without updated_by:", insertErr.message);
+          const retry = await (adminClient as any)
+            .from("cms_content")
+            .insert(payloadWithoutAdmin);
+          insertErr = retry.error;
+        }
+
+        if (!insertErr) {
+          dbPersisted = true;
+        } else {
+          console.error("[saveHomeVideoSettings] insert failed:", insertErr.message);
+        }
       }
     } catch (dbErr) {
-      console.warn("Supabase upsert failed for home video:", dbErr);
+      console.warn("Supabase database sync failed for home video:", dbErr);
     }
 
     if (!dbPersisted && (process.env.VERCEL || process.env.NODE_ENV === "production")) {
@@ -376,6 +427,13 @@ export async function saveFrameThumbnailAction(
 
     const base64Data = dataUrl.replace(/^data:image\/\w+;base64,/, "");
     const buffer = Buffer.from(base64Data, "base64");
+
+    if (process.env.VERCEL || process.env.NODE_ENV === "production") {
+      return {
+        success: false,
+        error: "Direct frame writes to disk are not supported on serverless production. Please upload a custom thumbnail.",
+      };
+    }
 
     const uploadDir = path.join(process.cwd(), "public", "uploads", "thumbnails");
     if (!fs.existsSync(uploadDir)) {

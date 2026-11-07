@@ -509,7 +509,7 @@ export default function AddedWebsiteAdminPage() {
             </div>
 
             {/* Sticky Action Bar for Selected Page (Primary Sticky Header) */}
-            <div className="sticky top-20 sm:top-24 z-20 bg-white/95 dark:bg-[#141416]/95 backdrop-blur-md border border-[#d4af37]/40 dark:border-[#d4af37]/30 rounded-2xl p-3.5 sm:p-4.5 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-3 transition-all">
+            <div className="sticky top-20 sm:top-24 z-20 bg-white/95 dark:bg-[#141416]/95 backdrop-blur-md border border-[#d4af37]/40 dark:border-[#d4af37]/30 rounded-2xl p-3.5 sm:p-4.5 shadow-md flex flex-col xl:flex-row xl:items-center justify-between gap-3.5 transition-all">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-10 h-10 rounded-xl bg-[#d4af37]/20 border border-[#d4af37]/40 text-[#8a6d1b] dark:text-[#d4af37] flex items-center justify-center shrink-0">
                   <span className="material-symbols-outlined text-[20px]">{selectedPage.icon}</span>
@@ -529,12 +529,12 @@ export default function AddedWebsiteAdminPage() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0 self-stretch md:self-auto justify-end flex-wrap">
+              <div className="flex items-center gap-2 shrink-0 self-stretch xl:self-auto justify-start sm:justify-end flex-wrap">
                 {selectedPage.id === "home" && (
                   <button
                     type="button"
                     onClick={() => setHomeVideoModalOpen(true)}
-                    className="px-3.5 py-2 rounded-xl border border-[#d4af37] bg-[#d4af37]/15 hover:bg-[#d4af37]/25 text-[#8a6d1b] dark:text-[#d4af37] font-display text-xs uppercase tracking-wider font-bold shadow-xs inline-flex items-center gap-1.5 transition-all cursor-pointer"
+                    className="px-3.5 py-2.5 rounded-xl border border-[#d4af37] bg-[#d4af37]/15 hover:bg-[#d4af37]/25 text-[#8a6d1b] dark:text-[#d4af37] font-display text-xs uppercase tracking-wider font-bold shadow-xs inline-flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap shrink-0"
                   >
                     <span className="material-symbols-outlined text-[16px]">smart_display</span>
                     <span>Home Video</span>
@@ -545,7 +545,7 @@ export default function AddedWebsiteAdminPage() {
                   <button
                     type="button"
                     onClick={() => setMethodologyMediaModalOpen(true)}
-                    className="px-3.5 py-2 rounded-xl border border-[#d4af37] bg-[#d4af37]/15 hover:bg-[#d4af37]/25 text-[#8a6d1b] dark:text-[#d4af37] font-display text-xs uppercase tracking-wider font-bold shadow-xs inline-flex items-center gap-1.5 transition-all cursor-pointer"
+                    className="px-3.5 py-2.5 rounded-xl border border-[#d4af37] bg-[#d4af37]/15 hover:bg-[#d4af37]/25 text-[#8a6d1b] dark:text-[#d4af37] font-display text-xs uppercase tracking-wider font-bold shadow-xs inline-flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap shrink-0"
                   >
                     <span className="material-symbols-outlined text-[16px]">psychology</span>
                     <span>Methodology Media</span>
@@ -556,7 +556,7 @@ export default function AddedWebsiteAdminPage() {
                   <button
                     type="button"
                     onClick={() => setLmsWorkingVideoModalOpen(true)}
-                    className="px-3.5 py-2 rounded-xl border border-[#d4af37] bg-[#d4af37]/15 hover:bg-[#d4af37]/25 text-[#8a6d1b] dark:text-[#d4af37] font-display text-xs uppercase tracking-wider font-bold shadow-xs inline-flex items-center gap-1.5 transition-all cursor-pointer"
+                    className="px-3.5 py-2.5 rounded-xl border border-[#d4af37] bg-[#d4af37]/15 hover:bg-[#d4af37]/25 text-[#8a6d1b] dark:text-[#d4af37] font-display text-xs uppercase tracking-wider font-bold shadow-xs inline-flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap shrink-0"
                   >
                     <span className="material-symbols-outlined text-[16px]">laptop_mac</span>
                     <span>LMS Working Video</span>
@@ -566,7 +566,7 @@ export default function AddedWebsiteAdminPage() {
                 {selectedPage.id === "faq" && (
                   <Link
                     href="/admin/faqs"
-                    className="px-3.5 py-2 rounded-xl border border-[#d4af37] bg-[#d4af37]/15 hover:bg-[#d4af37]/25 text-[#8a6d1b] dark:text-[#d4af37] font-display text-xs uppercase tracking-wider font-bold shadow-xs inline-flex items-center gap-1.5 transition-all cursor-pointer"
+                    className="px-3.5 py-2.5 rounded-xl border border-[#d4af37] bg-[#d4af37]/15 hover:bg-[#d4af37]/25 text-[#8a6d1b] dark:text-[#d4af37] font-display text-xs uppercase tracking-wider font-bold shadow-xs inline-flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap shrink-0"
                   >
                     <span className="material-symbols-outlined text-[16px]">help</span>
                     <span>Manage FAQ Items</span>
@@ -577,7 +577,7 @@ export default function AddedWebsiteAdminPage() {
                   <button
                     type="button"
                     onClick={() => setTermsSectionsModalOpen(true)}
-                    className="px-3.5 py-2 rounded-xl border border-[#d4af37] bg-[#d4af37]/15 hover:bg-[#d4af37]/25 text-[#8a6d1b] dark:text-[#d4af37] font-display text-xs uppercase tracking-wider font-bold shadow-xs inline-flex items-center gap-1.5 transition-all cursor-pointer"
+                    className="px-3.5 py-2.5 rounded-xl border border-[#d4af37] bg-[#d4af37]/15 hover:bg-[#d4af37]/25 text-[#8a6d1b] dark:text-[#d4af37] font-display text-xs uppercase tracking-wider font-bold shadow-xs inline-flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap shrink-0"
                   >
                     <span className="material-symbols-outlined text-[16px]">gavel</span>
                     <span>Terms &amp; Conditions Sections</span>
@@ -588,7 +588,7 @@ export default function AddedWebsiteAdminPage() {
                   <button
                     type="button"
                     onClick={() => setPrivacySectionsModalOpen(true)}
-                    className="px-3.5 py-2 rounded-xl border border-[#d4af37] bg-[#d4af37]/15 hover:bg-[#d4af37]/25 text-[#8a6d1b] dark:text-[#d4af37] font-display text-xs uppercase tracking-wider font-bold shadow-xs inline-flex items-center gap-1.5 cursor-pointer transition-all"
+                    className="px-3.5 py-2.5 rounded-xl border border-[#d4af37] bg-[#d4af37]/15 hover:bg-[#d4af37]/25 text-[#8a6d1b] dark:text-[#d4af37] font-display text-xs uppercase tracking-wider font-bold shadow-xs inline-flex items-center gap-1.5 cursor-pointer transition-all whitespace-nowrap shrink-0"
                   >
                     <span className="material-symbols-outlined text-[16px]">policy</span>
                     <span>Privacy Policy Sections</span>
@@ -599,7 +599,7 @@ export default function AddedWebsiteAdminPage() {
                   href={selectedPage.route}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-3.5 py-2 rounded-xl border border-[var(--surface-border)] hover:border-[#d4af37] bg-white dark:bg-[#141418] text-[var(--text-main)] font-display text-xs uppercase tracking-wider font-bold shadow-xs inline-flex items-center gap-1.5 transition-all cursor-pointer"
+                  className="px-3.5 py-2.5 rounded-xl border border-[var(--surface-border)] hover:border-[#d4af37] bg-white dark:bg-[#141418] text-[var(--text-main)] font-display text-xs uppercase tracking-wider font-bold shadow-xs inline-flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap shrink-0"
                 >
                   <span className="material-symbols-outlined text-[16px] text-[#d4af37]">open_in_new</span>
                   <span>Open Live Page</span>
@@ -607,7 +607,7 @@ export default function AddedWebsiteAdminPage() {
 
                 <Link
                   href={`/admin/edit-page?slug=${selectedPage.slug || selectedPage.id || encodeURIComponent(selectedPage.route)}`}
-                  className="px-4 py-2 rounded-xl bg-[#d4af37] hover:bg-[#b08e2b] text-[#141416] font-display text-xs uppercase tracking-wider font-bold shadow-xs inline-flex items-center gap-1.5 transition-all cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl bg-[#d4af37] hover:bg-[#b08e2b] text-[#141416] font-display text-xs uppercase tracking-wider font-bold shadow-xs inline-flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap shrink-0"
                 >
                   <span className="material-symbols-outlined text-[16px]">edit</span>
                   <span>Edit</span>

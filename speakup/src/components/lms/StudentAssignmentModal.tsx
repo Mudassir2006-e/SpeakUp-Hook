@@ -438,7 +438,7 @@ export default function StudentAssignmentModal({
                   <span>
                     {submission && (submission.status === "Checked" || submission.status === "Needs Review")
                       ? "View My Submission"
-                      : "Proceed to Upload Pages"}
+                      : "Proceed to Submission"}
                   </span>
                   <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
                 </button>
@@ -683,7 +683,13 @@ export default function StudentAssignmentModal({
               {(!submission || isResubmittingMode) && (
                 <div className="pt-4 border-t border-[var(--surface-border)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="text-xs font-serif text-[var(--text-muted)]">
-                    {pages.length} page(s) ready for AI multimodal assessment.
+                    {pages.length > 0 && studentTextAnswer.trim()
+                      ? `${pages.length} page(s) and written answer ready for evaluation.`
+                      : pages.length > 0
+                      ? `${pages.length} page(s) ready for evaluation.`
+                      : studentTextAnswer.trim()
+                      ? "Written answer ready for evaluation."
+                      : "Type your answer or attach pages to submit."}
                   </div>
 
                   <div className="flex items-center gap-3">
@@ -699,7 +705,7 @@ export default function StudentAssignmentModal({
 
                     <button
                       type="button"
-                      disabled={pages.length === 0 || isSubmitting}
+                      disabled={(!pages.length && !studentTextAnswer.trim()) || isSubmitting}
                       onClick={handleSubmitAssignment}
                       className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-display text-xs uppercase tracking-wider font-bold bg-[#d4af37] text-[#141416] hover:bg-[#e4c665] transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm"
                     >
@@ -708,7 +714,7 @@ export default function StudentAssignmentModal({
                           <span className="material-symbols-outlined text-[18px] animate-spin">
                             progress_activity
                           </span>
-                          <span>Analyzing All Pages...</span>
+                          <span>Evaluating Submission...</span>
                         </>
                       ) : (
                         <>
@@ -726,8 +732,46 @@ export default function StudentAssignmentModal({
           {/* ================= TAB 3: EVALUATION & RESULT ================= */}
           {activeTab === "result" && submission && (
             <div className="space-y-6">
-              {/* Unconfigured AI / Pending Instructor Review State */}
-              {submission.finalScore === null && !submission.aiEvaluation ? (
+              {/* AI Provider Error State */}
+              {submission.finalScore === null && submission.aiEvaluation?.evaluationStatus === "provider_error" ? (
+                <div className="space-y-4">
+                  <div className="p-6 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-4">
+                    <span className="material-symbols-outlined text-[28px] text-amber-600 dark:text-amber-400 shrink-0 mt-0.5">
+                      pending_actions
+                    </span>
+                    <div className="space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h4 className="font-display text-sm font-bold uppercase tracking-wider text-amber-900 dark:text-amber-200">
+                          Manual Instructor Review Queued
+                        </h4>
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-800 dark:text-amber-300">
+                          Provider Rate / Quota Limit
+                        </span>
+                      </div>
+                      <p className="font-serif text-xs leading-relaxed text-[var(--text-main)]">
+                        The automated AI grading service encountered a temporary provider quota or service limit. Your submission has been securely preserved and routed to your course instructor for manual evaluation and grading.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-5 rounded-xl bg-[var(--surface-low)]/50 border border-[var(--surface-border)] space-y-3">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-display font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                        Submission Status
+                      </span>
+                      {getStatusBadge(submission.status)}
+                    </div>
+                    <div className="flex items-center justify-between text-xs font-mono text-[var(--text-muted)]">
+                      <span>Submitted On</span>
+                      <span>{new Date(submission.submittedAt).toLocaleString()}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs font-mono text-[var(--text-muted)]">
+                      <span>Attempt Number</span>
+                      <span>Attempt #{submission.attemptNumber || 1}</span>
+                    </div>
+                  </div>
+                </div>
+              ) : submission.finalScore === null && !submission.aiEvaluation ? (
                 <div className="space-y-4">
                   <div className="p-6 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-4">
                     <span className="material-symbols-outlined text-[28px] text-amber-600 dark:text-amber-400 shrink-0 mt-0.5">
@@ -771,7 +815,7 @@ export default function StudentAssignmentModal({
                   <div className="rounded-2xl p-6 sm:p-7 bg-gradient-to-br from-[#d4af37]/15 via-[#d4af37]/5 to-transparent border border-[#d4af37]/35 flex flex-col sm:flex-row sm:items-center justify-between gap-6 shadow-xs">
                     <div className="space-y-1">
                       <span className="text-[11px] font-display uppercase tracking-widest font-extrabold text-[#8a6d1b] dark:text-[#d4af37]">
-                        Official Evaluation Result
+                        {submission.adminReviewedAt ? "Official Instructor Evaluation Result" : "Automated AI Evaluation Result"}
                       </span>
                       <h3 className="font-display text-2xl font-black text-[var(--text-main)]">
                         {assignment.title}
@@ -783,7 +827,11 @@ export default function StudentAssignmentModal({
                         </p>
                       ) : (
                         <p className="font-serif text-xs text-[var(--text-muted)]">
-                          Evaluated as a complete {submission.pages?.length || 0}-page submission.
+                          {submission.pages?.length && submission.studentTextAnswer
+                            ? `Evaluated written answer and ${submission.pages.length} attached image page(s).`
+                            : submission.pages?.length
+                            ? `Evaluated ${submission.pages.length} attached image page(s).`
+                            : "Evaluated written text answer."}
                         </p>
                       )}
                     </div>
@@ -791,10 +839,14 @@ export default function StudentAssignmentModal({
                     <div className="flex items-center gap-6 self-start sm:self-auto">
                       <div className="text-right">
                         <span className="block text-[11px] font-display uppercase tracking-wider text-[var(--text-muted)]">
-                          Final Score
+                          {submission.finalScore !== null && submission.finalScore !== undefined ? "Final Score" : "Suggested Score"}
                         </span>
                         <span className="font-display text-3xl sm:text-4xl font-black text-[#d4af37]">
-                          {submission.finalScore !== null ? submission.finalScore : "--"}
+                          {submission.finalScore !== null && submission.finalScore !== undefined
+                            ? submission.finalScore
+                            : submission.aiScore !== null && submission.aiScore !== undefined
+                            ? submission.aiScore
+                            : "--"}
                           <span className="text-lg text-[var(--text-muted)] font-normal">
                             /{assignment.maxMarks}
                           </span>

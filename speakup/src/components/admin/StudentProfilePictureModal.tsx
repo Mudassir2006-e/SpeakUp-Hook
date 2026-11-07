@@ -152,7 +152,7 @@ export default function StudentProfilePictureModal({
       const finalUrl = previewCanvasUrl || imageSrc;
       const res = await updateStudentAvatarAdmin(studentId, finalUrl);
       if (res.success) {
-        if (onSaved) onSaved(finalUrl);
+        if (onSaved) onSaved(res.data?.avatarUrl || finalUrl);
         onClose();
       } else {
         setErrorMsg(res.error || "Failed to update student profile picture.");

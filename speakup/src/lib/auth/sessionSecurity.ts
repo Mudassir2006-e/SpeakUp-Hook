@@ -76,13 +76,14 @@ function readRevocations(): Record<string, RevocationRecord> {
  */
 function writeRevocation(userId: string, record: RevocationRecord): void {
   try {
+    if (process.env.VERCEL || process.env.NODE_ENV === "production") return;
     const dir = path.dirname(REVOCATIONS_FILE);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     const current = readRevocations();
     current[userId] = record;
     fs.writeFileSync(REVOCATIONS_FILE, JSON.stringify(current, null, 2), "utf-8");
   } catch (err) {
-    console.error("Failed to write revocation record:", err);
+    console.warn("Notice: Local revocation record write skipped:", err);
   }
 }
 

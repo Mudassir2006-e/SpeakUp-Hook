@@ -326,13 +326,10 @@ export default function PricingPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 mb-8">
               {/* Account 1: Meezan Bank */}
               <div className="bg-[var(--surface-low)] border border-[var(--surface-border)] rounded-xl p-5 sm:p-6 space-y-4 font-serif">
-                <div className="flex items-center justify-between pb-3 border-b border-[var(--surface-border)]">
+                <div className="pb-3 border-b border-[var(--surface-border)]">
                   <h3 className="font-display text-base sm:text-lg font-bold text-[var(--text-main)]">
                     {cms.payment_instructions?.bank1Name || "Meezan Bank"}
                   </h3>
-                  <span className="font-display text-[10px] uppercase tracking-wider text-[#d4af37] font-bold px-2.5 py-0.5 rounded-full bg-[#d4af37]/10 border border-[#d4af37]/30">
-                    Primary Account
-                  </span>
                 </div>
 
                 <div>
@@ -354,14 +351,14 @@ export default function PricingPage() {
                 </div>
 
                 <div className="pt-2 border-t border-[var(--surface-border)]/60">
-                  <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center justify-between mb-1.5 gap-2">
                     <span className="font-display text-[11px] uppercase tracking-wider text-[var(--text-muted)] font-semibold">
                       IBAN / Account Number
                     </span>
                     <button
                       type="button"
                       onClick={() => handleCopy(cms.payment_instructions?.bank1Iban || "PK64MEZN0001040105829103", "meezan")}
-                      className="font-display text-[11px] uppercase tracking-wider text-[#d4af37] hover:underline font-bold inline-flex items-center gap-1 cursor-pointer"
+                      className="font-display text-[11px] uppercase tracking-wider text-[#d4af37] hover:underline font-bold inline-flex items-center gap-1 cursor-pointer shrink-0"
                     >
                       <span className="material-symbols-outlined text-[14px]">
                         {copiedKey === "meezan" ? "check" : "content_copy"}
@@ -369,7 +366,7 @@ export default function PricingPage() {
                       <span>{copiedKey === "meezan" ? "Copied" : "Copy IBAN"}</span>
                     </button>
                   </div>
-                  <span className="font-mono text-sm sm:text-base font-bold text-[var(--text-main)] tracking-wider select-all block bg-[var(--surface-lowest)] px-3 py-2 rounded-lg border border-[var(--surface-border)]">
+                  <span className="font-mono text-xs sm:text-sm lg:text-base font-bold text-[var(--text-main)] tracking-normal sm:tracking-wide lg:tracking-wider select-all block bg-[var(--surface-lowest)] px-3 py-2.5 rounded-lg border border-[var(--surface-border)] break-all sm:break-words">
                     {cms.payment_instructions?.bank1Iban || "PK64MEZN0001040105829103"}
                   </span>
                 </div>
@@ -377,13 +374,10 @@ export default function PricingPage() {
 
               {/* Account 2: Standard Chartered */}
               <div className="bg-[var(--surface-low)] border border-[var(--surface-border)] rounded-xl p-5 sm:p-6 space-y-4 font-serif">
-                <div className="flex items-center justify-between pb-3 border-b border-[var(--surface-border)]">
+                <div className="pb-3 border-b border-[var(--surface-border)]">
                   <h3 className="font-display text-base sm:text-lg font-bold text-[var(--text-main)]">
                     {cms.payment_instructions?.bank2Name || "Standard Chartered Bank"}
                   </h3>
-                  <span className="font-display text-[10px] uppercase tracking-wider text-[#d4af37] font-bold px-2.5 py-0.5 rounded-full bg-[#d4af37]/10 border border-[#d4af37]/30">
-                    Secondary Account
-                  </span>
                 </div>
 
                 <div>
@@ -405,14 +399,14 @@ export default function PricingPage() {
                 </div>
 
                 <div className="pt-2 border-t border-[var(--surface-border)]/60">
-                  <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center justify-between mb-1.5 gap-2">
                     <span className="font-display text-[11px] uppercase tracking-wider text-[var(--text-muted)] font-semibold">
                       IBAN / Account Number
                     </span>
                     <button
                       type="button"
                       onClick={() => handleCopy(cms.payment_instructions?.bank2Iban || "PK36SCBL0000001124890201", "scb")}
-                      className="font-display text-[11px] uppercase tracking-wider text-[#d4af37] hover:underline font-bold inline-flex items-center gap-1 cursor-pointer"
+                      className="font-display text-[11px] uppercase tracking-wider text-[#d4af37] hover:underline font-bold inline-flex items-center gap-1 cursor-pointer shrink-0"
                     >
                       <span className="material-symbols-outlined text-[14px]">
                         {copiedKey === "scb" ? "check" : "content_copy"}
@@ -420,7 +414,7 @@ export default function PricingPage() {
                       <span>{copiedKey === "scb" ? "Copied" : "Copy IBAN"}</span>
                     </button>
                   </div>
-                  <span className="font-mono text-sm sm:text-base font-bold text-[var(--text-main)] tracking-wider select-all block bg-[var(--surface-lowest)] px-3 py-2 rounded-lg border border-[var(--surface-border)]">
+                  <span className="font-mono text-xs sm:text-sm lg:text-base font-bold text-[var(--text-main)] tracking-normal sm:tracking-wide lg:tracking-wider select-all block bg-[var(--surface-lowest)] px-3 py-2.5 rounded-lg border border-[var(--surface-border)] break-all sm:break-words">
                     {cms.payment_instructions?.bank2Iban || "PK36SCBL0000001124890201"}
                   </span>
                 </div>

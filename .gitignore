@@ -25,3 +25,4 @@ __pycache__/
 *.backup
 *.bak
 speakup/.git_backup/
+.phase1_backup_20261015/

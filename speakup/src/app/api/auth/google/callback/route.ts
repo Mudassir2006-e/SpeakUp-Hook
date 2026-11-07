@@ -15,26 +15,26 @@ export async function GET(req: NextRequest) {
   const origin = `${proto}://${host}`;
   const redirectUri = `${origin}/api/auth/google/callback`;
 
-  if (errorParam) {
-    return NextResponse.redirect(
-      new URL(`/admin/portal-email?oauth_error=${encodeURIComponent(errorParam)}`, req.url)
-    );
-  }
-
-  if (!code) {
-    return NextResponse.redirect(
-      new URL("/admin/portal-email?oauth_error=No+authorization+code+provided", req.url)
-    );
-  }
-
   try {
+    const isMfaVerified = await isCurrentAdminSessionVerified();
+    const errorTarget = isMfaVerified ? "/admin/portal-email" : "/admin/verify";
+
+    if (errorParam) {
+      return NextResponse.redirect(
+        new URL(`${errorTarget}?oauth_error=${encodeURIComponent(errorParam)}`, req.url)
+      );
+    }
+
+    if (!code) {
+      return NextResponse.redirect(
+        new URL(`${errorTarget}?oauth_error=No+authorization+code+provided`, req.url)
+      );
+    }
+
     const { userId, role } = await getCurrentUserRole();
     if (!userId || role !== "admin") {
       return NextResponse.redirect(new URL("/auth/login?error=admin_required", req.url));
     }
-
-    const isMfaVerified = await isCurrentAdminSessionVerified();
-    const errorTarget = isMfaVerified ? "/admin/portal-email" : "/admin/verify";
 
     // Cryptographic state verification: bind callback to initiating session
     const isStateValid = verifyOAuthState(stateParam, userId);
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
     const { clientId, clientSecret, isConfigured } = getGoogleOAuthConfig();
     if (!isConfigured) {
       return NextResponse.redirect(
-        new URL("/admin/portal-email?oauth_error=Google+OAuth+not+configured+on+server", req.url)
+        new URL(`${errorTarget}?oauth_error=Google+OAuth+not+configured+on+server`, req.url)
       );
     }
 
@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
     if (!tokenRes.ok || tokenData.error) {
       const err = tokenData.error_description || tokenData.error || "Token exchange failed";
       return NextResponse.redirect(
-        new URL(`/admin/portal-email?oauth_error=${encodeURIComponent(err)}`, req.url)
+        new URL(`${errorTarget}?oauth_error=${encodeURIComponent(err)}`, req.url)
       );
     }
 
@@ -86,7 +86,7 @@ export async function GET(req: NextRequest) {
 
     if (!authorizedEmail) {
       return NextResponse.redirect(
-        new URL("/admin/portal-email?oauth_error=Could+not+determine+authorized+Google+email", req.url)
+        new URL(`${errorTarget}?oauth_error=Could+not+determine+authorized+Google+email`, req.url)
       );
     }
 

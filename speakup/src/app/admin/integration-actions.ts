@@ -83,9 +83,14 @@ function readIntegrationsFile(): any {
 }
 
 function writeIntegrationsFile(data: any): void {
-  const dir = path.dirname(INTEGRATIONS_FILE);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(INTEGRATIONS_FILE, JSON.stringify(data, null, 2), "utf-8");
+  try {
+    if (process.env.VERCEL || process.env.NODE_ENV === "production") return;
+    const dir = path.dirname(INTEGRATIONS_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(INTEGRATIONS_FILE, JSON.stringify(data, null, 2), "utf-8");
+  } catch (err) {
+    console.warn("Notice: Local integrations config write skipped:", err);
+  }
 }
 
 /**

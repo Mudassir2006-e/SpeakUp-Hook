@@ -393,29 +393,46 @@ export async function uploadMethodologyMediaImageAction(
       return { success: true, url: pubData.publicUrl, fileName: file.name };
     }
 
-    // Try fallback to avatars bucket or local uploads
-    const { error: avatarError } = await adminClient.storage
-      .from("avatars")
-      .upload(storagePath, buffer, {
-        contentType: file.type,
-        upsert: true,
-      });
+    // Try fallback to avatars bucket only if format and size are compatible
+    const isAvatarsCompatible =
+      ["image/jpeg", "image/png", "image/webp"].includes(file.type.toLowerCase()) &&
+      file.size <= 5 * 1024 * 1024;
 
-    if (!avatarError) {
-      const { data: pubData } = adminClient.storage.from("avatars").getPublicUrl(storagePath);
-      return { success: true, url: pubData.publicUrl, fileName: file.name };
+    if (isAvatarsCompatible) {
+      const { error: avatarError } = await adminClient.storage
+        .from("avatars")
+        .upload(storagePath, buffer, {
+          contentType: file.type,
+          upsert: true,
+        });
+
+      if (!avatarError) {
+        const { data: pubData } = adminClient.storage.from("avatars").getPublicUrl(storagePath);
+        return { success: true, url: pubData.publicUrl, fileName: file.name };
+      }
     }
 
-    // Local filesystem fallback
-    const uploadsDir = path.join(process.cwd(), "public", "uploads", "methodology");
-    if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-    const localFileName = `${Date.now()}_${sanitizedName}`;
-    fs.writeFileSync(path.join(uploadsDir, localFileName), buffer);
+    // Local filesystem fallback is permitted ONLY in local development outside Vercel
+    if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
+      try {
+        const uploadsDir = path.join(process.cwd(), "public", "uploads", "methodology");
+        if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+        const localFileName = `${Date.now()}_${sanitizedName}`;
+        fs.writeFileSync(path.join(uploadsDir, localFileName), buffer);
+
+        return {
+          success: true,
+          url: `/uploads/methodology/${localFileName}`,
+          fileName: file.name,
+        };
+      } catch (fsErr) {
+        console.warn("Local methodology fallback skipped:", fsErr);
+      }
+    }
 
     return {
-      success: true,
-      url: `/uploads/methodology/${localFileName}`,
-      fileName: file.name,
+      success: false,
+      error: "Upload failed: durable cloud storage is unavailable in this environment.",
     };
   } catch (err: any) {
     return { success: false, error: err?.message || "Failed to process image upload." };

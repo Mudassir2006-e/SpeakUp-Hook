@@ -48,11 +48,58 @@ function readTeachersStore(): CentralTeacherItem[] {
 
 function writeTeachersStore(items: CentralTeacherItem[]) {
   try {
+    if (process.env.VERCEL || process.env.NODE_ENV === "production") return;
     const dir = path.dirname(TEACHERS_PATH);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(TEACHERS_PATH, JSON.stringify(items, null, 2), "utf-8");
   } catch (err) {
-    console.error("Error writing central-teachers.json:", err);
+    console.warn("Notice: Local central-teachers.json write skipped:", err);
+  }
+}
+
+async function syncFacultyToDatabase(items: CentralTeacherItem[]): Promise<boolean> {
+  try {
+    let client: any;
+    try {
+      client = createAdminClient();
+    } catch {
+      client = await createClient();
+    }
+
+    const { data: existing } = await client
+      .from("cms_content")
+      .select("id, version")
+      .eq("page_key", "site_faculty")
+      .maybeSingle();
+
+    const now = new Date().toISOString();
+
+    if (existing?.id) {
+      const { error } = await client
+        .from("cms_content")
+        .update({
+          published_data: items,
+          draft_data: items,
+          version: (existing.version || 1) + 1,
+          updated_at: now,
+        })
+        .eq("id", existing.id);
+      return !error;
+    } else {
+      const { error } = await client
+        .from("cms_content")
+        .insert({
+          page_key: "site_faculty",
+          published_data: items,
+          draft_data: items,
+          version: 1,
+          updated_at: now,
+        });
+      return !error;
+    }
+  } catch (err) {
+    console.warn("DB faculty sync notice:", err);
+    return false;
   }
 }
 
@@ -152,33 +199,7 @@ export async function saveCentralTeacherAction(
     writeTeachersStore(items);
 
     // Sync to Supabase cms_content
-    let dbPersisted = false;
-    try {
-      let supabaseClient: any;
-      try {
-        supabaseClient = createAdminClient();
-      } catch {
-        supabaseClient = await createClient();
-      }
-
-      const { error: dbErr } = await supabaseClient.from("cms_content").upsert(
-        {
-          page_key: "site_faculty",
-          published_data: items,
-          draft_data: items,
-          updated_at: now,
-          updated_by: authCheck.adminId,
-        },
-        { onConflict: "page_key" }
-      );
-      if (!dbErr) {
-        dbPersisted = true;
-      } else {
-        console.error("Database faculty upsert error:", dbErr.message);
-      }
-    } catch (dbErr) {
-      console.warn("Database faculty upsert exception:", dbErr);
-    }
+    const dbPersisted = await syncFacultyToDatabase(items);
 
     if (!dbPersisted && (process.env.VERCEL || process.env.NODE_ENV === "production")) {
       return {
@@ -216,31 +237,7 @@ export async function deleteCentralTeacherAction(id: string): Promise<ActionResp
     writeTeachersStore(filtered);
 
     // Sync to Supabase cms_content
-    let dbPersisted = false;
-    try {
-      let supabaseClient: any;
-      try {
-        supabaseClient = createAdminClient();
-      } catch {
-        supabaseClient = await createClient();
-      }
-
-      const { error: dbErr } = await supabaseClient.from("cms_content").upsert(
-        {
-          page_key: "site_faculty",
-          published_data: filtered,
-          draft_data: filtered,
-          updated_at: new Date().toISOString(),
-          updated_by: authCheck.adminId,
-        },
-        { onConflict: "page_key" }
-      );
-      if (!dbErr) {
-        dbPersisted = true;
-      }
-    } catch (err) {
-      console.warn("Database faculty delete exception:", err);
-    }
+    const dbPersisted = await syncFacultyToDatabase(filtered);
 
     if (!dbPersisted && (process.env.VERCEL || process.env.NODE_ENV === "production")) {
       return {
@@ -269,7 +266,7 @@ export async function reorderCentralTeachersAction(orderedIds: string[]): Promis
   }
 
   try {
-    const items = readTeachersStore();
+    const items = (await getCentralTeachersAction()).data || readTeachersStore();
     const idMap = new Map(items.map((i) => [i.id, i]));
     const reordered: CentralTeacherItem[] = [];
 
@@ -289,6 +286,14 @@ export async function reorderCentralTeachersAction(orderedIds: string[]): Promis
     });
 
     writeTeachersStore(reordered);
+
+    const dbPersisted = await syncFacultyToDatabase(reordered);
+    if (!dbPersisted && (process.env.VERCEL || process.env.NODE_ENV === "production")) {
+      return {
+        success: false,
+        error: "Failed to persist teacher reordering to database. Please try again.",
+      };
+    }
 
     revalidatePath("/admin/teachers");
     revalidatePath("/about");
@@ -321,8 +326,8 @@ export async function uploadTeacherAvatarAction(
     return { success: false, error: "Only JPEG, PNG, and WebP images are supported." };
   }
 
-  if (file.size > 8 * 1024 * 1024) {
-    return { success: false, error: "Image file exceeds maximum allowed limit of 8 MB." };
+  if (file.size > 5 * 1024 * 1024) {
+    return { success: false, error: "Image file exceeds maximum allowed limit of 5 MB." };
   }
 
   try {
@@ -331,16 +336,44 @@ export async function uploadTeacherAvatarAction(
     const storagePath = `faculty/${Date.now()}_${sanitizedName}`;
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    const { error: uploadError } = await adminClient.storage
-      .from("website_assets")
+    if (buffer.length > 5 * 1024 * 1024) {
+      return { success: false, error: "Image buffer exceeds maximum allowed limit of 5 MB." };
+    }
+
+    let publicUrl = "";
+
+    // Primary store: public 'avatars' bucket (configured for teachers, students, and admins)
+    const { error: avatarError } = await adminClient.storage
+      .from("avatars")
       .upload(storagePath, buffer, {
         contentType: file.type,
         upsert: true,
       });
 
-    if (uploadError) {
-      console.warn("Notice: Storage bucket fallback:", uploadError.message);
-      // Fallback: save to public/uploads/faculty only in local development
+    if (!avatarError) {
+      const { data: publicData } = adminClient.storage
+        .from("avatars")
+        .getPublicUrl(storagePath);
+      publicUrl = publicData.publicUrl;
+    } else {
+      // Secondary store: website_assets bucket
+      const { error: assetError } = await adminClient.storage
+        .from("website_assets")
+        .upload(storagePath, buffer, {
+          contentType: file.type,
+          upsert: true,
+        });
+
+      if (!assetError) {
+        const { data: publicData } = adminClient.storage
+          .from("website_assets")
+          .getPublicUrl(storagePath);
+        publicUrl = publicData.publicUrl;
+      }
+    }
+
+    if (!publicUrl) {
+      // Fallback: save to public/uploads/faculty only in local development outside Vercel
       if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
         try {
           const publicDir = path.join(process.cwd(), "public", "uploads", "faculty");
@@ -357,11 +390,7 @@ export async function uploadTeacherAvatarAction(
       return { success: false, error: "Failed to upload teacher picture to storage." };
     }
 
-    const { data: publicData } = adminClient.storage
-      .from("website_assets")
-      .getPublicUrl(storagePath);
-
-    return { success: true, url: publicData.publicUrl };
+    return { success: true, url: publicUrl };
   } catch (err: any) {
     return { success: false, error: err?.message || "Failed to upload teacher picture." };
   }
@@ -406,16 +435,83 @@ function readFounderStore(): FounderTeacherPhotoData {
 
 function writeFounderStore(data: FounderTeacherPhotoData): void {
   try {
+    if (process.env.VERCEL || process.env.NODE_ENV === "production") return;
     const dir = path.dirname(FOUNDER_PATH);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(FOUNDER_PATH, JSON.stringify(data, null, 2), "utf-8");
   } catch (err) {
-    console.error("Error writing central-founder.json:", err);
+    console.warn("Notice: Local central-founder.json write skipped:", err);
+  }
+}
+
+async function syncFounderPhotoToDatabase(data: FounderTeacherPhotoData): Promise<boolean> {
+  try {
+    let client: any;
+    try {
+      client = createAdminClient();
+    } catch {
+      client = await createClient();
+    }
+
+    const { data: existing } = await client
+      .from("cms_content")
+      .select("id, version")
+      .eq("page_key", "founder_teacher_photo")
+      .maybeSingle();
+
+    const now = new Date().toISOString();
+
+    if (existing?.id) {
+      const { error } = await client
+        .from("cms_content")
+        .update({
+          published_data: data,
+          draft_data: data,
+          version: (existing.version || 1) + 1,
+          updated_at: now,
+        })
+        .eq("id", existing.id);
+      return !error;
+    } else {
+      const { error } = await client
+        .from("cms_content")
+        .insert({
+          page_key: "founder_teacher_photo",
+          published_data: data,
+          draft_data: data,
+          version: 1,
+          updated_at: now,
+        });
+      return !error;
+    }
+  } catch (err) {
+    console.warn("DB founder photo sync notice:", err);
+    return false;
   }
 }
 
 export async function getFounderTeacherPhotoAction(): Promise<ActionResponse<FounderTeacherPhotoData>> {
   try {
+    try {
+      let client: any;
+      try {
+        client = createAdminClient();
+      } catch {
+        client = await createClient();
+      }
+      const { data, error } = await client
+        .from("cms_content")
+        .select("published_data")
+        .eq("page_key", "founder_teacher_photo")
+        .maybeSingle();
+
+      if (!error && data?.published_data && typeof data.published_data === "object") {
+        return { success: true, data: { ...DEFAULT_FOUNDER_PHOTO, ...data.published_data } };
+      }
+    } catch (e) {
+      console.warn("DB founder photo fetch notice:", e);
+    }
+
     const data = readFounderStore();
     return { success: true, data };
   } catch (err: any) {
@@ -436,7 +532,8 @@ export async function saveFounderTeacherPhotoAction(
   }
 
   try {
-    const current = readFounderStore();
+    const currentRes = await getFounderTeacherPhotoAction();
+    const current = currentRes.data || readFounderStore();
     const updated: FounderTeacherPhotoData = {
       ...current,
       ...update,
@@ -450,6 +547,14 @@ export async function saveFounderTeacherPhotoAction(
     };
 
     writeFounderStore(updated);
+    const dbPersisted = await syncFounderPhotoToDatabase(updated);
+
+    if (!dbPersisted && (process.env.VERCEL || process.env.NODE_ENV === "production")) {
+      return {
+        success: false,
+        error: "Failed to persist teacher photo to database. Please try again.",
+      };
+    }
 
     revalidatePath("/about");
     revalidatePath("/admin/teachers");
@@ -482,6 +587,14 @@ export async function deleteFounderTeacherPhotoAction(): Promise<ActionResponse>
     };
 
     writeFounderStore(cleared);
+    const dbPersisted = await syncFounderPhotoToDatabase(cleared);
+
+    if (!dbPersisted && (process.env.VERCEL || process.env.NODE_ENV === "production")) {
+      return {
+        success: false,
+        error: "Failed to remove teacher photo from database. Please try again.",
+      };
+    }
 
     revalidatePath("/about");
     revalidatePath("/admin/teachers");

@@ -7,6 +7,9 @@ import Logo from "@/components/Logo";
 
 interface AdminSidebarProps {
   adminEmail?: string | null;
+  className?: string;
+  onNavigate?: () => void;
+  onClose?: () => void;
 }
 
 interface NavGroup {
@@ -18,7 +21,12 @@ interface NavGroup {
   }[];
 }
 
-export default function AdminSidebar({ adminEmail: _adminEmail }: AdminSidebarProps) {
+export default function AdminSidebar({
+  adminEmail: _adminEmail,
+  className = "",
+  onNavigate,
+  onClose,
+}: AdminSidebarProps) {
   const pathname = usePathname();
 
   const navGroups: NavGroup[] = [
@@ -30,6 +38,7 @@ export default function AdminSidebar({ adminEmail: _adminEmail }: AdminSidebarPr
         { label: "Student Assignment Checker", href: "/admin/assignments", icon: "assignment_turned_in" },
         { label: "Courses", href: "/admin/courses", icon: "school" },
         { label: "Course Requests", href: "/admin/course-requests", icon: "how_to_reg" },
+        { label: "Advisory Bookings", href: "/admin/bookings", icon: "calendar_month" },
       ],
     },
     {
@@ -61,11 +70,21 @@ export default function AdminSidebar({ adminEmail: _adminEmail }: AdminSidebarPr
   ];
 
   return (
-    <aside className="w-68 shrink-0 bg-white dark:bg-[#141416] border-r border-[var(--surface-border)] flex flex-col h-screen sticky top-0 shadow-xs z-30">
+    <aside className={`w-68 shrink-0 bg-white dark:bg-[#141416] border-r border-[var(--surface-border)] flex flex-col h-screen sticky top-0 shadow-xs z-30 ${className}`}>
       {/* Brand Header with Prominent SpeakUp Branding */}
       <div className="p-5 border-b border-[var(--surface-border)] space-y-3">
-        <div className="flex items-center">
+        <div className="flex items-center justify-between">
           <Logo size="md" href="/admin/dashboard" brandText="SpeakUp" />
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="lg:hidden p-1.5 rounded-xl border border-[var(--surface-border)] text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer"
+              aria-label="Close menu"
+            >
+              <span className="material-symbols-outlined text-[20px]">close</span>
+            </button>
+          )}
         </div>
 
         {/* Elegant Admin Panel Label */}
@@ -91,6 +110,7 @@ export default function AdminSidebar({ adminEmail: _adminEmail }: AdminSidebarPr
                 <Link
                   key={item.href}
                   href={item.href}
+                  onClick={onNavigate}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-display text-xs uppercase tracking-wider font-semibold transition-all ${
                     isActive
                       ? "bg-[#d4af37]/20 text-[#141416] dark:text-[#d4af37] border-r-3 border-[#d4af37] font-bold shadow-2xs"

@@ -19,12 +19,11 @@ import type {
   AssignmentStatus,
 } from "@/types/assignment";
 import { gradeAssignmentSubmission } from "@/lib/ai/assignmentChecker";
-import { createAdminClient, createClient } from "@/lib/supabase/server";
-import { getCurrentUserRole } from "@/lib/auth/roles";
+import { createAdminClient } from "@/lib/supabase/server";
 
 import { verifyAdminCaller as verifyAdminMfaCaller } from "@/lib/auth/adminVerification";
 
-async function verifyAdminCaller(): Promise<{ adminId: string } | { error: string }> {
+async function verifyAdminCaller(): Promise<{ adminId: string; adminEmail: string } | { error: string }> {
   return verifyAdminMfaCaller();
 }
 
@@ -72,20 +71,70 @@ export interface ActionResponse<T = any> {
 export async function getAssignmentsListAction(
   filter?: { courseId?: string; moduleId?: string; lessonId?: string; practiceType?: PracticeType }
 ): Promise<ActionResponse<Assignment[]>> {
-  try {
-    let assignments = readJsonFile<Assignment[]>(ASSIGNMENTS_FILE, []);
+  const authCheck = await verifyAdminCaller();
+  if ("error" in authCheck) {
+    return { success: false, error: authCheck.error };
+  }
 
-    if (filter?.courseId) {
-      assignments = assignments.filter((a) => a.courseId === filter.courseId);
+  try {
+    let assignments: Assignment[] = [];
+
+    // 1. Authoritative check: retrieve assignments from Supabase public.assignments first
+    try {
+      const adminClient = createAdminClient();
+      let query = (adminClient as any).from("assignments").select("*");
+      if (filter?.courseId) query = query.eq("course_id", filter.courseId);
+      if (filter?.moduleId) query = query.eq("module_id", filter.moduleId);
+      if (filter?.lessonId) query = query.eq("lesson_id", filter.lessonId);
+      if (filter?.practiceType) query = query.eq("practice_type", filter.practiceType);
+
+      const { data: dbRows, error: dbErr } = await query;
+      if (!dbErr && Array.isArray(dbRows) && dbRows.length > 0) {
+        assignments = dbRows.map((row: any) => ({
+          id: row.id,
+          courseId: row.course_id,
+          moduleId: row.module_id,
+          lessonId: row.lesson_id,
+          practiceType: row.practice_type,
+          title: row.title,
+          contextText: row.context_text || undefined,
+          instructions: row.instructions,
+          questionTask: row.question_task || undefined,
+          writingRequirements: row.writing_requirements || undefined,
+          exampleReference: row.example_reference || undefined,
+          referenceFileUrl: row.reference_file_url || undefined,
+          maxMarks: row.max_marks,
+          rubric: row.rubric,
+          timeGuidance: row.time_guidance || undefined,
+          wordCountGuidance: row.word_count_guidance || undefined,
+          language: row.language,
+          courseLevel: row.course_level,
+          resubmissionAllowed: row.resubmission_allowed,
+          isLocked: row.is_locked,
+          isActive: row.is_active,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+        }));
+      }
+    } catch (e) {
+      console.warn("DB assignments list query notice in getAssignmentsListAction:", e);
     }
-    if (filter?.moduleId) {
-      assignments = assignments.filter((a) => a.moduleId === filter.moduleId);
-    }
-    if (filter?.lessonId) {
-      assignments = assignments.filter((a) => a.lessonId === filter.lessonId);
-    }
-    if (filter?.practiceType) {
-      assignments = assignments.filter((a) => a.practiceType === filter.practiceType);
+
+    if (assignments.length === 0) {
+      let fileAssignments = readJsonFile<Assignment[]>(ASSIGNMENTS_FILE, []);
+      if (filter?.courseId) {
+        fileAssignments = fileAssignments.filter((a) => a.courseId === filter.courseId);
+      }
+      if (filter?.moduleId) {
+        fileAssignments = fileAssignments.filter((a) => a.moduleId === filter.moduleId);
+      }
+      if (filter?.lessonId) {
+        fileAssignments = fileAssignments.filter((a) => a.lessonId === filter.lessonId);
+      }
+      if (filter?.practiceType) {
+        fileAssignments = fileAssignments.filter((a) => a.practiceType === filter.practiceType);
+      }
+      assignments = fileAssignments;
     }
 
     return { success: true, data: assignments };
@@ -98,7 +147,53 @@ export async function getAssignmentsListAction(
 }
 
 export async function getAssignmentByIdAction(id: string): Promise<ActionResponse<Assignment | null>> {
+  const authCheck = await verifyAdminCaller();
+  if ("error" in authCheck) {
+    return { success: false, error: authCheck.error };
+  }
+
   try {
+    // 1. Authoritative check: retrieve assignment from Supabase public.assignments first
+    try {
+      const adminClient = createAdminClient();
+      const { data: dbAsgn, error: dbErr } = await (adminClient as any)
+        .from("assignments")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (!dbErr && dbAsgn) {
+        const foundAssignment: Assignment = {
+          id: dbAsgn.id,
+          courseId: dbAsgn.course_id,
+          moduleId: dbAsgn.module_id,
+          lessonId: dbAsgn.lesson_id,
+          practiceType: dbAsgn.practice_type,
+          title: dbAsgn.title,
+          contextText: dbAsgn.context_text || undefined,
+          instructions: dbAsgn.instructions,
+          questionTask: dbAsgn.question_task || undefined,
+          writingRequirements: dbAsgn.writing_requirements || undefined,
+          exampleReference: dbAsgn.example_reference || undefined,
+          referenceFileUrl: dbAsgn.reference_file_url || undefined,
+          maxMarks: dbAsgn.max_marks,
+          rubric: dbAsgn.rubric,
+          timeGuidance: dbAsgn.time_guidance || undefined,
+          wordCountGuidance: dbAsgn.word_count_guidance || undefined,
+          language: dbAsgn.language,
+          courseLevel: dbAsgn.course_level,
+          resubmissionAllowed: dbAsgn.resubmission_allowed,
+          isLocked: dbAsgn.is_locked,
+          isActive: dbAsgn.is_active,
+          createdAt: dbAsgn.created_at,
+          updatedAt: dbAsgn.updated_at,
+        };
+        return { success: true, data: foundAssignment };
+      }
+    } catch (e) {
+      console.warn("DB assignment lookup notice in getAssignmentByIdAction:", e);
+    }
+
     const assignments = readJsonFile<Assignment[]>(ASSIGNMENTS_FILE, []);
     const found = assignments.find((a) => a.id === id) || null;
     return { success: true, data: found };
@@ -122,6 +217,11 @@ export async function saveAssignmentAction(
     rubric: string;
   }
 ): Promise<ActionResponse<Assignment>> {
+  const authCheck = await verifyAdminCaller();
+  if ("error" in authCheck) {
+    return { success: false, error: authCheck.error };
+  }
+
   try {
     const assignments = readJsonFile<Assignment[]>(ASSIGNMENTS_FILE, []);
     const courses = readJsonFile<any[]>(COURSES_FILE, []);
@@ -183,9 +283,14 @@ export async function saveAssignmentAction(
       assignments.push(savedRecord);
     }
 
-    writeJsonFile(ASSIGNMENTS_FILE, assignments);
+    // Safe JSON write for offline / development environments
+    try {
+      writeJsonFile(ASSIGNMENTS_FILE, assignments);
+    } catch (fsErr) {
+      console.warn("Local assignments write skipped in serverless environment:", fsErr);
+    }
 
-    // Optional Supabase Table sync attempt
+    // Authoritative Supabase Table sync
     try {
       const adminClient = createAdminClient();
       await (adminClient as any).from("assignments").upsert({
@@ -195,14 +300,25 @@ export async function saveAssignmentAction(
         lesson_id: savedRecord.lessonId,
         practice_type: savedRecord.practiceType,
         title: savedRecord.title,
+        context_text: savedRecord.contextText || null,
         instructions: savedRecord.instructions,
+        question_task: savedRecord.questionTask || null,
+        writing_requirements: savedRecord.writingRequirements || null,
+        example_reference: savedRecord.exampleReference || null,
+        reference_file_url: savedRecord.referenceFileUrl || null,
         max_marks: savedRecord.maxMarks,
         rubric: savedRecord.rubric,
+        time_guidance: savedRecord.timeGuidance || null,
+        word_count_guidance: savedRecord.wordCountGuidance || null,
+        language: savedRecord.language || "German",
+        course_level: savedRecord.courseLevel || "A1",
+        resubmission_allowed: savedRecord.resubmissionAllowed,
+        is_locked: savedRecord.isLocked || false,
         is_active: savedRecord.isActive,
         updated_at: savedRecord.updatedAt,
       });
-    } catch {
-      // Non-blocking fallback
+    } catch (dbErr) {
+      console.warn("DB assignment upsert notice:", dbErr);
     }
 
     safeRevalidatePath("/admin/assignments");
@@ -223,10 +339,19 @@ export async function saveAssignmentAction(
 }
 
 export async function deleteAssignmentAction(id: string): Promise<ActionResponse> {
+  const authCheck = await verifyAdminCaller();
+  if ("error" in authCheck) {
+    return { success: false, error: authCheck.error };
+  }
+
   try {
     let assignments = readJsonFile<Assignment[]>(ASSIGNMENTS_FILE, []);
     assignments = assignments.filter((a) => a.id !== id);
-    writeJsonFile(ASSIGNMENTS_FILE, assignments);
+    try {
+      writeJsonFile(ASSIGNMENTS_FILE, assignments);
+    } catch (fsErr) {
+      console.warn("Local assignments delete sync skipped in serverless environment:", fsErr);
+    }
 
     try {
       const adminClient = createAdminClient();
@@ -254,6 +379,11 @@ export async function toggleAssignmentLockAction(
   id: string,
   locked: boolean
 ): Promise<ActionResponse<Assignment>> {
+  const authCheck = await verifyAdminCaller();
+  if ("error" in authCheck) {
+    return { success: false, error: authCheck.error };
+  }
+
   try {
     const assignments = readJsonFile<Assignment[]>(ASSIGNMENTS_FILE, []);
     const idx = assignments.findIndex((a) => a.id === id);
@@ -267,7 +397,11 @@ export async function toggleAssignmentLockAction(
       updatedAt: new Date().toISOString(),
     };
     assignments[idx] = updated;
-    writeJsonFile(ASSIGNMENTS_FILE, assignments);
+    try {
+      writeJsonFile(ASSIGNMENTS_FILE, assignments);
+    } catch (fsErr) {
+      console.warn("Local assignments lock sync skipped in serverless environment:", fsErr);
+    }
 
     try {
       const adminClient = createAdminClient();
@@ -343,6 +477,11 @@ async function refreshSubmissionPageUrls(pages: SubmissionPage[]): Promise<Submi
 export async function getAdminSubmissionsListAction(
   filter?: AssignmentFilter
 ): Promise<ActionResponse<EnrichedSubmissionItem[]>> {
+  const authCheck = await verifyAdminCaller();
+  if ("error" in authCheck) {
+    return { success: false, error: authCheck.error };
+  }
+
   try {
     // 1. Fetch from Supabase assignment_submissions table
     let dbSubmissions: AssignmentSubmission[] = [];
@@ -487,6 +626,11 @@ export async function getAdminSubmissionsListAction(
 export async function getSubmissionByIdAction(
   id: string
 ): Promise<ActionResponse<{ submission: EnrichedSubmissionItem; assignment: Assignment }>> {
+  const authCheck = await verifyAdminCaller();
+  if ("error" in authCheck) {
+    return { success: false, error: authCheck.error };
+  }
+
   try {
     let sub: AssignmentSubmission | null = null;
 
@@ -736,25 +880,127 @@ export async function gradeSubmissionAction(input: {
 export async function recheckSubmissionWithAiAction(
   submissionId: string
 ): Promise<ActionResponse<AssignmentSubmission>> {
+  const authCheck = await verifyAdminCaller();
+  if ("error" in authCheck) {
+    return { success: false, error: authCheck.error };
+  }
+
   try {
+    const adminClient = createAdminClient();
+    let submission: AssignmentSubmission | null = null;
+
+    // 1. Authoritative check: retrieve submission from Supabase database
+    try {
+      const { data: dbSub, error: dbErr } = await (adminClient as any)
+        .from("assignment_submissions")
+        .select("*")
+        .eq("id", submissionId)
+        .maybeSingle();
+
+      if (!dbErr && dbSub) {
+        const refreshedPages = await refreshSubmissionPageUrls(dbSub.pages || []);
+        submission = {
+          id: dbSub.id,
+          assignmentId: dbSub.assignment_id,
+          courseId: dbSub.course_id,
+          moduleId: dbSub.module_id,
+          lessonId: dbSub.lesson_id,
+          practiceType: dbSub.practice_type,
+          studentId: dbSub.student_id,
+          studentEmail: dbSub.student_email,
+          studentName: dbSub.student_name,
+          studentNumber: dbSub.student_number || undefined,
+          studentTextAnswer: dbSub.student_text_answer || undefined,
+          attemptNumber: dbSub.attempt_number || 1,
+          status: dbSub.status,
+          pages: refreshedPages,
+          aiEvaluation: dbSub.ai_evaluation || undefined,
+          aiScore: dbSub.ai_score,
+          aiFeedback: dbSub.ai_feedback,
+          finalScore: dbSub.final_score,
+          finalFeedback: dbSub.final_feedback,
+          adminReviewedAt: dbSub.admin_reviewed_at,
+          adminReviewedBy: dbSub.admin_reviewed_by,
+          history: Array.isArray(dbSub.history) ? dbSub.history : [],
+          submittedAt: dbSub.submitted_at,
+          updatedAt: dbSub.updated_at,
+        };
+      }
+    } catch (e) {
+      console.warn("DB submission lookup notice in recheckSubmissionWithAiAction:", e);
+    }
+
+    // Secondary fallback: check local submissions file (for development/offline)
     const submissions = readJsonFile<AssignmentSubmission[]>(SUBMISSIONS_FILE, []);
-    const assignments = readJsonFile<Assignment[]>(ASSIGNMENTS_FILE, []);
+    const localIdx = submissions.findIndex((s) => s.id === submissionId);
+    if (!submission && localIdx >= 0) {
+      const localSub = submissions[localIdx];
+      const refreshedPages = await refreshSubmissionPageUrls(localSub.pages || []);
+      submission = { ...localSub, pages: refreshedPages };
+    }
+
+    if (!submission) {
+      return { success: false, error: "Submission not found." };
+    }
+
+    // 2. Authoritative check: retrieve assignment from Supabase database
+    let assignment: Assignment | null = null;
+    try {
+      const { data: dbAsgn, error: dbAsgnErr } = await (adminClient as any)
+        .from("assignments")
+        .select("*")
+        .eq("id", submission.assignmentId)
+        .maybeSingle();
+
+      if (!dbAsgnErr && dbAsgn) {
+        assignment = {
+          id: dbAsgn.id,
+          courseId: dbAsgn.course_id,
+          moduleId: dbAsgn.module_id,
+          lessonId: dbAsgn.lesson_id,
+          practiceType: dbAsgn.practice_type,
+          title: dbAsgn.title,
+          contextText: dbAsgn.context_text || undefined,
+          instructions: dbAsgn.instructions,
+          questionTask: dbAsgn.question_task || undefined,
+          writingRequirements: dbAsgn.writing_requirements || undefined,
+          exampleReference: dbAsgn.example_reference || undefined,
+          referenceFileUrl: dbAsgn.reference_file_url || undefined,
+          maxMarks: dbAsgn.max_marks,
+          rubric: dbAsgn.rubric,
+          timeGuidance: dbAsgn.time_guidance || undefined,
+          wordCountGuidance: dbAsgn.word_count_guidance || undefined,
+          language: dbAsgn.language,
+          courseLevel: dbAsgn.course_level,
+          resubmissionAllowed: dbAsgn.resubmission_allowed,
+          isLocked: dbAsgn.is_locked,
+          isActive: dbAsgn.is_active,
+          createdAt: dbAsgn.created_at,
+          updatedAt: dbAsgn.updated_at,
+        };
+      }
+    } catch (e) {
+      console.warn("DB assignment lookup notice in recheckSubmissionWithAiAction:", e);
+    }
+
+    if (!assignment) {
+      const assignments = readJsonFile<Assignment[]>(ASSIGNMENTS_FILE, []);
+      assignment = assignments.find((a) => a.id === submission!.assignmentId) || null;
+    }
+
+    if (!assignment) {
+      return { success: false, error: "Associated assignment not found." };
+    }
+
     const courses = readJsonFile<any[]>(COURSES_FILE, []);
+    const course = courses.find((c) => c.id === submission!.courseId || c.slug === submission!.courseId);
 
-    const idx = submissions.findIndex((s) => s.id === submissionId);
-    if (idx === -1) return { success: false, error: "Submission not found." };
-
-    const submission = submissions[idx];
-    const assignment = assignments.find((a) => a.id === submission.assignmentId);
-    if (!assignment) return { success: false, error: "Assignment not found." };
-
-    const course = courses.find((c) => c.id === submission.courseId || c.slug === submission.courseId);
-
-    // Run Holistic AI Evaluation across all pages
+    // Run Holistic AI Evaluation across written answer and/or uploaded pages
     const aiResult = await gradeAssignmentSubmission({
       assignment,
       pages: submission.pages,
       studentName: submission.studentName,
+      studentTextAnswer: submission.studentTextAnswer,
       courseTitle: course?.title,
       lessonTitle: submission.lessonId,
     });
@@ -762,11 +1008,42 @@ export async function recheckSubmissionWithAiAction(
     if (!aiResult) {
       return {
         success: false,
-        error: "AI evaluation is not enabled yet. Please configure Gemini or OpenAI API credentials in Settings before running AI re-check.",
+        error: "AI evaluation is not configured. Please configure Gemini or OpenAI API credentials in environment settings before running AI re-check.",
       };
     }
 
     const now = new Date().toISOString();
+
+    // Differentiate provider error / quota exhaustion
+    if (aiResult.evaluationStatus === "provider_error") {
+      const errorMsg = aiResult.providerError || "AI evaluation provider error or quota limit reached. Manual review required.";
+
+      // Record provider failure state into submission so it is surfaced accurately
+      try {
+        await (adminClient as any)
+          .from("assignment_submissions")
+          .update({
+            ai_evaluation: aiResult,
+            updated_at: now,
+          })
+          .eq("id", submissionId);
+      } catch (dbErr) {
+        console.warn("Database error update notice:", dbErr);
+      }
+
+      return {
+        success: false,
+        error: `AI Provider Error: ${errorMsg}`,
+      };
+    }
+
+    if (aiResult.evaluationStatus === "invalid_input") {
+      return {
+        success: false,
+        error: "Cannot evaluate submission: No student text or uploaded image pages were provided.",
+      };
+    }
+
     const updatedStatus: AssignmentStatus = aiResult.needsReview ? "Needs Review" : "Checked";
 
     const updatedSubmission: AssignmentSubmission = {
@@ -775,14 +1052,65 @@ export async function recheckSubmissionWithAiAction(
       aiScore: aiResult.needsReview ? null : aiResult.score,
       aiFeedback: aiResult.feedback,
       // If no admin final grade has been set yet, set suggested grade
-      finalScore: submission.finalScore !== null ? submission.finalScore : aiResult.needsReview ? null : aiResult.score,
-      finalFeedback: submission.finalFeedback !== null ? submission.finalFeedback : aiResult.feedback,
-      status: submission.finalScore !== null ? submission.status : updatedStatus,
+      finalScore:
+        submission.finalScore !== null && submission.finalScore !== undefined
+          ? submission.finalScore
+          : aiResult.needsReview
+          ? null
+          : aiResult.score,
+      finalFeedback:
+        submission.finalFeedback !== null && submission.finalFeedback !== undefined
+          ? submission.finalFeedback
+          : aiResult.feedback,
+      status:
+        submission.finalScore !== null && submission.finalScore !== undefined
+          ? submission.status
+          : updatedStatus,
       updatedAt: now,
     };
 
-    submissions[idx] = updatedSubmission;
-    writeJsonFile(SUBMISSIONS_FILE, submissions);
+    let dbUpdated = false;
+    try {
+      const { error: dbUpdateErr } = await (adminClient as any)
+        .from("assignment_submissions")
+        .update({
+          ai_evaluation: aiResult,
+          ai_score: aiResult.needsReview ? null : aiResult.score,
+          ai_feedback: aiResult.feedback,
+          final_score: updatedSubmission.finalScore ?? null,
+          final_feedback: updatedSubmission.finalFeedback ?? null,
+          status: updatedSubmission.status,
+          updated_at: now,
+        })
+        .eq("id", submissionId);
+
+      if (dbUpdateErr) {
+        console.error("Database recheck update error:", dbUpdateErr.message);
+      } else {
+        dbUpdated = true;
+      }
+    } catch (dbErr) {
+      console.warn("Database recheck update exception:", dbErr);
+    }
+
+    // Guarded local submissions file sync
+    try {
+      if (localIdx >= 0) {
+        submissions[localIdx] = updatedSubmission;
+      } else {
+        submissions.push(updatedSubmission);
+      }
+      writeJsonFile(SUBMISSIONS_FILE, submissions);
+    } catch (fsErr) {
+      console.warn("Local submissions write skipped in serverless environment:", fsErr);
+    }
+
+    if (!dbUpdated && (process.env.VERCEL || process.env.NODE_ENV === "production")) {
+      return {
+        success: false,
+        error: "Failed to persist AI re-evaluation results to the database. Please try again.",
+      };
+    }
 
     safeRevalidatePath("/admin/assignments");
     safeRevalidatePath("/lms/learn");
@@ -811,6 +1139,11 @@ export interface AssignmentSettings {
 }
 
 export async function getAssignmentAccessSettingAction(): Promise<ActionResponse<AssignmentSettings>> {
+  const authCheck = await verifyAdminCaller();
+  if ("error" in authCheck) {
+    return { success: false, error: authCheck.error };
+  }
+
   try {
     const fallback: AssignmentSettings = {
       assignmentsEnabled: true,
@@ -830,16 +1163,16 @@ export async function getAssignmentAccessSettingAction(): Promise<ActionResponse
 export async function setAssignmentAccessSettingAction(
   enabled: boolean
 ): Promise<ActionResponse<AssignmentSettings>> {
-  try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+  const authCheck = await verifyAdminCaller();
+  if ("error" in authCheck) {
+    return { success: false, error: authCheck.error };
+  }
 
+  try {
     const updated: AssignmentSettings = {
       assignmentsEnabled: Boolean(enabled),
       updatedAt: new Date().toISOString(),
-      updatedBy: user?.email || "admin",
+      updatedBy: authCheck.adminEmail || "admin",
     };
 
     writeJsonFile(ASSIGNMENT_SETTINGS_FILE, updated);

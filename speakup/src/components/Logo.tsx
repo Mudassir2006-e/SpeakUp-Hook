@@ -153,11 +153,12 @@ export const SpeakUpSymbol: React.FC<{
   // If an uploaded custom logo is active and valid, display it
   if (displayImage && !imageError) {
     return (
-      <div className={`relative shrink-0 flex items-center justify-center aspect-square ${sizeClass}`}>
+      <div className={`relative shrink-0 flex items-center justify-center ${sizeClass} overflow-visible`}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={displayImage}
           alt="SpeakUp Logo"
-          className="w-full h-full object-contain shrink-0 aspect-square"
+          className="max-w-full max-h-full w-auto h-auto object-contain shrink-0 select-none pointer-events-none"
           onError={() => setImageError(true)}
         />
       </div>
@@ -166,11 +167,11 @@ export const SpeakUpSymbol: React.FC<{
 
   // Canonical Vector SpeakUp Emblem Fallback
   return (
-    <div className={`relative shrink-0 flex items-center justify-center aspect-square ${sizeClass}`}>
+    <div className={`relative shrink-0 flex items-center justify-center aspect-square ${sizeClass} overflow-visible`}>
       <svg
         viewBox="0 0 240 240"
         preserveAspectRatio="xMidYMid meet"
-        className="w-full h-full object-contain shrink-0 aspect-square"
+        className="w-full h-full max-w-full max-h-full object-contain shrink-0 aspect-square overflow-visible"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
       >
@@ -182,7 +183,7 @@ export const SpeakUpSymbol: React.FC<{
           </linearGradient>
         </defs>
 
-        <g transform="translate(120, 115)">
+        <g transform="translate(120, 126)">
           {/* Outer Speech Resonance Wave Arcs */}
           <path
             d="M -62 -28 C -74 -10, -74 18, -62 36"
@@ -268,16 +269,16 @@ export const Logo: React.FC<LogoProps> = ({
   const effectiveCustomImage = customImage || cmsHeader?.logoImage;
 
   const sizeMap = {
-    sm: { symbol: "w-8 h-8 shrink-0", text: "text-sm sm:text-base tracking-tight" },
-    md: { symbol: "w-10 h-10 sm:w-11 sm:h-11 shrink-0", text: "text-xl sm:text-2xl tracking-tight" },
-    lg: { symbol: "w-12 h-12 sm:w-14 sm:h-14 shrink-0", text: "text-2xl sm:text-3xl tracking-tight" },
-    xl: { symbol: "w-16 h-16 sm:w-20 sm:h-20 shrink-0", text: "text-3xl sm:text-4xl tracking-tight" },
+    sm: { symbol: "w-7 h-7 min-w-7 min-h-7 sm:w-8 sm:h-8 sm:min-w-8 sm:min-h-8 shrink-0", text: "text-xs sm:text-sm tracking-tight" },
+    md: { symbol: "w-9 h-9 min-w-9 min-h-9 sm:w-11 sm:h-11 sm:min-w-11 sm:min-h-11 shrink-0", text: "text-lg sm:text-2xl tracking-tight" },
+    lg: { symbol: "w-11 h-11 min-w-11 min-h-11 sm:w-14 sm:h-14 sm:min-w-14 sm:min-h-14 shrink-0", text: "text-xl sm:text-3xl tracking-tight" },
+    xl: { symbol: "w-14 h-14 min-w-14 min-h-14 sm:w-20 sm:h-20 sm:min-w-20 sm:min-h-20 shrink-0", text: "text-2xl sm:text-4xl tracking-tight" },
   };
 
   const currentSize = sizeMap[size];
 
   const content = (
-    <div className={`inline-flex items-center gap-2.5 sm:gap-3 group cursor-pointer transition-transform active:scale-[0.98] shrink-0 ${className}`}>
+    <div className={`inline-flex items-center gap-2 sm:gap-2.5 md:gap-3 group cursor-pointer transition-transform active:scale-[0.98] shrink-0 ${className}`}>
       <SpeakUpSymbol sizeClass={currentSize.symbol} customImage={effectiveCustomImage} standColor={standColor} />
       {showText && (
         <div className="flex flex-col shrink-0 justify-center">
