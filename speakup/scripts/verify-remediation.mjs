@@ -3351,6 +3351,42 @@ test("Step 2E.5 Migration Proposal: Grants least-privilege table access and seed
   );
 });
 
+test("Issue 3 Remediation: A1 German online enrollment resolution and canonical catalog integrity", async () => {
+  const unifiedCoursesPath = path.join(process.cwd(), "src", "config", "unifiedCourses.ts");
+  const lmsActionsPath = path.join(process.cwd(), "src", "app", "lms", "actions.ts");
+  const unifiedContent = fs.readFileSync(unifiedCoursesPath, "utf-8");
+  const lmsActionsContent = fs.readFileSync(lmsActionsPath, "utf-8");
+
+  // 1. CANONICAL_COURSES contains A1 German
+  assert.ok(
+    unifiedContent.includes('id: "A1G"') &&
+    unifiedContent.includes('slug: "a1-german"') &&
+    unifiedContent.includes('title: "A1 German"'),
+    "CANONICAL_COURSES must authoritatively define A1 German"
+  );
+
+  // 2. getUnifiedCourseById supports title, slug, and German aliases
+  assert.ok(
+    unifiedContent.includes("a1-german") &&
+    unifiedContent.includes("a1 german") &&
+    unifiedContent.includes("german a1"),
+    "getUnifiedCourseById must resolve A1 German by id, slug, and title aliases"
+  );
+
+  // 3. submitStudentCourseRequestAction auto-sync and lookup safeguards
+  assert.ok(
+    lmsActionsContent.includes("isGermanA1") &&
+    lmsActionsContent.includes(".or(\"slug.eq.a1-german,slug.eq.A1G,title.ilike.%A1 German%,title.ilike.%German A1%\")"),
+    "submitStudentCourseRequestAction must query database for A1 German across slug and title variants"
+  );
+
+  // 4. Student enrollment requests maintain default pending status
+  assert.ok(
+    lmsActionsContent.includes('status: "pending"'),
+    "Student enrollment requests must strictly default to pending status"
+  );
+});
+
 
 
 

@@ -1863,6 +1863,17 @@ export async function getStudentAccountInfoForRequestAction(): Promise<{
           if (c?.id) enrollmentStatusMap.set(c.id.toLowerCase(), statusObj);
           if (c?.slug) enrollmentStatusMap.set(c.slug.toLowerCase(), statusObj);
           if (c?.title) enrollmentStatusMap.set(c.title.toLowerCase(), statusObj);
+
+          if (
+            c?.slug === "a1-german" ||
+            c?.id?.toLowerCase() === "a1g" ||
+            /a1\s*german/i.test(c?.title || "") ||
+            /a1\s*german/i.test(e.receipt_tid || "")
+          ) {
+            enrollmentStatusMap.set("a1g", statusObj);
+            enrollmentStatusMap.set("a1-german", statusObj);
+            enrollmentStatusMap.set("a1 german", statusObj);
+          }
         }
       });
     }
@@ -1919,23 +1930,49 @@ export async function getStudentAccountInfoForRequestAction(): Promise<{
     const seenIds = new Set<string>();
 
     registeredTokens.forEach((token) => {
-      const lower = token.toLowerCase();
+      const lower = token.toLowerCase().trim();
+      const slugVariant = lower.replace(/\s+/g, "-");
+      const isGermanA1Token =
+        lower === "a1g" ||
+        lower === "a1-german" ||
+        lower === "a1 german" ||
+        lower === "german a1" ||
+        (lower.includes("german") && (lower.includes("a1") || lower.includes("a-1")));
+
       const matchedCentral = centralList.find(
-        (c) => c.id?.toLowerCase() === lower || c.slug?.toLowerCase() === lower || c.title?.toLowerCase() === lower
+        (c) =>
+          c.id?.toLowerCase() === lower ||
+          c.slug?.toLowerCase() === lower ||
+          c.title?.toLowerCase() === lower ||
+          c.slug?.toLowerCase() === slugVariant ||
+          (isGermanA1Token && (c.id?.toLowerCase() === "a1g" || c.slug?.toLowerCase() === "a1-german"))
       );
       const matchedUnified = unified.find(
-        (c) => c.id.toLowerCase() === lower || c.slug.toLowerCase() === lower || c.title.toLowerCase() === lower
+        (c) =>
+          c.id.toLowerCase() === lower ||
+          c.slug.toLowerCase() === lower ||
+          c.title.toLowerCase() === lower ||
+          c.slug.toLowerCase() === slugVariant ||
+          (isGermanA1Token && (c.id.toLowerCase() === "a1g" || c.slug.toLowerCase() === "a1-german"))
       );
 
-      const courseId = matchedCentral?.id || matchedUnified?.id || token;
+      const courseId = matchedCentral?.id || matchedUnified?.id || (isGermanA1Token ? "A1G" : token);
       const normalizedKey = courseId.toLowerCase();
 
       if (seenIds.has(normalizedKey)) return;
       seenIds.add(normalizedKey);
 
-      const title = matchedCentral?.title || matchedUnified?.title || token;
-      const level = matchedCentral?.level || matchedUnified?.level || "Executive Series";
-      const enrInfo = enrollmentStatusMap.get(normalizedKey) || enrollmentStatusMap.get(lower);
+      const title = matchedCentral?.title || matchedUnified?.title || (isGermanA1Token ? "A1 German" : token);
+      const level = matchedCentral?.level || matchedUnified?.level || (isGermanA1Token ? "A1" : "Executive Series");
+      const enrInfo =
+        enrollmentStatusMap.get(normalizedKey) ||
+        enrollmentStatusMap.get(lower) ||
+        enrollmentStatusMap.get(slugVariant) ||
+        (isGermanA1Token
+          ? enrollmentStatusMap.get("a1g") ||
+            enrollmentStatusMap.get("a1-german") ||
+            enrollmentStatusMap.get("a1 german")
+          : undefined);
 
       associatedCourses.push({
         id: courseId,
@@ -2058,12 +2095,43 @@ export async function submitStudentCourseRequestAction(payload: {
 
     for (const item of itemsToRequest) {
       const cId = item.courseId.trim();
-      const matched = centralList.find(
-        (c: any) => c.id?.toLowerCase() === cId.toLowerCase() || c.slug?.toLowerCase() === cId.toLowerCase()
-      );
-      const unifiedCourse = getUnifiedCourseById(cId);
-      const resolvedTitle = item.courseTitle || matched?.title || unifiedCourse?.title || cId;
-      const resolvedLevel = item.level || matched?.level || unifiedCourse?.level || "Executive Series";
+      const normCId = cId.toLowerCase();
+      const slugVariant = normCId.replace(/\s+/g, "-");
+      const isGermanA1 =
+        normCId === "a1g" ||
+        normCId === "a1-german" ||
+        normCId === "a1 german" ||
+        normCId === "german a1" ||
+        (normCId.includes("german") && (normCId.includes("a1") || normCId.includes("a-1"))) ||
+        (item.courseTitle ? /a1\s*german|german\s*a1/i.test(item.courseTitle) : false);
+
+      const matched = centralList.find((c: any) => {
+        const idLower = c.id?.toLowerCase();
+        const slugLower = c.slug?.toLowerCase();
+        const titleLower = c.title?.toLowerCase();
+        if (idLower === normCId || slugLower === normCId || titleLower === normCId) return true;
+        if (slugLower === slugVariant) return true;
+        if (isGermanA1 && (idLower === "a1g" || slugLower === "a1-german")) return true;
+        return false;
+      });
+
+      const unifiedCourse =
+        getUnifiedCourseById(cId) ||
+        (matched?.id ? getUnifiedCourseById(matched.id) : undefined) ||
+        (matched?.slug ? getUnifiedCourseById(matched.slug) : undefined) ||
+        (item.courseTitle ? getUnifiedCourseById(item.courseTitle) : undefined) ||
+        (isGermanA1 ? getUnifiedCourseById("A1G") : undefined);
+
+      const resolvedTitle =
+        item.courseTitle ||
+        matched?.title ||
+        unifiedCourse?.title ||
+        (isGermanA1 ? "A1 German" : cId);
+      const resolvedLevel =
+        item.level ||
+        matched?.level ||
+        unifiedCourse?.level ||
+        (isGermanA1 ? "A1" : "Executive Series");
 
       // 1. Safely resolve course UUID from public.courses (Requirement 3 & 4)
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cId);
@@ -2083,7 +2151,16 @@ export async function submitStudentCourseRequestAction(payload: {
           const { data } = await dbClient
             .from("courses")
             .select("id, title, level, slug")
-            .eq("slug", cId.toLowerCase())
+            .eq("slug", normCId)
+            .maybeSingle();
+          dbCourse = data;
+        }
+
+        if (!dbCourse && slugVariant !== normCId) {
+          const { data } = await dbClient
+            .from("courses")
+            .select("id, title, level, slug")
+            .eq("slug", slugVariant)
             .maybeSingle();
           dbCourse = data;
         }
@@ -2105,17 +2182,47 @@ export async function submitStudentCourseRequestAction(payload: {
             .maybeSingle();
           dbCourse = data;
         }
+
+        if (!dbCourse && resolvedTitle) {
+          const { data } = await dbClient
+            .from("courses")
+            .select("id, title, level, slug")
+            .ilike("title", resolvedTitle)
+            .maybeSingle();
+          dbCourse = data;
+        }
+
+        if (!dbCourse && isGermanA1) {
+          const { data } = await dbClient
+            .from("courses")
+            .select("id, title, level, slug")
+            .or("slug.eq.a1-german,slug.eq.A1G,title.ilike.%A1 German%,title.ilike.%German A1%")
+            .limit(1)
+            .maybeSingle();
+          dbCourse = data;
+        }
       } catch (courseLookupErr) {
         console.warn("Course lookup notice for", cId, courseLookupErr);
       }
 
       // If database lookup returned no match, sync the authoritative course from unifiedCourses / centralList
-      if (!dbCourse?.id && (matched || unifiedCourse)) {
-        const authSlug = (matched?.slug || unifiedCourse?.slug || cId).toLowerCase();
-        const authTitle = matched?.title || unifiedCourse?.title || resolvedTitle;
-        const authDesc = matched?.description || unifiedCourse?.description || "Curated academic training program.";
+      if (!dbCourse?.id && (matched || unifiedCourse || isGermanA1)) {
+        const rawSlug = matched?.slug || unifiedCourse?.slug || (isGermanA1 ? "a1-german" : slugVariant);
+        const authSlug = rawSlug.toLowerCase().replace(/\s+/g, "-");
+        const authTitle = matched?.title || unifiedCourse?.title || (isGermanA1 ? "A1 German" : resolvedTitle);
+        const authDesc =
+          matched?.description ||
+          unifiedCourse?.description ||
+          (isGermanA1
+            ? "Foundational German language training covering core grammatical syntax, daily conversation, and oral pronunciation."
+            : "Curated academic training program.");
         const authLevel = matched?.level || unifiedCourse?.level || resolvedLevel;
-        const authImg = matched?.image || unifiedCourse?.image || null;
+        const authImg =
+          matched?.image ||
+          unifiedCourse?.image ||
+          (isGermanA1
+            ? "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80"
+            : null);
 
         try {
           const { data: upsertedCourse, error: syncErr } = await dbClient
@@ -2136,6 +2243,16 @@ export async function submitStudentCourseRequestAction(payload: {
 
           if (!syncErr && upsertedCourse?.id) {
             dbCourse = upsertedCourse;
+          } else {
+            // In case upsert didn't return data, select explicitly by authSlug
+            const { data: fallbackFetched } = await dbClient
+              .from("courses")
+              .select("id, title, level, slug")
+              .eq("slug", authSlug)
+              .maybeSingle();
+            if (fallbackFetched?.id) {
+              dbCourse = fallbackFetched;
+            }
           }
         } catch (autoSyncErr) {
           console.warn("Authoritative course auto-sync notice for", authSlug, autoSyncErr);

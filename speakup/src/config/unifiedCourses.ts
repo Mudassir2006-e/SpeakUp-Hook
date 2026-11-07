@@ -378,6 +378,60 @@ export const CANONICAL_COURSES: UnifiedCourseRecord[] = [
       ],
     },
   },
+  {
+    id: "A1G",
+    slug: "a1-german",
+    title: "A1 German",
+    badge: "Available",
+    description:
+      "Foundational German language training covering core grammatical syntax, daily conversation, and oral pronunciation.",
+    image:
+      "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80",
+    duration: "6 Weeks",
+    level: "A1",
+    isPublished: true,
+    price: 7000,
+    duration_weeks: 6,
+    availability: "available",
+    status: "published",
+    pricing: {
+      usd: 25,
+      pkr: 7000,
+      featured: false,
+      features: [
+        "Complete 2-Module video masterclasses",
+        "Curated German grammar notes & vocabulary PDFs",
+        "Interactive sentence structure drills and pronunciation",
+        "Official verified course completion certificate",
+      ],
+    },
+    outline: {
+      overview:
+        "Foundational German language training covering core grammatical syntax, daily conversation, and oral pronunciation.",
+      levelDescription: "Foundational Syntax • 6 Weeks",
+      modules: [
+        {
+          number: "01",
+          title: "Foundations & Phonetics",
+          duration: "Weeks 1–3",
+          description: "Core pronunciation, alphabet, and foundational syntax.",
+          topics: [
+            { title: "01. Introduction to German Phonetics", details: "Foundational vowel articulation, alphabet phonemes, and greetings.", duration: "45 mins" },
+            { title: "02. Daily Greetings and Articles", details: "Mastering Der, Die, Das and informal introductions.", duration: "50 mins" },
+          ],
+        },
+        {
+          number: "02",
+          title: "Essential Sentence Architecture",
+          duration: "Weeks 4–6",
+          description: "Verb conjugation and basic conversational structures.",
+          topics: [
+            { title: "03. Spoken Cadence & Regular Verbs", details: "Rules of regular verb conjugations in present tense and oral cadence.", duration: "55 mins" },
+          ],
+        },
+      ],
+    },
+  },
 ];
 
 /**
@@ -414,7 +468,11 @@ export function getUnifiedCourses(): UnifiedCourseRecord[] {
     return [];
   }
 
-  const canonicalMap = new Map(CANONICAL_COURSES.map((c) => [c.id.toLowerCase(), c]));
+  const canonicalMap = new Map<string, UnifiedCourseRecord>();
+  CANONICAL_COURSES.forEach((c) => {
+    canonicalMap.set(c.id.toLowerCase(), c);
+    canonicalMap.set(c.slug.toLowerCase(), c);
+  });
 
   return publishedCentral.map((central) => {
     const canonical = canonicalMap.get(central.id.toLowerCase()) || canonicalMap.get(central.slug.toLowerCase());
@@ -479,19 +537,41 @@ export function getUnifiedCourses(): UnifiedCourseRecord[] {
 }
 
 export function getUnifiedCourseById(idOrSlug: string): UnifiedCourseRecord | undefined {
+  if (!idOrSlug) return undefined;
   const norm = idOrSlug.toLowerCase().trim();
+  const slugVariant = norm.replace(/\s+/g, "-");
   const all = getUnifiedCourses();
-  const existing = all.find(
-    (c) => c.id.toLowerCase() === norm || c.slug.toLowerCase() === norm
-  );
+
+  const matchesCourse = (c: UnifiedCourseRecord) => {
+    const cId = c.id.toLowerCase();
+    const cSlug = c.slug.toLowerCase();
+    const cTitle = c.title.toLowerCase();
+
+    if (cId === norm || cSlug === norm || cTitle === norm) return true;
+    if (cSlug === slugVariant) return true;
+    if (cTitle.replace(/\s*course\s*$/i, "").trim() === norm) return true;
+
+    // German A1 aliases
+    if (
+      (norm === "a1g" ||
+        norm === "a1-german" ||
+        norm === "a1 german" ||
+        norm === "german a1" ||
+        (norm.includes("german") && (norm.includes("a1") || norm.includes("a-1")))) &&
+      (cId === "a1g" || cSlug === "a1-german")
+    ) {
+      return true;
+    }
+    return false;
+  };
+
+  const existing = all.find(matchesCourse);
   if (existing) {
     return existing;
   }
 
   // Fallback to CANONICAL_COURSES if not found in active central catalog
-  return CANONICAL_COURSES.find(
-    (c) => c.id.toLowerCase() === norm || c.slug.toLowerCase() === norm
-  );
+  return CANONICAL_COURSES.find(matchesCourse);
 }
 
 /**
