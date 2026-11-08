@@ -3387,6 +3387,48 @@ test("Issue 3 Remediation: A1 German online enrollment resolution and canonical 
   );
 });
 
+test("Google OAuth Privacy Policy Compliance: Limited Use disclosure and data audit alignment", () => {
+  const privacyJsonPath = path.join(process.cwd(), "src", "config", "central-privacy.json");
+  const privacyPagePath = path.join(process.cwd(), "src", "app", "privacy", "page.tsx");
+  assert.ok(fs.existsSync(privacyJsonPath), "central-privacy.json must exist");
+  assert.ok(fs.existsSync(privacyPagePath), "Privacy page must exist");
+
+  const jsonContent = fs.readFileSync(privacyJsonPath, "utf-8");
+  const pageContent = fs.readFileSync(privacyPagePath, "utf-8");
+  const parsed = JSON.parse(jsonContent);
+
+  // 1. Mandatory Google Limited Use disclosure string
+  const limitedUseStr = "SpeakUp's use and transfer of information received from Google APIs will comply with the Google API Services User Data Policy, including the Limited Use requirements.";
+  assert.ok(
+    jsonContent.includes(limitedUseStr),
+    "central-privacy.json must contain the exact Google Limited Use disclosure clause"
+  );
+  assert.ok(
+    pageContent.includes("Google API Services User Data Policy, including the Limited Use requirements"),
+    "Privacy page must render the prominent Google Limited Use disclosure"
+  );
+
+  // 2. All 3 Google OAuth scopes explicitly disclosed
+  assert.ok(jsonContent.includes("openid"), "Must disclose openid scope");
+  assert.ok(jsonContent.includes("email"), "Must disclose email scope");
+  assert.ok(
+    jsonContent.includes("https://www.googleapis.com/auth/gmail.send"),
+    "Must disclose https://www.googleapis.com/auth/gmail.send scope"
+  );
+
+  // 3. Four key Google Privacy restrictions explicitly documented
+  assert.ok(jsonContent.includes("No Advertising"), "Must disclose prohibition on advertising");
+  assert.ok(jsonContent.includes("Prohibition on Data Sale") || jsonContent.includes("Zero Data Sales"), "Must disclose prohibition on data sale");
+  assert.ok(jsonContent.includes("AI") || jsonContent.includes("Artificial Intelligence"), "Must disclose prohibition on AI model training");
+  assert.ok(jsonContent.includes("User-Facing Functionality Only"), "Must disclose user-facing functionality requirement");
+
+  // 4. Comprehensive sections count (at least 12 sections covering all required topics)
+  assert.ok(parsed.length >= 12, `Must contain comprehensive policy sections (found: ${parsed.length})`);
+
+  // 5. Contact information for data governance
+  assert.ok(jsonContent.includes("admissions@speakup.com"), "Must disclose admissions@speakup.com contact email");
+});
+
 
 
 

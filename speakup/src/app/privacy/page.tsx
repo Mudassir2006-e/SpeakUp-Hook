@@ -7,23 +7,9 @@ import {
   CentralPrivacyItem,
 } from "@/app/admin/privacy-actions";
 import { getPublishedSocialLinksAction } from "@/app/admin/links-actions";
+import initialPrivacySections from "@/config/central-privacy.json";
 
-const FALLBACK_SECTIONS: CentralPrivacyItem[] = [
-  {
-    id: "priv-1",
-    number: 1,
-    title: "Certification Integrity & Public Registry",
-    content:
-      "Upon successful completion of course requirements, certificates are assigned a permanent serial code. Third-party employers may only verify certificate authenticity and completion date via our registry.",
-  },
-  {
-    id: "priv-2",
-    number: 2,
-    title: "Governance Inquiries & Account Deletion",
-    content:
-      "Students maintain the right to review registered personal information or request data archiving upon course completion by contacting our academic administration desk at admissions@speakup.com.",
-  },
-];
+const FALLBACK_SECTIONS: CentralPrivacyItem[] = initialPrivacySections as CentralPrivacyItem[];
 
 export default function PrivacyPage() {
   const [whatsAppNumber, setWhatsAppNumber] = useState("+92 300 0000000");
@@ -39,7 +25,7 @@ export default function PrivacyPage() {
         if (socialRes.success && socialRes.data?.whatsappNumber) {
           setWhatsAppNumber(socialRes.data.whatsappNumber);
         }
-        if (privRes.success && Array.isArray(privRes.data) && privRes.data.length > 0) {
+        if (privRes.success && Array.isArray(privRes.data) && privRes.data.length >= 14) {
           setSections(privRes.data);
         }
       } catch {
@@ -61,7 +47,7 @@ export default function PrivacyPage() {
       <main className="flex-1 py-12 md:py-20">
         <div className="max-w-[1200px] mx-auto px-6 md:px-12">
           {/* Header Section */}
-          <section className="text-center max-w-3xl mx-auto mb-16">
+          <section className="text-center max-w-3xl mx-auto mb-12">
             {/* Main Heading enclosed in stylish rectangular rounded box */}
             <div className="inline-flex items-center justify-center px-8 sm:px-12 py-3.5 sm:py-4 bg-gradient-to-b from-[var(--surface-low)] to-[var(--surface-lowest)] border border-[#d4af37]/45 rounded-2xl shadow-[0_4px_24px_-6px_rgba(212,175,55,0.18)] mb-5">
               <h1 className="font-display text-2xl sm:text-3xl md:text-4xl font-extrabold uppercase tracking-[0.08em] text-[var(--text-main)]">
@@ -73,7 +59,7 @@ export default function PrivacyPage() {
             <div className="flex items-center justify-center gap-3 sm:gap-4 mb-4">
               <span className="h-px w-6 sm:w-12 bg-gradient-to-r from-transparent to-[#d4af37]/60" />
               <h2 className="font-display text-base sm:text-lg md:text-xl font-semibold tracking-wide text-[#d4af37]">
-                Institutional Protocols &amp; Student Compliance
+                Institutional Protocols, Data Protection &amp; Google API Compliance
               </h2>
               <span className="h-px w-6 sm:w-12 bg-gradient-to-l from-transparent to-[#d4af37]/60" />
             </div>
@@ -93,21 +79,72 @@ export default function PrivacyPage() {
                 <span className="text-[var(--text-main)] font-semibold">SpeakUp Policy Standards</span>
               </div>
               <div className="flex items-center gap-2 bg-[var(--surface-lowest)] px-4 py-2 rounded-lg border border-[var(--surface-border)] shadow-xs">
-                <span className="material-symbols-outlined text-[#d4af37] text-[18px]">shield</span>
-                <span>Class Instruction Protocols</span>
+                <span className="material-symbols-outlined text-[#d4af37] text-[18px]">security</span>
+                <span>Google API Limited Use Compliant</span>
               </div>
             </div>
           </section>
 
-          {/* Dynamic Policy Sections Bento Grid */}
-          <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
+          {/* Prominent Google Limited Use & OAuth Disclosure Banner */}
+          <section className="max-w-4xl mx-auto mb-16 bg-gradient-to-b from-[var(--surface-lowest)] to-[var(--surface-low)] border-2 border-[#d4af37]/50 rounded-2xl p-6 sm:p-8 md:p-10 shadow-[0_8px_30px_-8px_rgba(212,175,55,0.15)] relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-[#d4af37]/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="flex items-start gap-4 mb-4">
+              <div className="w-12 h-12 rounded-xl bg-[#d4af37]/15 border border-[#d4af37]/40 flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[#d4af37] text-2xl">verified_user</span>
+              </div>
+              <div>
+                <span className="inline-block px-3 py-0.5 rounded-full bg-[#d4af37]/15 border border-[#d4af37]/30 text-[#d4af37] font-display text-[11px] font-bold uppercase tracking-wider mb-1">
+                  Google API User Data Policy
+                </span>
+                <h3 className="font-display text-lg sm:text-xl font-bold text-[var(--text-main)]">
+                  Limited Use &amp; Application Security Disclosure
+                </h3>
+              </div>
+            </div>
+
+            <div className="p-4 sm:p-5 rounded-xl bg-[var(--surface-lowest)] border border-[var(--surface-border)] mb-5">
+              <p className="font-serif text-sm sm:text-base text-[var(--text-main)] font-medium italic leading-relaxed">
+                &ldquo;SpeakUp&apos;s use and transfer of information received from Google APIs will comply with the Google API Services User Data Policy, including the Limited Use requirements.&rdquo;
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-serif text-[var(--text-muted)] leading-relaxed">
+              <div className="flex items-start gap-2.5">
+                <span className="material-symbols-outlined text-[#d4af37] text-[18px] shrink-0 mt-0.5">check_circle</span>
+                <span>
+                  <strong className="text-[var(--text-main)]">User-Facing Delivery Only:</strong> Google API data is used strictly to provide user-facing transactional email delivery and admin multi-factor authentication (MFA).
+                </span>
+              </div>
+              <div className="flex items-start gap-2.5">
+                <span className="material-symbols-outlined text-[#d4af37] text-[18px] shrink-0 mt-0.5">block</span>
+                <span>
+                  <strong className="text-[var(--text-main)]">Zero Commercial Advertising:</strong> Google user data is never used for serving advertisements, retargeting campaigns, or commercial marketing.
+                </span>
+              </div>
+              <div className="flex items-start gap-2.5">
+                <span className="material-symbols-outlined text-[#d4af37] text-[18px] shrink-0 mt-0.5">verified</span>
+                <span>
+                  <strong className="text-[var(--text-main)]">No Sale or Transfer:</strong> We do not sell, rent, trade, or transfer Google user data to data brokers or third parties under any circumstances.
+                </span>
+              </div>
+              <div className="flex items-start gap-2.5">
+                <span className="material-symbols-outlined text-[#d4af37] text-[18px] shrink-0 mt-0.5">psychology</span>
+                <span>
+                  <strong className="text-[var(--text-main)]">No AI Model Training:</strong> Google user data is never used to train, retrain, or fine-tune generalized machine learning or artificial intelligence models.
+                </span>
+              </div>
+            </div>
+          </section>
+
+          {/* Dynamic Policy Sections Grid */}
+          <section className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-16">
             {sections.map((item) => (
               <div
                 key={item.id || item.number}
-                className="bg-[var(--surface-lowest)] border border-[var(--surface-border)] rounded-2xl p-8 shadow-xs hover:-translate-y-1 hover:border-[#d4af37]/50 hover:shadow-md transition-all duration-300 flex flex-col justify-between"
+                className="bg-[var(--surface-lowest)] border border-[var(--surface-border)] rounded-2xl p-7 sm:p-8 shadow-xs hover:border-[#d4af37]/50 hover:shadow-md transition-all duration-300 flex flex-col justify-between"
               >
                 <div>
-                  <div className="flex items-center justify-between gap-2 mb-6">
+                  <div className="flex items-center justify-between gap-2 mb-5">
                     <span className="w-10 h-10 rounded-xl bg-[var(--surface-low)] border border-[var(--surface-border)] flex items-center justify-center text-[var(--text-main)] font-display font-bold text-sm">
                       {String(item.number).padStart(2, "0")}
                     </span>
@@ -120,14 +157,19 @@ export default function PrivacyPage() {
                     {item.title}
                   </h3>
 
-                  <p className="font-serif text-[14px] text-[var(--text-muted)] leading-relaxed whitespace-pre-line">
+                  <div className="font-serif text-[13.5px] text-[var(--text-muted)] leading-relaxed whitespace-pre-line space-y-2">
                     {item.content}
-                  </p>
+                  </div>
                 </div>
 
-                <div className="pt-6 mt-6 border-t border-[var(--surface-border)]/50 flex items-center gap-2 text-xs font-display text-[#d4af37] font-semibold uppercase tracking-wider">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#d4af37]"></span>
-                  <span>Compliance Mandatory</span>
+                <div className="pt-5 mt-6 border-t border-[var(--surface-border)]/50 flex items-center justify-between text-xs font-display">
+                  <div className="flex items-center gap-2 text-[#d4af37] font-semibold uppercase tracking-wider">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#d4af37]"></span>
+                    <span>Institutional Standard</span>
+                  </div>
+                  <span className="text-[var(--text-muted)] text-[11px] font-serif">
+                    SpeakUp LMS Governance
+                  </span>
                 </div>
               </div>
             ))}
@@ -136,20 +178,32 @@ export default function PrivacyPage() {
           {/* Contact Compliance Desk */}
           <div className="bg-[var(--surface-low)] border border-[var(--surface-border)] rounded-2xl p-8 md:p-10 text-center max-w-2xl mx-auto shadow-xs">
             <h3 className="font-display text-xl font-bold text-[var(--text-main)] mb-2">
-              Questions regarding Privacy &amp; Policies?
+              Questions Regarding Privacy &amp; Data Governance?
             </h3>
             <p className="font-serif text-sm text-[var(--text-muted)] mb-6 leading-relaxed">
-              If you have any questions or require clarification regarding data governance, student compliance, or platform policies, contact the SpeakUp administration team on WhatsApp.
+              If you have inquiries, access requests, or require clarification regarding data governance, student compliance, or our Google API integration, contact our Academic Administration Desk.
             </p>
-            <a
-              href={whatsAppComplianceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2.5 bg-[#1a1a1a] dark:bg-[#d4af37] text-white dark:text-[#1a1a1a] hover:bg-[#d4af37] hover:text-white font-display text-xs uppercase tracking-widest font-bold px-8 py-3.5 rounded-full transition-all shadow-xs"
-            >
-              <span className="material-symbols-outlined text-[18px]">chat</span>
-              <span>Ask Our Team on WhatsApp</span>
-            </a>
+            <div className="flex flex-wrap items-center justify-center gap-4">
+              <a
+                href={whatsAppComplianceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2.5 bg-[#1a1a1a] dark:bg-[#d4af37] text-white dark:text-[#1a1a1a] hover:bg-[#d4af37] hover:text-white font-display text-xs uppercase tracking-widest font-bold px-7 py-3 rounded-full transition-all shadow-xs"
+              >
+                <span className="material-symbols-outlined text-[18px]">chat</span>
+                <span>WhatsApp Administration Desk</span>
+              </a>
+              <a
+                href="mailto:admissions@speakup.com"
+                className="inline-flex items-center gap-2.5 bg-[var(--surface-lowest)] hover:border-[#d4af37] border border-[var(--surface-border)] text-[var(--text-main)] font-display text-xs uppercase tracking-widest font-bold px-7 py-3 rounded-full transition-all shadow-xs"
+              >
+                <span className="material-symbols-outlined text-[18px]">mail</span>
+                <span>admissions@speakup.com</span>
+              </a>
+            </div>
+            <p className="font-serif text-xs text-[var(--text-muted)] mt-4">
+              Requests for data access, correction, or deletion are acknowledged and processed within 30 business days.
+            </p>
           </div>
         </div>
       </main>

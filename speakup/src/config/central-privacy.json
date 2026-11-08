@@ -2,13 +2,85 @@
   {
     "id": "priv-1",
     "number": 1,
-    "title": "Certification Integrity & Public Registry",
-    "content": "Upon successful completion of course requirements, certificates are assigned a permanent serial code. Third-party employers may only verify certificate authenticity and completion date via our registry."
+    "title": "Introduction, Scope & Institutional Governance",
+    "content": "SpeakUp Learning Management System (\"SpeakUp\", \"we\", \"us\", or \"our\"), accessible via https://www.speakuplearning.online (the \"Platform\"), provides comprehensive language instruction, executive communication training, and academic curriculum programs. This Privacy Policy governs the collection, processing, storage, and protection of personal data provided by registered students, prospective scholars, course participants, and portal visitors.\n\nWe are committed to data minimization, transparency, and safeguarding user privacy in accordance with applicable data protection principles and third-party platform standards. This Privacy Policy applies to all services, features, and workflows offered through the SpeakUp LMS platform. The authoritative version of this Privacy Policy is permanently published and publicly accessible at https://www.speakuplearning.online/privacy."
   },
   {
     "id": "priv-2",
     "number": 2,
-    "title": "Governance Inquiries & Account Deletion",
-    "content": "Students maintain the right to review registered personal information or request data archiving upon course completion by contacting our academic administration desk at admissions@speakup.com."
+    "title": "Personal Information We Collect",
+    "content": "We collect personal information directly from users when they register an account, enroll in courses, submit educational assignments, or interact with our learning management system:\n\n1. Student Identity & Account Credentials: Full name, primary email address, international telephone number in standard E.164 format (with validated country calling codes), user role (e.g., student or administrator), and securely salted and hashed passwords.\n\n2. Academic & Enrollment Records: Enrolled course identifiers, curriculum progress tracking, lesson completion logs, module assessment metrics, course request history, and bank deposit or payment transaction identifiers (receipt_tid) provided for manual enrollment verification.\n\n3. Educational Submissions & Evaluations: Written assignment responses, submitted homework files, teacher evaluations, grades, and academic feedback.\n\n4. Advisory Session Inquiries: Full name, email address, contact telephone number, and consultative notes submitted through our advisory booking interface.\n\n5. Student Profile Imagery: Optional profile avatar images uploaded voluntarily by students to dedicated private cloud storage.\n\nWe do not collect government-issued national identity numbers, payment card numbers directly on our servers, or biometric identifiers."
+  },
+  {
+    "id": "priv-3",
+    "number": 3,
+    "title": "Google OAuth & Google API Data Access",
+    "content": "SpeakUp integrates with Google OAuth 2.0 strictly for administrative system communications and not for student consumer tracking. Google authentication is used exclusively by authorized platform administrators to connect an institutional Google account for dispatching transactional system emails:\n\n1. Explicit Google Scopes Requested:\n   • openid: Used solely to verify the administrative user's authenticated identity.\n   • email (https://www.googleapis.com/auth/userinfo.email): Used to resolve and confirm the authorized sender address via Google's userinfo endpoint.\n   • https://www.googleapis.com/auth/gmail.send: Used exclusively to dispatch automated outbound transactional emails via the official Google Gmail REST API.\n\n2. Send-Only Operational Boundary:\nSpeakUp strictly requests the 'gmail.send' privilege. We do not read incoming emails, inspect inbox contents, view or create email drafts, modify mailbox labels, search message history, or delete user correspondence. Google OAuth is never used as an open consumer social login for students, and student accounts do not require Google permissions."
+  },
+  {
+    "id": "priv-4",
+    "number": 4,
+    "title": "Google API Limited Use Disclosure & Data Protections",
+    "content": "SpeakUp's use and transfer of information received from Google APIs will comply with the Google API Services User Data Policy, including the Limited Use requirements.\n\nIn strict adherence to these requirements:\n\n• User-Facing Functionality Only: Information received through Google APIs is utilized exclusively to provide disclosed, user-facing transactional email delivery (such as student welcome notices, multi-factor authentication codes, and enrollment confirmations).\n\n• No Advertising or Commercial Profiling: Google user data is never used, transferred, or disclosed for serving advertisements, retargeting, behavioral profiling, or personalized marketing.\n\n• Strict Prohibition on Data Sale: We do not sell, rent, license, or monetize Google user data or email metadata to any third party under any circumstances.\n\n• No Artificial Intelligence (AI) Model Training: Google user data is never used to train, retrain, or fine-tune generalized machine learning, deep learning, or artificial intelligence models.\n\n• Restrictions on Human Access: Internal personnel are prohibited from reading or inspecting Google user data, except when an administrator explicitly reviews their own connected sender address, when technically necessary to resolve delivery errors with user consent, or when mandated by law."
+  },
+  {
+    "id": "priv-5",
+    "number": 5,
+    "title": "Specific Purposes & Legal Grounds of Processing",
+    "content": "SpeakUp processes personal information solely for legitimate educational, operational, and security purposes:\n\n1. Educational Service Delivery: Provisioning student LMS access, delivering curriculum masterclasses, unlocking course modules, and evaluating academic assignments.\n\n2. Security & Multi-Factor Authentication: Generating and dispatching time-sensitive, single-use 6-digit MFA security codes to verified administrators to safeguard administrative portals.\n\n3. Academic & Operational Notices: Delivering automated registration confirmations, student account approval notices, course request decisions, and password reset instructions.\n\n4. Credential Verification: Generating verified certificates of completion assigned permanent serial numbers verifiable by authorized third-party employers.\n\n5. Platform Governance: Preventing unauthorized account access, safeguarding server infrastructure, and ensuring compliance with platform terms."
+  },
+  {
+    "id": "priv-6",
+    "number": 6,
+    "title": "Data Storage, Encryption & Security Safeguards",
+    "content": "Personal information is protected by industry-standard technical and operational safeguards:\n\n1. Enterprise Cloud Database: Student records are stored in managed PostgreSQL databases provided by Supabase, protected by Row Level Security (RLS) enforcing strict tenant and user-level data isolation.\n\n2. Encrypted Credential Storage: Google OAuth refresh tokens are encrypted at rest using AES-256-GCM authenticated encryption keyed by a server-side HMAC secret. Tokens are never exposed in client-side responses or public repositories.\n\n3. Transport Encryption: All data transmitted between user browsers, our platform servers, Supabase, Google APIs, and third-party delivery endpoints is encrypted in transit using modern Transport Layer Security (TLS 1.3 / HTTPS).\n\n4. Ephemeral Security Challenges: Administrative MFA verification challenges are cryptographically salted and hashed with SHA-256, enforced with a strict 3-minute expiration lifetime and attempt-limiting lockouts.\n\n5. Serverless Architecture: Application code executes within isolated serverless runtimes that prevent persistent local disk writes and unauthorized privilege escalation."
+  },
+  {
+    "id": "priv-7",
+    "number": 7,
+    "title": "Third-Party Infrastructure & Sub-Processors",
+    "content": "SpeakUp relies on vetted, industry-leading infrastructure providers to deliver LMS services:\n\n1. Google Cloud Platform & Gmail API (Google LLC): Utilized for administrative outbound transactional email delivery and static font delivery (Google Fonts).\n\n2. Supabase Inc. (hosted on Amazon Web Services): Managed database hosting, authentication services, and private file storage for assignments and student avatars.\n\n3. Resend Inc.: Secondary fallback delivery provider for transactional platform emails.\n\n4. Vercel Inc.: Application hosting, edge routing, and serverless compute infrastructure.\n\n5. YouTube (Google LLC): Embedded instructional video players for curriculum masterclasses.\n\nEach provider is bound by confidentiality and data protection obligations and is prohibited from utilizing student personal data for their own independent commercial purposes."
+  },
+  {
+    "id": "priv-8",
+    "number": 8,
+    "title": "Data Sharing, Disclosure & Non-Sale Policy",
+    "content": "We hold student privacy in the highest regard:\n\n1. Zero Data Sales: SpeakUp does not sell, lease, rent, trade, or transfer personal data or Google API information to data brokers, commercial aggregators, or advertising networks.\n\n2. No Third-Party Marketing: Personal details are never shared with external organizations for third-party promotional or marketing campaigns.\n\n3. Legal Disclosures: We disclose user information only if strictly required by applicable law, governmental regulation, valid subpoena, or court order, and only to the minimum extent legally required."
+  },
+  {
+    "id": "priv-9",
+    "number": 9,
+    "title": "Data Retention & Account Disconnection",
+    "content": "We retain personal information only for as long as necessary to fulfill the educational purposes for which it was collected:\n\n1. Student Records: Active student profiles, assignment submissions, and progress telemetry are maintained during active course enrollment and archived following course completion.\n\n2. Certificate Registry: Issued certificate serial codes, student names, and completion dates are maintained permanently in the institutional registry to permit ongoing verification by employers and academic institutions.\n\n3. Instant Google OAuth Revocation: Administrators may disconnect the connected Google account at any time via the Portal Email settings (/admin/portal-email). Upon disconnection, stored refresh tokens and associated credentials are instantaneously and permanently purged from system memory and database storage.\n\n4. Security Challenges: Ephemeral MFA verification records expire automatically after 3 minutes and are purged upon use."
+  },
+  {
+    "id": "priv-10",
+    "number": 10,
+    "title": "Student Rights, Access & Deletion Requests",
+    "content": "Users possess comprehensive rights regarding their personal data:\n\n1. Right to Access: You may request confirmation of whether SpeakUp processes your personal information and receive a copy of your personal data.\n\n2. Right to Rectification: You may request correction of inaccurate, outdated, or incomplete personal details.\n\n3. Right to Erasure (Right to be Forgotten): You may request the permanent deletion of your student account, profile information, and associated educational submissions, subject to lawful record-keeping requirements.\n\n4. Exercise of Rights: To submit a data access, correction, or account deletion request, email our Academic Administration Desk at admissions@speakup.com. Requests are acknowledged and processed within 30 business days without charge."
+  },
+  {
+    "id": "priv-11",
+    "number": 11,
+    "title": "Cookies, Local Tokens & Session Management",
+    "content": "SpeakUp utilizes only strictly necessary first-party cookies and session tokens essential for platform operation:\n\n1. Essential Authentication Cookies: Secure, HTTP-only session cookies managed by Supabase Auth to maintain verified student and administrator login states.\n\n2. Security & CSRF Tokens: Cryptographic state tokens used to prevent Cross-Site Request Forgery (CSRF) and validate multi-factor authentication sessions.\n\n3. No Commercial Tracking: SpeakUp does not deploy third-party advertising cookies, cross-site trackers, pixel tags, or behavioral analytics cookies. We do not engage in digital fingerprinting or track users across external websites."
+  },
+  {
+    "id": "priv-12",
+    "number": 12,
+    "title": "Children's & Minor Student Privacy",
+    "content": "SpeakUp's instructional courses and LMS platform are designed for adult scholars, university students, and working professionals aged 16 and older. We do not intentionally solicit or knowingly collect personal information from individuals under 13 years of age.\n\nIf a minor between the ages of 13 and 16 enrolls in a language curriculum, enrollment must be coordinated and consented to by a parent or legal guardian. If we learn that personal data from a child under 13 has been collected without verified parental consent, we will promptly delete that information."
+  },
+  {
+    "id": "priv-13",
+    "number": 13,
+    "title": "Policy Updates & Notification of Changes",
+    "content": "SpeakUp reserves the right to update or amend this Privacy Policy periodically to reflect pedagogical enhancements, platform security improvements, or changes in legal and regulatory requirements. Any modifications will be posted directly to this page with an updated 'Effective Academic Terms' date.\n\nFor substantial changes affecting the processing of personal data or Google API integrations, prominent notice will be displayed within the student LMS dashboard or communicated via email."
+  },
+  {
+    "id": "priv-14",
+    "number": 14,
+    "title": "Contact & Institutional Governance Desk",
+    "content": "If you have inquiries, concerns, or requests regarding this Privacy Policy, our data protection protocols, or our Google API integration, please contact our academic governance administration:\n\n• Official Contact Email: admissions@speakup.com\n• Institutional Website: https://www.speakuplearning.online\n• Privacy Policy URL: https://www.speakuplearning.online/privacy\n• Student Administration Desk: Available via the official WhatsApp support channel on the platform.\n\nAll privacy communications and regulatory inquiries are reviewed and addressed promptly by the SpeakUp administrative team."
   }
 ]

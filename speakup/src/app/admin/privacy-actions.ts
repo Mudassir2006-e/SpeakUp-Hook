@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { verifyAdminCaller as verifyAdminMfaCaller } from "@/lib/auth/adminVerification";
+import initialPrivacySections from "@/config/central-privacy.json";
 
 function safeRevalidatePath(p: string) {
   try {
@@ -29,22 +30,7 @@ export interface ActionResponse<T = any> {
 
 const PRIVACY_FILE = path.join(process.cwd(), "src", "config", "central-privacy.json");
 
-const DEFAULT_PRIVACY: CentralPrivacyItem[] = [
-  {
-    id: "priv-1",
-    number: 1,
-    title: "Certification Integrity & Public Registry",
-    content:
-      "Upon successful completion of course requirements, certificates are assigned a permanent serial code. Third-party employers may only verify certificate authenticity and completion date via our registry.",
-  },
-  {
-    id: "priv-2",
-    number: 2,
-    title: "Governance Inquiries & Account Deletion",
-    content:
-      "Students maintain the right to review registered personal information or request data archiving upon course completion by contacting our academic administration desk at admissions@speakup.com.",
-  },
-];
+const DEFAULT_PRIVACY: CentralPrivacyItem[] = initialPrivacySections as CentralPrivacyItem[];
 
 async function verifyAdminCaller(): Promise<{ adminId: string } | { error: string }> {
   return verifyAdminMfaCaller();
@@ -90,7 +76,12 @@ export async function getCentralPrivacyAction(): Promise<ActionResponse<CentralP
         .eq("page_key", "privacy")
         .maybeSingle();
 
-      if (!error && data?.published_data?.items && Array.isArray(data.published_data.items)) {
+      if (
+        !error &&
+        data?.published_data?.items &&
+        Array.isArray(data.published_data.items) &&
+        data.published_data.items.length >= 14
+      ) {
         return { success: true, data: data.published_data.items };
       }
     } catch (e) {
